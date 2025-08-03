@@ -18,10 +18,11 @@ use crate::shell::Shell;
 use crate::shell::commands::{CommandHandler, CommandResult};
 
 /**
- * Git command
+ * バージョン管理の複雑な処理です (◕‿◕)
  * 
- * Implements the git command for version control operations.
- * Supports basic git operations and status reporting.
+ * この関数は複雑なGit操作を行います。
+ * バージョン管理システムのシミュレーションが難しい部分なので、
+ * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
  */
 pub struct GitCommand;
 

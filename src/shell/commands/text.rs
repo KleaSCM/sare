@@ -633,10 +633,14 @@ impl CommandHandler for WcCommand {
 }
 
 /**
- * Helper function to interpret escape sequences
+ * エスケープシーケンス解釈の複雑な処理です (｡◕‿◕｡)
  * 
- * @param text - Text with escape sequences
- * @return String - Text with interpreted escapes
+ * この関数は複雑な文字列処理を行います。
+ * Rustの文字列ライフタイム管理が難しい部分なので、
+ * 適切なエラーハンドリングで実装しています (◕‿◕)
+ * 
+ * @param text - エスケープシーケンスを含むテキスト
+ * @return String - 解釈されたエスケープを含むテキスト
  */
 fn interpret_escape_sequences(text: &str) -> String {
     let mut result = String::new();
@@ -690,11 +694,15 @@ fn show_nonprintable_chars(text: &str) -> String {
 }
 
 /**
- * Helper function to apply sed script
+ * sedスクリプト適用の複雑な処理です (◡‿◡)
  * 
- * @param script - Sed script to apply
- * @param line - Line to process
- * @return String - Processed line
+ * この関数は複雑な正規表現処理を行います。
+ * 文字列置換のパターンマッチングが難しい部分なので、
+ * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+ * 
+ * @param script - 適用するsedスクリプト
+ * @param line - 処理する行
+ * @return String - 処理された行
  */
 fn apply_sed_script(script: &str, line: &str) -> String {
     if script.starts_with("s/") {
@@ -720,11 +728,15 @@ fn apply_sed_script(script: &str, line: &str) -> String {
 }
 
 /**
- * Helper function to apply awk script
+ * awkスクリプト適用の複雑な処理です (◕‿◕)
  * 
- * @param script - Awk script to apply
- * @param line - Line to process
- * @return String - Processed line
+ * この関数は複雑なフィールド処理を行います。
+ * 文字列分割とフィールドアクセスが難しい部分なので、
+ * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+ * 
+ * @param script - 適用するawkスクリプト
+ * @param line - 処理する行
+ * @return String - 処理された行
  */
 fn apply_awk_script(script: &str, line: &str) -> String {
     if script.contains("print $1") {

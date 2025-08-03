@@ -18,10 +18,11 @@ use crate::shell::Shell;
 use crate::shell::commands::{CommandHandler, CommandResult};
 
 /**
- * Ping command
+ * ネットワーク接続テストの複雑な処理です (｡◕‿◕｡)
  * 
- * Implements the ping command for testing network connectivity.
- * Supports basic ICMP echo request functionality.
+ * この関数は複雑なネットワーク操作を行います。
+ * ICMPエコー要求のシミュレーションが難しい部分なので、
+ * 適切なエラーハンドリングで実装しています (◕‿◕)
  */
 pub struct PingCommand;
 

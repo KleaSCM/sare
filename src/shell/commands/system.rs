@@ -414,9 +414,11 @@ impl CommandHandler for EnvCommand {
 }
 
 /**
- * Source command
+ * シェルスクリプト実行の複雑な処理です (◡‿◡)
  * 
- * Implements the source command for executing shell scripts.
+ * この関数は複雑なファイル解析を行います。
+ * 非同期コマンド実行の制約が難しい部分なので、
+ * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
  */
 pub struct SourceCommand;
 

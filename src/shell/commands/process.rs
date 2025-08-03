@@ -69,10 +69,11 @@ impl CommandHandler for JobsCommand {
 }
 
 /**
- * Kill command
+ * プロセス終了の複雑な処理です (｡◕‿◕｡)
  * 
- * Implements the kill command for terminating processes.
- * Supports job-based and PID-based killing.
+ * この関数は複雑なプロセス制御を行います。
+ * libcを使用したシグナル送信が難しい部分なので、
+ * 適切なエラーハンドリングで実装しています (◕‿◕)
  */
 pub struct KillCommand;
 

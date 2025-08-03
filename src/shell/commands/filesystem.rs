@@ -19,10 +19,11 @@ use crate::shell::Shell;
 use crate::shell::commands::{CommandHandler, CommandResult};
 
 /**
- * Change directory command
+ * ディレクトリ変更の複雑な処理です (◕‿◕)
  * 
- * Implements the cd command for changing working directory.
- * Supports relative and absolute paths, home directory expansion.
+ * この関数は複雑なパス処理を行います。
+ * 絶対パスと相対パスの解決が難しい部分なので、
+ * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
  */
 pub struct CdCommand;
 
@@ -439,11 +440,15 @@ impl CommandHandler for TouchCommand {
 }
 
 /**
- * Helper function to copy directories recursively
+ * ディレクトリ再帰コピーの複雑な処理です (｡◕‿◕｡)
  * 
- * @param src - Source directory path
- * @param dst - Destination directory path
- * @return Result<()> - Success or error
+ * この関数は複雑なファイルシステム操作を行います。
+ * 再帰的なディレクトリ処理が難しい部分なので、
+ * 適切なエラーハンドリングで実装しています (◕‿◕)
+ * 
+ * @param src - ソースディレクトリパス
+ * @param dst - デスティネーションディレクトリパス
+ * @return Result<()> - 成功またはエラー
  */
 fn copy_directory(src: &PathBuf, dst: &PathBuf) -> Result<()> {
     if !dst.exists() {
