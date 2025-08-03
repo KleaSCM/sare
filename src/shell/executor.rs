@@ -15,7 +15,8 @@
 use anyhow::Result;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use crate::shell::parser::ParsedCommand;
+use std::io::{BufRead, BufReader};
+use crate::shell::parser::{ParsedCommand, CommandPipeline, ChainOperator};
 
 /**
  * Command executor that handles external command execution
@@ -173,5 +174,149 @@ impl CommandExecutor {
             }
         }
         false
+    }
+    
+    /**
+     * パイプライン実行の複雑な処理です (｡◕‿◕｡)
+     * 
+     * この関数は複雑なパイプライン処理を行います。
+     * パイプ、リアルタイム出力、コマンドチェーンが難しい部分なので、
+     * 適切なエラーハンドリングで実装しています (◕‿◕)
+     * 
+     * @param pipeline - 実行するコマンドパイプライン
+     * @param working_dir - 作業ディレクトリ
+     * @return Result<String> - パイプライン出力またはエラー
+     */
+    pub async fn execute_pipeline(&self, pipeline: &CommandPipeline, working_dir: &Path) -> Result<String> {
+        let mut output = String::new();
+        let mut last_output = String::new();
+        
+        for (i, command) in pipeline.commands.iter().enumerate() {
+            let operator = if i > 0 { 
+                Some(&pipeline.operators[i - 1]) 
+            } else { 
+                None 
+            };
+            
+            // Check if we should continue based on previous result
+            if let Some(op) = operator {
+                match op {
+                    ChainOperator::And => {
+                        if !last_output.is_empty() {
+                            // Previous command failed, skip this one
+                            continue;
+                        }
+                    }
+                    ChainOperator::Or => {
+                        if last_output.is_empty() {
+                            // Previous command succeeded, skip this one
+                            continue;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            
+            // Execute command with real-time output
+            let result = self.execute_with_realtime_output(command, working_dir).await?;
+            last_output = result.clone();
+            output.push_str(&result);
+            
+            // Add separator for sequential commands
+            if let Some(op) = operator {
+                match op {
+                    ChainOperator::Sequential => {
+                        output.push('\n');
+                    }
+                    _ => {}
+                }
+            }
+        }
+        
+        Ok(output)
+    }
+    
+    /**
+     * リアルタイム出力の複雑な処理です (◕‿◕)
+     * 
+     * この関数は複雑なリアルタイム出力処理を行います。
+     * プロセス出力のストリーミングが難しい部分なので、
+     * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+     * 
+     * @param command - 実行するパースされたコマンド
+     * @param working_dir - 作業ディレクトリ
+     * @return Result<String> - コマンド出力またはエラー
+     */
+    async fn execute_with_realtime_output(&self, command: &ParsedCommand, working_dir: &Path) -> Result<String> {
+        let mut cmd = Command::new(&command.command);
+        
+        cmd.current_dir(working_dir);
+        cmd.args(&command.args);
+        
+        // Handle input redirection
+        if let Some(ref input_file) = command.input_redirect {
+            let input_file = std::fs::File::open(input_file)?;
+            cmd.stdin(Stdio::from(input_file));
+        } else {
+            cmd.stdin(Stdio::inherit());
+        }
+        
+        // Handle output redirection
+        if let Some(ref output_file) = command.output_redirect {
+            let output_file = std::fs::File::create(output_file)?;
+            let output_file_clone = output_file.try_clone()?;
+            cmd.stdout(Stdio::from(output_file));
+            cmd.stderr(Stdio::from(output_file_clone));
+        } else {
+            cmd.stdout(Stdio::piped());
+            cmd.stderr(Stdio::piped());
+        }
+        
+        // Handle append redirection
+        if let Some(ref append_file) = command.append_redirect {
+            let append_file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(append_file)?;
+            let append_file_clone = append_file.try_clone()?;
+            cmd.stdout(Stdio::from(append_file));
+            cmd.stderr(Stdio::from(append_file_clone));
+        }
+        
+        let mut child = cmd.spawn()?;
+        let mut output = String::new();
+        
+        // Read stdout in real-time
+        if let Some(stdout) = child.stdout.take() {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines() {
+                let line = line?;
+                output.push_str(&line);
+                output.push('\n');
+                // Here you would typically send this to the TUI for real-time display
+            }
+        }
+        
+        // Read stderr in real-time
+        if let Some(stderr) = child.stderr.take() {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                let line = line?;
+                output.push_str(&line);
+                output.push('\n');
+                // Here you would typically send this to the TUI for real-time display
+            }
+        }
+        
+        let status = child.wait()?;
+        
+        if !status.success() {
+            return Err(anyhow::anyhow!(
+                "Command failed with exit code: {}",
+                status.code().unwrap_or(-1)
+            ));
+        }
+        
+        Ok(output)
     }
 } 

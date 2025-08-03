@@ -267,4 +267,89 @@ impl CommandParser {
         
         result
     }
+}
+
+/**
+ * コマンドパイプラインの複雑な処理です (｡◕‿◕｡)
+ * 
+ * この構造体は複数のコマンドを演算子で接続します。
+ * パイプ、論理AND/OR、順次実行などの演算子を処理する難しい部分なので、
+ * 適切なエラーハンドリングで実装しています (◕‿◕)
+ */
+#[derive(Debug, Clone)]
+pub struct CommandPipeline {
+    /// Commands in the pipeline
+    pub commands: Vec<ParsedCommand>,
+    /// Operators between commands
+    pub operators: Vec<ChainOperator>,
+}
+
+/**
+ * チェーン演算子の複雑な処理です (◕‿◕)
+ * 
+ * この列挙型はコマンドを接続する様々な方法を定義します。
+ * パイプライン内での演算子処理が難しい部分なので、
+ * 適切な型安全性で実装しています (｡◕‿◕｡)
+ */
+#[derive(Debug, Clone, PartialEq)]
+pub enum ChainOperator {
+    /// Pipe operator (|)
+    Pipe,
+    /// Logical AND operator (&&)
+    And,
+    /// Logical OR operator (||)
+    Or,
+    /// Sequential operator (;)
+    Sequential,
+}
+
+/**
+ * パイプライン解析の複雑な処理です (｡◕‿◕｡)
+ * 
+ * この関数は複雑なコマンド文字列解析を行います。
+ * チェーン演算子による分割と個別コマンド解析が難しい部分なので、
+ * 適切なエラーハンドリングで実装しています (◕‿◕)
+ * 
+ * @param input - 解析するコマンド文字列
+ * @return Result<CommandPipeline> - 解析されたパイプラインまたはエラー
+ */
+pub fn parse_pipeline(input: &str) -> Result<CommandPipeline> {
+    let mut commands = Vec::new();
+    let mut operators = Vec::new();
+    let mut parser = CommandParser::new();
+    
+    // Split by chain operators
+    let parts: Vec<&str> = input
+        .split("|")
+        .flat_map(|part| part.split("&&"))
+        .flat_map(|part| part.split("||"))
+        .flat_map(|part| part.split(";"))
+        .collect();
+    
+    for (i, part) in parts.iter().enumerate() {
+        let trimmed = part.trim();
+        if !trimmed.is_empty() {
+            let parsed = parser.parse(trimmed)?;
+            commands.push(parsed);
+            
+            // Determine operator between this command and the next
+            if i < parts.len() - 1 {
+                let next_part = parts[i + 1];
+                if input.contains(&format!("{}|{}", trimmed, next_part)) {
+                    operators.push(ChainOperator::Pipe);
+                } else if input.contains(&format!("{}&&{}", trimmed, next_part)) {
+                    operators.push(ChainOperator::And);
+                } else if input.contains(&format!("{}||{}", trimmed, next_part)) {
+                    operators.push(ChainOperator::Or);
+                } else {
+                    operators.push(ChainOperator::Sequential);
+                }
+            }
+        }
+    }
+    
+    Ok(CommandPipeline {
+        commands,
+        operators,
+    })
 } 

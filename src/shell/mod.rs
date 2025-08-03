@@ -23,7 +23,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::collections::HashMap;
 use job::{JobManager, SignalHandler};
-use parser::CommandParser;
+use parser::{CommandParser, parse_pipeline, CommandPipeline};
 use executor::CommandExecutor;
 use builtins::BuiltinCommands;
 use commands::{CommandRegistry, CommandHandler, CommandResult};
@@ -185,10 +185,19 @@ impl Shell {
         // Add command to history
         self.history_manager.add_command(command.to_string(), None);
         
-        let parsed = self.parser.parse(command)?;
-        
-        let result = self.execute_parsed_command(&parsed).await?;
-        self.output_history.push(result);
+        // Try to parse as pipeline first
+        match parse_pipeline(command) {
+            Ok(pipeline) => {
+                let result = self.execute_pipeline(&pipeline).await?;
+                self.output_history.push(result);
+            }
+            Err(_) => {
+                // Fall back to single command parsing
+                let parsed = self.parser.parse(command)?;
+                let result = self.execute_parsed_command(&parsed).await?;
+                self.output_history.push(result);
+            }
+        }
         
         self.input_buffer.clear();
         
@@ -218,6 +227,20 @@ impl Shell {
                 self.executor.execute(&parsed_clone, &self.current_path).await
             }
         }
+    }
+    
+    /**
+     * パイプライン実行の複雑な処理です (◕‿◕)
+     * 
+     * この関数は複雑なパイプライン処理を行います。
+     * パイプ、リアルタイム出力、コマンドチェーンが難しい部分なので、
+     * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+     * 
+     * @param pipeline - 実行するコマンドパイプライン
+     * @return Result<String> - パイプライン出力またはエラー
+     */
+    async fn execute_pipeline(&mut self, pipeline: &CommandPipeline) -> Result<String> {
+        self.executor.execute_pipeline(pipeline, &self.current_path).await
     }
     
     /**
