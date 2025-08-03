@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Simple wrapper to run cargo without Cursor proxy BS
+# Usage: ./cargo-clean build
+# Usage: ./cargo-clean run
+
+# Unset all Cursor-related environment variables
+unset APPDIR LD_LIBRARY_PATH PERLLIB GSETTINGS_SCHEMA_DIR XDG_DATA_DIRS QT_PLUGIN_PATH CHROME_DESKTOP CURSOR_TRACE_ID GIT_ASKPASS VSCODE_GIT_ASKPASS_NODE VSCODE_GIT_ASKPASS_MAIN
+
+# Set clean PATH
+export PATH="/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/lib/rustup/bin:$PATH"
+
+# Run cargo with clean environment
+exec cargo "$@" 

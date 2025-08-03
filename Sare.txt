@@ -1,0 +1,207 @@
+## 🧠 **Sare Shell – Full Project Spec (v1.0)**
+
+> ⚙️ Built in Rust — no wrapping bash, no shelling out. Sare *is* the shell.
+
+---
+
+### 🌸 Project Goals
+
+Sare is a **POSIX-compatible**, feature-complete **Rust shell** with:
+
+* A full **TUI experience** using `ratatui`
+* A **real command executor** (not calling zsh/bash)
+* Advanced **job control**
+* **Multipane** terminal support (like wezterm)
+* Extensible internals (for plugins, scripting, future AI integration)
+* Adorable UI — think *wezterm meets Neovim* with girlcore flair
+
+---
+
+### 🔧 Core Functional Requirements
+
+#### 🌀 1. **Command Parsing**
+
+* Parse single commands: `ls`, `mkdir test`, `ping google.com`
+* Handle:
+
+  * Flags: `ls -l -a`
+  * Quoting: `echo "hello world"`
+  * Escapes: `echo hello\ world`
+  * Substitution: `echo $(date)` *(optional v2)*
+
+#### ⛓️ 2. **Command Execution**
+
+* Use `std::process::Command`
+* Don't invoke `/bin/sh` unless required
+* Pipe `stdin`, `stdout`, `stderr`
+* Display real-time output in TUI
+
+#### 📂 3. **Built-in Commands**
+
+* Must be implemented inside Sare:
+
+  * `cd`
+  * `exit`
+  * `clear`
+  * `history`
+  * `pwd`
+  * `echo`
+  * `help`
+  * `jobs`
+  * `kill` (job-based)
+
+#### 🧵 4. **Job Control**
+
+* Foreground/Background tasks:
+
+  * `sleep 5 &`
+  * `fg`, `bg`
+* Ctrl+C (SIGINT) handling
+* Track PID, state, exit code
+* Ability to kill or resume jobs
+
+#### 💻 5. **TUI Interface (ratatui)**
+
+* Command input prompt
+* Real-time output pane (scrollable)
+* Topbar or footer showing:
+
+  * Current path
+  * Job count
+  * Time
+* Responsive redraw on resize
+
+#### 🪟 6. **Multipane Support (Advanced)**
+
+* Split vertically/horizontally like wezterm
+* Each pane = independent shell
+* Hotkeys to:
+
+  * Split (`Ctrl+|`, `Ctrl+-`)
+  * Focus (`Ctrl+h/j/k/l`)
+  * Close (`Ctrl+w`)
+* Panes persist job state
+
+#### 💾 7. **Command History**
+
+* Persistent (saved to `~/.sare_history`)
+* Arrow key up/down cycling
+* Search (Ctrl+R-style)
+* History view in sidebar (optional)
+
+#### 🌍 8. **Autocomplete**
+
+* Tab to autocomplete:
+
+  * Executables from `$PATH`
+  * File/directory names
+* Suggestion box in TUI
+* Fuzzy match (bonus)
+
+#### 🧪 9. **Testing Suite**
+
+* Unit tests:
+
+  * Command parser
+  * Job management
+  * Built-in command handlers
+* Integration test:
+
+  * Simulate command line interactions
+* Benchmark:
+
+  * Measure input latency
+  * Execution delay
+
+#### 🔒 10. **Security & Sandbox**
+
+* Never eval untrusted input
+* Restrict internal command execution via `Command::new`
+* Future support: jailed subshell?
+
+---
+
+### 🖼️ UI & Design Goals
+
+#### Sare must feel:
+
+* Responsive
+* Predictable
+* Personalized (dotfile support, colors)
+
+#### Look:
+
+* Topbar: `sare@machine: ~/projects/sare`
+* Prompt: `>>> _`
+* Output: Scrollable, resizable
+* Theme: Soft pastel + dark mode (wezterm inspired)
+* Animations: Optional, framer-motion-like (`ratatui` does not support but simulate with time-based redraws)
+
+---
+
+### 🔄 Internal Architecture
+
+```
++----------------------------+
+|        Sare Shell         |
++----------------------------+
+|         TUI (ratatui)     |
+|    ┌──────────────┐       |
+|    │ Pane Manager │       |
+|    └──────────────┘       |
+|    ┌──────────────┐       |
+|    │ Command Line │       |
+|    └──────────────┘       |
+|         /        \        |
+|   Parser      Output Log  |
+|         \        /        |
+|     Executor + JobCtrl    |
+|       (Command::new)      |
++----------------------------+
+```
+
+---
+
+
+---
+
+### 📂 Folder Layout
+
+```
+src/
+├── main.rs
+├── shell/              # Core shell logic
+│   ├── parser.rs
+│   ├── executor.rs
+│   ├── job.rs
+│   ├── builtins.rs
+├── tui/                # UI rendering
+│   ├── layout.rs
+│   ├── prompt.rs
+│   ├── output.rs
+│   ├── panes.rs
+├── config/
+│   └── settings.rs     # Theme, shortcuts, dotfiles
+├── history/
+│   └── manager.rs
+├── tests/
+│   ├── integration.rs
+│   └── parser_tests.rs
+```
+
+---
+
+### 🪄 Initial Milestones (v0.1 → v1.0)
+
+| Version | Feature                               |
+| ------- | ------------------------------------- |
+| v0.1    | Basic REPL loop, command parser       |
+| v0.2    | Command execution + TUI display       |
+| v0.3    | Built-in commands, `cd`, `exit`, etc. |
+| v0.4    | Job control (`&`, `fg`, `bg`, `kill`) |
+| v0.5    | Pane split (vertical/horizontal)      |
+| v0.6    | Persistent history                    |
+| v0.7    | Tab-complete & fuzzy suggestions      |
+| v1.0    | Stable, cute, real, portfolio-worthy  |
+
+---
