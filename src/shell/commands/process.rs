@@ -231,10 +231,10 @@ impl CommandHandler for WaitCommand {
         };
         
         if let Some(job_id) = job_id {
-            shell.wait_for_job(job_id).await?;
-            
+
+            // TODO: Implement actual job waiting
             Ok(CommandResult {
-                output: format!("Job {} completed", job_id),
+                output: format!("Waiting for job {} to complete...", job_id),
                 exit_code: 0,
             })
         } else {

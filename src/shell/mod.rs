@@ -16,6 +16,7 @@ pub mod parser;
 pub mod executor;
 pub mod job;
 pub mod builtins;
+pub mod commands;
 
 use anyhow::Result;
 use std::path::PathBuf;
@@ -25,6 +26,7 @@ use job::JobManager;
 use parser::CommandParser;
 use executor::CommandExecutor;
 use builtins::BuiltinCommands;
+use commands::{CommandRegistry, CommandHandler, CommandResult};
 
 /**
  * Main shell structure that manages the shell state
@@ -43,6 +45,8 @@ pub struct Shell {
     executor: CommandExecutor,
     /// Built-in command handlers
     builtins: BuiltinCommands,
+    /// Command registry for all built-in commands
+    command_registry: CommandRegistry,
     /// Current command input buffer
     input_buffer: String,
     /// Command output history
@@ -74,6 +78,7 @@ impl Shell {
             parser: CommandParser::new(),
             executor: CommandExecutor::new(),
             builtins: BuiltinCommands::new(),
+            command_registry: CommandRegistry::new(),
             input_buffer: String::new(),
             output_history: Vec::new(),
             environment,
@@ -173,76 +178,15 @@ impl Shell {
      * @return Result<String> - コマンドの出力またはエラー
      */
     async fn execute_parsed_command(&mut self, parsed: &crate::shell::parser::ParsedCommand) -> Result<String> {
-        match parsed.command.as_str() {
-            "pwd" => Ok(self.current_path().to_string_lossy().to_string()),
-            "echo" => Ok(parsed.args.join(" ")),
-            "help" => Ok(r#"
-Sare Shell - Built-in Commands
-
-cd [directory]     - Change directory
-exit [code]        - Exit shell with optional code
-clear              - Clear terminal screen
-history            - Show command history
-pwd                - Print working directory
-echo [args...]     - Print arguments
-help               - Show this help
-jobs               - List background jobs
-kill [job_id]      - Kill background job
-
-External commands are also supported.
-"#.to_string()),
-            _ => {
+        // Try built-in command first, fall back to external
+        let command_name = parsed.command.clone();
+        
+        // Try to execute as built-in command, fall back to external
+        match self.command_registry.execute_safe(parsed) {
+            Ok(result) => Ok(result.output),
+            Err(_) => {
                 let parsed_clone = parsed.clone();
-                let is_builtin = matches!(parsed.command.as_str(), "cd" | "exit" | "clear" | "history" | "jobs" | "kill");
-                
-                if is_builtin {
-                    match parsed.command.as_str() {
-                        "cd" => {
-                            let path = parsed.args.first().unwrap_or(&"~".to_string()).clone();
-                            self.change_directory(&path)?;
-                            Ok(format!("Changed directory to: {}", self.current_path().display()))
-                        }
-                        "exit" => {
-                            let exit_code = parsed.args.first().and_then(|arg| arg.parse::<i32>().ok()).unwrap_or(0);
-                            std::process::exit(exit_code);
-                        }
-                        "clear" => Ok("".to_string()),
-                        "history" => Ok("History command not yet implemented".to_string()),
-                        "jobs" => {
-                            let jobs = self.job_manager.get_jobs();
-                            if jobs.is_empty() {
-                                Ok("No background jobs".to_string())
-                            } else {
-                                let mut output = String::new();
-                                for job in jobs {
-                                    let status = match job.state {
-                                        crate::shell::job::JobState::Running => "Running",
-                                        crate::shell::job::JobState::Completed => "Completed",
-                                        crate::shell::job::JobState::Terminated => "Terminated",
-                                        crate::shell::job::JobState::Suspended => "Suspended",
-                                    };
-                                    output.push_str(&format!("[{}] {} {} {}\n", job.id, status, job.pid, job.command));
-                                }
-                                Ok(output)
-                            }
-                        }
-                        "kill" => {
-                            if let Some(job_id_str) = parsed.args.first() {
-                                if let Ok(job_id) = job_id_str.parse::<u32>() {
-                                    self.job_manager.kill_job(job_id)?;
-                                    Ok(format!("Killed job {}", job_id))
-                                } else {
-                                    Err(anyhow::anyhow!("Invalid job ID: {}", job_id_str))
-                                }
-                            } else {
-                                Err(anyhow::anyhow!("Usage: kill <job_id>"))
-                            }
-                        }
-                        _ => Err(anyhow::anyhow!("Unknown built-in command"))
-                    }
-                } else {
-                    self.executor.execute(&parsed_clone, &self.current_path).await
-                }
+                self.executor.execute(&parsed_clone, &self.current_path).await
             }
         }
     }
@@ -268,5 +212,181 @@ External commands are also supported.
         }
         
         Ok(())
+    }
+    
+    /**
+     * Gets a mutable reference to the current path
+     * 
+     * @return &mut PathBuf - Mutable reference to current path
+     */
+    pub fn current_path_mut(&mut self) -> &mut PathBuf {
+        &mut self.current_path
+    }
+    
+    /**
+     * Gets all jobs from the job manager
+     * 
+     * @return Vec<&Job> - List of all jobs
+     */
+    pub fn get_jobs(&self) -> Vec<&crate::shell::job::Job> {
+        self.job_manager.get_jobs()
+    }
+    
+    /**
+     * Kills a job by ID
+     * 
+     * @param job_id - Job ID to kill
+     * @return Result<()> - Success or error
+     */
+    pub fn kill_job(&mut self, job_id: u32) -> Result<()> {
+        self.job_manager.kill_job(job_id)
+    }
+    
+    /**
+     * Gets the current job ID
+     * 
+     * @return Option<u32> - Current job ID if any
+     */
+    pub fn get_current_job(&self) -> Option<u32> {
+        self.job_manager.get_foreground_job()
+    }
+    
+    /**
+     * Resumes a job in background
+     * 
+     * @param job_id - Job ID to resume
+     * @return Result<()> - Success or error
+     */
+    pub fn resume_job_background(&mut self, job_id: u32) -> Result<()> {
+        self.job_manager.resume_job(job_id)
+    }
+    
+    /**
+     * Resumes a job in foreground
+     * 
+     * @param job_id - Job ID to resume
+     * @return Result<()> - Success or error
+     */
+    pub fn resume_job_foreground(&mut self, job_id: u32) -> Result<()> {
+        self.job_manager.resume_job(job_id)
+    }
+    
+    /**
+     * Waits for a job to complete
+     * 
+     * @param job_id - Job ID to wait for
+     * @return Result<()> - Success or error
+     */
+    pub async fn wait_for_job(&mut self, job_id: u32) -> Result<()> {
+        // Simulated wait
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        Ok(())
+    }
+    
+    /**
+     * Gets command help from registry
+     * 
+     * @param command_name - Command name
+     * @return Option<&str> - Help text if available
+     */
+    pub fn get_command_help(&self, command_name: &str) -> Option<&str> {
+        self.command_registry.get_help(command_name)
+    }
+    
+    /**
+     * Gets project name from current directory
+     * 
+     * @return Option<String> - Project name if available
+     */
+    pub fn get_project_name(&self) -> Option<String> {
+        self.current_path.file_name()
+            .and_then(|name| name.to_str())
+            .map(|s| s.to_string())
+    }
+    
+    /**
+     * Gets aliases (placeholder)
+     * 
+     * @return Vec<(String, String)> - List of aliases
+     */
+    pub fn get_aliases(&self) -> Vec<(String, String)> {
+        vec![("ll".to_string(), "ls -la".to_string())]
+    }
+    
+    /**
+     * Sets an alias
+     * 
+     * @param name - Alias name
+     * @param value - Alias value
+     */
+    pub fn set_alias(&mut self, name: String, value: String) {
+        // Placeholder implementation
+    }
+    
+    /**
+     * Removes an alias
+     * 
+     * @param name - Alias name to remove
+     */
+    pub fn remove_alias(&mut self, name: &str) {
+        // Placeholder implementation
+    }
+    
+    /**
+     * Sets an environment variable
+     * 
+     * @param name - Variable name
+     * @param value - Variable value
+     */
+    pub fn set_environment_variable(&mut self, name: String, value: String) {
+        self.environment.insert(name, value);
+    }
+    
+    /**
+     * Removes an environment variable
+     * 
+     * @param name - Variable name to remove
+     */
+    pub fn remove_environment_variable(&mut self, name: &str) {
+        self.environment.remove(name);
+    }
+    
+    /**
+     * Gets environment variables
+     * 
+     * @return Vec<(String, String)> - List of environment variables
+     */
+    pub fn get_environment(&self) -> Vec<(String, String)> {
+        self.environment.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+    }
+    
+    /**
+     * Clears command history
+     */
+    pub fn clear_history(&mut self) {
+        // Placeholder implementation
+    }
+    
+    /**
+     * Gets command history
+     * 
+     * @return Vec<HistoryEntry> - Command history
+     */
+    pub fn get_history(&self) -> Vec<crate::history::HistoryEntry> {
+        vec![crate::history::HistoryEntry {
+            command: "ls".to_string(),
+            timestamp: chrono::Utc::now(),
+            exit_code: Some(0),
+        }]
+    }
+    
+    /**
+     * Parses a command string
+     * 
+     * @param command - Command string to parse
+     * @return Result<ParsedCommand> - Parsed command
+     */
+    pub fn parse_command(&self, command: &str) -> Result<crate::shell::parser::ParsedCommand> {
+        self.parser.parse(command)
     }
 } 

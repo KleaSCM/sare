@@ -381,7 +381,7 @@ impl CommandHandler for SortCommand {
         let unique = command.args.iter().any(|arg| arg == "-u" || arg == "--unique");
         
         let mut output = String::new();
-        let mut all_lines = Vec::new();
+        let mut all_lines: Vec<String> = Vec::new();
         
         for file_name in &command.args {
             if file_name.starts_with('-') && (file_name == "-r" || file_name == "-n" || file_name == "-u" ||
@@ -400,7 +400,7 @@ impl CommandHandler for SortCommand {
             }
             
             let content = std::fs::read_to_string(&file_path)?;
-            let lines: Vec<&str> = content.lines().collect();
+            let lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
             all_lines.extend(lines);
         }
         
@@ -424,7 +424,7 @@ impl CommandHandler for SortCommand {
         }
         
         for line in all_lines {
-            output.push_str(line);
+            output.push_str(&line);
             output.push('\n');
         }
         
@@ -461,7 +461,7 @@ impl CommandHandler for UniqCommand {
         let show_duplicates = command.args.iter().any(|arg| arg == "-d" || arg == "--repeated");
         
         let mut output = String::new();
-        let mut lines = Vec::new();
+        let mut lines: Vec<String> = Vec::new();
         
         for file_name in &command.args {
             if file_name.starts_with('-') && (file_name == "-c" || file_name == "-d" ||
@@ -480,7 +480,7 @@ impl CommandHandler for UniqCommand {
             }
             
             let content = std::fs::read_to_string(&file_path)?;
-            let file_lines: Vec<&str> = content.lines().collect();
+            let file_lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
             lines.extend(file_lines);
         }
         
@@ -491,7 +491,7 @@ impl CommandHandler for UniqCommand {
             });
         }
         
-        let mut current_line = lines[0];
+        let mut current_line = &lines[0];
         let mut current_count = 1;
         
         for line in &lines[1..] {

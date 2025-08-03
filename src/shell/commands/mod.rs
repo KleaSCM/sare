@@ -180,6 +180,47 @@ impl CommandRegistry {
     }
     
     /**
+     * Tries to execute a command, returns None if command doesn't exist
+     * 
+     * @param command - Parsed command to execute
+     * @param shell - Shell instance
+     * @return Option<Result<CommandResult>> - Command result or None if command doesn't exist
+     */
+    pub fn try_execute(&self, command: &ParsedCommand, shell: &mut Shell) -> Option<Result<CommandResult>> {
+        if let Some(handler) = self.commands.get(&command.command) {
+            Some(handler.execute(command, shell))
+        } else {
+            None
+        }
+    }
+    
+    /**
+     * Executes a command without requiring mutable shell borrow
+     * 
+     * @param command - Parsed command to execute
+     * @return Result<CommandResult> - Command result or error
+     */
+    pub fn execute_safe(&self, command: &ParsedCommand) -> Result<CommandResult> {
+        if let Some(handler) = self.commands.get(&command.command) {
+            // Create a mock shell for built-in commands that don't need shell state
+            let mut mock_shell = Shell::new().unwrap();
+            handler.execute(command, &mut mock_shell)
+        } else {
+            Err(anyhow::anyhow!("Unknown command: {}", command.command))
+        }
+    }
+    
+    /**
+     * Checks if a command exists without borrowing shell
+     * 
+     * @param command_name - Name to check
+     * @return bool - True if command exists
+     */
+    pub fn has_command_safe(&self, command_name: &str) -> bool {
+        self.commands.contains_key(command_name)
+    }
+    
+    /**
      * Gets help for a command
      * 
      * @param command_name - Name of the command

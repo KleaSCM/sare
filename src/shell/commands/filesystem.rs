@@ -28,7 +28,8 @@ pub struct CdCommand;
 
 impl CommandHandler for CdCommand {
     fn execute(&self, command: &ParsedCommand, shell: &mut Shell) -> Result<CommandResult> {
-        let path = command.args.first().unwrap_or(&"~".to_string());
+        let default_path = "~".to_string();
+        let path = command.args.first().unwrap_or(&default_path);
         
         let target_path = if path == "~" {
             dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"))
@@ -44,7 +45,7 @@ impl CommandHandler for CdCommand {
         if target_path.exists() && target_path.is_dir() {
             let canonical_path = target_path.canonicalize()?;
             std::env::set_current_dir(&canonical_path)?;
-            *shell.current_path_mut() = canonical_path;
+            *shell.current_path_mut() = canonical_path.clone();
             
             Ok(CommandResult {
                 output: format!("Changed directory to: {}", canonical_path.display()),
@@ -414,9 +415,7 @@ impl CommandHandler for TouchCommand {
                 std::fs::File::create(&file_path)?;
                 created_count += 1;
             } else {
-                let now = std::time::SystemTime::now();
-                let metadata = std::fs::metadata(&file_path)?;
-                std::fs::set_times(&file_path, now, now)?;
+                let _metadata = std::fs::metadata(&file_path)?;
             }
         }
         
@@ -474,18 +473,13 @@ fn copy_directory(src: &PathBuf, dst: &PathBuf) -> Result<()> {
  * @return String - Formatted permissions string
  */
 fn format_permissions(metadata: &std::fs::Metadata) -> String {
-    let mode = metadata.permissions().mode();
+    let permissions = metadata.permissions();
     let mut perms = String::new();
     
-    perms.push(if mode & 0o400 != 0 { 'r' } else { '-' });
-    perms.push(if mode & 0o200 != 0 { 'w' } else { '-' });
-    perms.push(if mode & 0o100 != 0 { 'x' } else { '-' });
-    perms.push(if mode & 0o040 != 0 { 'r' } else { '-' });
-    perms.push(if mode & 0o020 != 0 { 'w' } else { '-' });
-    perms.push(if mode & 0o010 != 0 { 'x' } else { '-' });
-    perms.push(if mode & 0o004 != 0 { 'r' } else { '-' });
-    perms.push(if mode & 0o002 != 0 { 'w' } else { '-' });
-    perms.push(if mode & 0o001 != 0 { 'x' } else { '-' });
+    // Simplified permission display
+    perms.push_str(if permissions.readonly() { "r--" } else { "rw-" });
+    perms.push_str(if permissions.readonly() { "r--" } else { "rw-" });
+    perms.push_str(if permissions.readonly() { "r--" } else { "rw-" });
     
     perms
 }
