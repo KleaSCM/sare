@@ -83,11 +83,15 @@ impl JobManager {
     }
     
     /**
-     * Adds a new job to the manager
+     * ジョブ追加の複雑な処理です (｡◕‿◕｡)
      * 
-     * @param pid - Process ID of the job
-     * @param command - Command that was executed
-     * @return u32 - Job ID
+     * この関数は複雑なジョブ管理を行います。
+     * プロセスID追跡と状態管理が難しい部分なので、
+     * 適切なエラーハンドリングで実装しています (◕‿◕)
+     * 
+     * @param pid - プロセスID
+     * @param command - 実行されたコマンド
+     * @return u32 - ジョブID
      */
     pub fn add_job(&mut self, pid: u32, command: String) -> u32 {
         let job_id = self.next_job_id;
@@ -149,6 +153,61 @@ impl JobManager {
                 }
             }
         }
+    }
+    
+    /**
+     * シグナル処理の複雑な処理です (｡◕‿◕｡)
+     * 
+     * この関数は複雑なシグナル処理を行います。
+     * リアルタイムシグナル配信が難しい部分なので、
+     * 適切なエラーハンドリングで実装しています (◕‿◕)
+     * 
+     * @param signal - 送信するシグナル番号
+     * @param pid - 対象プロセスID
+     * @return Result<()> - 成功またはエラー
+     */
+    pub fn send_signal_to_job(&mut self, job_id: u32, signal: i32) -> Result<()> {
+        if let Some(job) = self.jobs.get(&job_id) {
+            if job.state == JobState::Running {
+                unsafe {
+                    if libc::kill(job.pid as pid_t, signal) != 0 {
+                        return Err(anyhow::anyhow!("Failed to send signal {} to job {}: {}", 
+                            signal, job_id, std::io::Error::last_os_error()));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+    
+    /**
+     * リアルタイムシグナル処理の複雑な処理です (◕‿◕)
+     * 
+     * この関数は複雑なリアルタイムシグナル処理を行います。
+     * プロセス状態監視が難しい部分なので、
+     * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+     * 
+     * @param pid - 監視するプロセスID
+     * @return Result<()> - 成功またはエラー
+     */
+    pub fn monitor_job_status(&mut self, job_id: u32) -> Result<()> {
+        if let Some(job) = self.jobs.get_mut(&job_id) {
+            unsafe {
+                let mut status = 0;
+                let result = libc::waitpid(job.pid as pid_t, &mut status, libc::WNOHANG);
+                
+                if result > 0 {
+                    if libc::WIFEXITED(status) {
+                        job.state = JobState::Completed;
+                        job.exit_code = Some(libc::WEXITSTATUS(status));
+                    } else if libc::WIFSIGNALED(status) {
+                        job.state = JobState::Terminated;
+                        job.exit_code = Some(libc::WTERMSIG(status));
+                    }
+                }
+            }
+        }
+        Ok(())
     }
     
     /**
