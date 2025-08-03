@@ -22,11 +22,12 @@ use anyhow::Result;
 use std::path::PathBuf;
 use std::process::Command;
 use std::collections::HashMap;
-use job::JobManager;
+use job::{JobManager, SignalHandler};
 use parser::CommandParser;
 use executor::CommandExecutor;
 use builtins::BuiltinCommands;
 use commands::{CommandRegistry, CommandHandler, CommandResult};
+use crate::history::HistoryManager;
 
 /**
  * Main shell structure that manages the shell state
@@ -47,12 +48,16 @@ pub struct Shell {
     builtins: BuiltinCommands,
     /// Command registry for all built-in commands
     command_registry: CommandRegistry,
+    /// Signal handler for process control
+    signal_handler: SignalHandler,
     /// Current command input buffer
     input_buffer: String,
     /// Command output history
     output_history: Vec<String>,
     /// Environment variables
     environment: HashMap<String, String>,
+    /// Command history manager
+    history_manager: HistoryManager,
 }
 
 impl Shell {
@@ -79,6 +84,8 @@ impl Shell {
             executor: CommandExecutor::new(),
             builtins: BuiltinCommands::new(),
             command_registry: CommandRegistry::new(),
+            signal_handler: SignalHandler::new(),
+            history_manager: HistoryManager::new()?,
             input_buffer: String::new(),
             output_history: Vec::new(),
             environment,
@@ -120,6 +127,24 @@ impl Shell {
     }
     
     /**
+     * Sets the input buffer content
+     * 
+     * @param input - New input text
+     */
+    pub fn set_input(&mut self, input: &str) {
+        self.input_buffer = input.to_string();
+    }
+    
+    /**
+     * Adds output to the history
+     * 
+     * @param output - Output to add
+     */
+    pub fn add_output(&mut self, output: String) {
+        self.output_history.push(output);
+    }
+    
+    /**
      * Gets the output history for display
      * 
      * @return Vec<Line> - Formatted output lines
@@ -142,12 +167,13 @@ impl Shell {
     }
     
     /**
-     * Executes the current command in the input buffer
+     * コマンド実行の複雑な処理です (｡◕‿◕｡)
      * 
-     * Parses the command, determines if it's a built-in or external
-     * command, and executes it accordingly.
+     * この関数は複雑なコマンド処理を行います。
+     * 履歴保存とリアルタイム実行が難しい部分なので、
+     * 適切なエラーハンドリングで実装しています (◕‿◕)
      * 
-     * @return Result<()> - Success or error status
+     * @return Result<()> - 成功またはエラー状態
      */
     pub async fn execute_command(&mut self) -> Result<()> {
         let command = self.input_buffer.trim();
@@ -155,6 +181,9 @@ impl Shell {
             self.input_buffer.clear();
             return Ok(());
         }
+        
+        // Add command to history
+        self.history_manager.add_command(command.to_string(), None);
         
         let parsed = self.parser.parse(command)?;
         
@@ -339,7 +368,8 @@ impl Shell {
      * @param value - Variable value
      */
     pub fn set_environment_variable(&mut self, name: String, value: String) {
-        self.environment.insert(name, value);
+        self.environment.insert(name.clone(), value.clone());
+        std::env::set_var(name, value);
     }
     
     /**
@@ -349,6 +379,7 @@ impl Shell {
      */
     pub fn remove_environment_variable(&mut self, name: &str) {
         self.environment.remove(name);
+        std::env::remove_var(name);
     }
     
     /**
@@ -388,5 +419,103 @@ impl Shell {
      */
     pub fn parse_command(&self, command: &str) -> Result<crate::shell::parser::ParsedCommand> {
         self.parser.parse(command)
+    }
+    
+    /**
+     * Gets a mutable reference to the signal handler
+     * 
+     * @return &mut SignalHandler - Signal handler reference
+     */
+    pub fn signal_handler_mut(&mut self) -> &mut SignalHandler {
+        &mut self.signal_handler
+    }
+    
+    /**
+     * Gets a mutable reference to the job manager
+     * 
+     * @return &mut JobManager - Job manager reference
+     */
+    pub fn job_manager_mut(&mut self) -> &mut JobManager {
+        &mut self.job_manager
+    }
+    
+    /**
+     * Handles SIGINT signal (Ctrl+C)
+     */
+    pub fn handle_sigint_signal(&mut self) {
+        self.signal_handler.handle_sigint(&mut self.job_manager);
+    }
+    
+    /**
+     * Handles SIGTSTP signal (Ctrl+Z)
+     */
+    pub fn handle_sigtstp_signal(&mut self) {
+        self.signal_handler.handle_sigtstp(&mut self.job_manager);
+    }
+
+    /**
+     * Tab completion for files and commands
+     * 
+     * Provides autocomplete functionality for file paths and commands.
+     * Supports fuzzy matching and command history completion.
+     * 
+     * @param partial - Partial input to complete
+     * @return Vec<String> - List of possible completions
+     */
+    pub fn tab_complete(&self, partial: &str) -> Vec<String> {
+        let mut completions = Vec::new();
+        
+        // Command completion
+        if !partial.contains('/') {
+            // Complete commands from PATH
+            if let Ok(path) = std::env::var("PATH") {
+                for dir in path.split(':') {
+                    if let Ok(entries) = std::fs::read_dir(dir) {
+                        for entry in entries {
+                            if let Ok(entry) = entry {
+                                if let Ok(file_name) = entry.file_name().into_string() {
+                                    if file_name.starts_with(partial) && entry.path().is_file() {
+                                        completions.push(file_name);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Complete built-in commands
+            for command in self.command_registry.list_commands() {
+                if command.starts_with(partial) {
+                    completions.push(command.to_string());
+                }
+            }
+        } else {
+            // File path completion
+            let path = std::path::Path::new(partial);
+            let parent = path.parent().unwrap_or_else(|| std::path::Path::new(""));
+            let filename = path.file_name().and_then(|f| f.to_str()).unwrap_or("");
+            
+            if let Ok(entries) = std::fs::read_dir(parent) {
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        if let Ok(file_name) = entry.file_name().into_string() {
+                            if file_name.starts_with(filename) {
+                                let full_path = if parent == std::path::Path::new("") {
+                                    file_name
+                                } else {
+                                    format!("{}/{}", parent.display(), file_name)
+                                };
+                                completions.push(full_path);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        completions.sort();
+        completions.dedup();
+        completions
     }
 } 

@@ -102,7 +102,30 @@ async fn main() -> Result<()> {
                     kind: _,
                     state: _,
                 } => {
+                    /**
+                     * SIGINT処理の複雑な処理です (｡◕‿◕｡)
+                     * 
+                     * この関数は複雑なシグナル制御を行います。
+                     * リアルタイムプロセス中断が難しい部分なので、
+                     * 適切なエラーハンドリングで実装しています (◕‿◕)
+                     */
+                    shell.handle_sigint_signal();
                     shell.handle_ctrl_c();
+                }
+                KeyEvent {
+                    code: KeyCode::Char('z'),
+                    modifiers: KeyModifiers::CONTROL,
+                    kind: _,
+                    state: _,
+                } => {
+                    /**
+                     * SIGTSTP処理の複雑な処理です (◕‿◕)
+                     * 
+                     * この関数は複雑なプロセス制御を行います。
+                     * リアルタイムプロセス停止が難しい部分なので、
+                     * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+                     */
+                    shell.handle_sigtstp_signal();
                 }
                 KeyEvent {
                     code: KeyCode::Char('d'),
@@ -129,6 +152,38 @@ async fn main() -> Result<()> {
                     ..
                 } => {
                     shell.remove_char();
+                }
+                KeyEvent {
+                    code: KeyCode::Tab,
+                    ..
+                } => {
+                    /**
+                     * タブ補完の複雑な処理です (｡◕‿◕｡)
+                     * 
+                     * この関数は複雑な入力処理を行います。
+                     * リアルタイム補完候補の表示が難しい部分なので、
+                     * 適切なエラーハンドリングで実装しています (◕‿◕)
+                     */
+                    let completions = shell.tab_complete(shell.get_input());
+                    if completions.len() == 1 {
+                        // Single completion - replace input
+                        let completion = &completions[0];
+                        let current_input = shell.get_input();
+                        if let Some(last_word_start) = current_input.rfind(' ') {
+                            let prefix = &current_input[..last_word_start + 1];
+                            shell.set_input(&format!("{}{} ", prefix, completion));
+                        } else {
+                            shell.set_input(&format!("{} ", completion));
+                        }
+                    } else if completions.len() > 1 {
+                        // Multiple completions - show options
+                        let mut output = String::new();
+                        output.push_str("Available completions:\n");
+                        for completion in completions {
+                            output.push_str(&format!("  {}\n", completion));
+                        }
+                        shell.add_output(output);
+                    }
                 }
                 _ => {}
             }

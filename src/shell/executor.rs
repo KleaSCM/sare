@@ -41,14 +41,15 @@ impl CommandExecutor {
     }
     
     /**
-     * Executes a parsed command
+     * リアルコマンド実行の複雑な処理です (｡◕‿◕｡)
      * 
-     * Creates a new process for the command, handles I/O redirection,
-     * and captures the output for display in the TUI.
+     * この関数は複雑なI/Oリダイレクションを行います。
+     * ファイルディスクリプタ管理が難しい部分なので、
+     * 適切なエラーハンドリングで実装しています (◕‿◕)
      * 
-     * @param command - Parsed command to execute
-     * @param working_dir - Working directory for the command
-     * @return Result<String> - Command output or error
+     * @param command - 実行するパースされたコマンド
+     * @param working_dir - 作業ディレクトリ
+     * @return Result<String> - コマンド出力またはエラー
      */
     pub async fn execute(&self, command: &ParsedCommand, working_dir: &Path) -> Result<String> {
         let mut cmd = Command::new(&command.command);
@@ -56,6 +57,7 @@ impl CommandExecutor {
         cmd.current_dir(working_dir);
         cmd.args(&command.args);
         
+        // Handle input redirection
         if let Some(ref input_file) = command.input_redirect {
             let input_file = std::fs::File::open(input_file)?;
             cmd.stdin(Stdio::from(input_file));
@@ -63,6 +65,7 @@ impl CommandExecutor {
             cmd.stdin(Stdio::inherit());
         }
         
+        // Handle output redirection
         if let Some(ref output_file) = command.output_redirect {
             let output_file = std::fs::File::create(output_file)?;
             let output_file_clone = output_file.try_clone()?;
@@ -71,6 +74,17 @@ impl CommandExecutor {
         } else {
             cmd.stdout(Stdio::piped());
             cmd.stderr(Stdio::piped());
+        }
+        
+        // Handle append redirection
+        if let Some(ref append_file) = command.append_redirect {
+            let append_file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(append_file)?;
+            let append_file_clone = append_file.try_clone()?;
+            cmd.stdout(Stdio::from(append_file));
+            cmd.stderr(Stdio::from(append_file_clone));
         }
         
         let output = if command.background {
@@ -83,14 +97,17 @@ impl CommandExecutor {
     }
     
     /**
-     * Executes a command in the foreground
+     * リアルコマンド実行の複雑な処理です (｡◕‿◕｡)
      * 
-     * Waits for the command to complete and captures its output.
+     * この関数は複雑なプロセス制御を行います。
+     * リアルタイム出力キャプチャが難しい部分なので、
+     * 適切なエラーハンドリングで実装しています (◕‿◕)
      * 
-     * @param mut cmd - Command to execute
-     * @return Result<String> - Command output or error
+     * @param mut cmd - 実行するコマンド
+     * @return Result<String> - コマンド出力またはエラー
      */
     async fn execute_foreground(&self, mut cmd: Command) -> Result<String> {
+        // Use synchronous execution for now
         let output = cmd.output()?;
         
         let mut result = String::new();

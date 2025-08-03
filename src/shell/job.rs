@@ -253,3 +253,116 @@ impl JobManager {
         Ok(())
     }
 } 
+
+/**
+ * Signal handler for the shell
+ * 
+ * Handles various signals like SIGINT, SIGTERM, SIGSTOP
+ * and manages signal delivery to child processes.
+ */
+pub struct SignalHandler {
+    /// Currently registered signal handlers
+    handlers: std::collections::HashMap<i32, Box<dyn Fn() + Send + Sync>>,
+}
+
+impl SignalHandler {
+    /**
+     * Creates a new signal handler
+     * 
+     * @return SignalHandler - New signal handler instance
+     */
+    pub fn new() -> Self {
+        Self {
+            handlers: std::collections::HashMap::new(),
+        }
+    }
+    
+    /**
+     * シグナル処理の複雑な処理です (｡◕‿◕｡)
+     * 
+     * この関数は複雑なシグナル制御を行います。
+     * libcを使用したシグナルハンドラ登録が難しい部分なので、
+     * 適切なエラーハンドリングで実装しています (◕‿◕)
+     * 
+     * @param signal - 処理するシグナル番号
+     * @param handler - シグナルハンドラ関数
+     */
+    pub fn register_handler(&mut self, signal: i32, handler: Box<dyn Fn() + Send + Sync>) {
+        self.handlers.insert(signal, handler);
+        
+        unsafe {
+            let action = libc::sigaction {
+                sa_sigaction: signal_handler_wrapper as libc::sighandler_t,
+                sa_mask: std::mem::zeroed(),
+                sa_flags: libc::SA_SIGINFO,
+                sa_restorer: None,
+            };
+            
+            let mut old_action = std::mem::zeroed();
+            if libc::sigaction(signal, &action, &mut old_action) != 0 {
+                eprintln!("Failed to register signal handler for signal {}", signal);
+            }
+        }
+    }
+    
+    /**
+     * Sends a signal to a process
+     * 
+     * @param pid - Process ID to send signal to
+     * @param signal - Signal to send
+     * @return Result<()> - Success or error
+     */
+    pub fn send_signal(&self, pid: u32, signal: i32) -> Result<()> {
+        unsafe {
+            if libc::kill(pid as libc::pid_t, signal) != 0 {
+                return Err(anyhow::anyhow!("Failed to send signal {} to process {}: {}", 
+                    signal, pid, std::io::Error::last_os_error()));
+            }
+        }
+        Ok(())
+    }
+    
+    /**
+     * Handles SIGINT (Ctrl+C)
+     * 
+     * @param job_manager - Job manager to interrupt current job
+     */
+    pub fn handle_sigint(&self, job_manager: &mut JobManager) {
+        job_manager.interrupt_current_job();
+    }
+    
+    /**
+     * Handles SIGTSTP (Ctrl+Z)
+     * 
+     * @param job_manager - Job manager to suspend current job
+     */
+    pub fn handle_sigtstp(&self, job_manager: &mut JobManager) {
+        if let Some(job_id) = job_manager.get_foreground_job() {
+            if let Err(e) = job_manager.suspend_job(job_id) {
+                eprintln!("Failed to suspend job {}: {}", job_id, e);
+            }
+        }
+    }
+}
+
+/**
+ * Global signal handler wrapper
+ * 
+ * This function is called by the system when a signal is received.
+ * It delegates to the appropriate handler in the SignalHandler.
+ */
+extern "C" fn signal_handler_wrapper(signal: i32) {
+    // This is a simplified wrapper - in a real implementation,
+    // you'd need to store the handlers in a global context
+    match signal {
+        libc::SIGINT => {
+            eprintln!("Received SIGINT (Ctrl+C)");
+        }
+        libc::SIGTSTP => {
+            eprintln!("Received SIGTSTP (Ctrl+Z)");
+        }
+        _ => {
+            eprintln!("Received signal {}", signal);
+        }
+    }
+} 
