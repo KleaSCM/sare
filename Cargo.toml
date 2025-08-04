@@ -11,6 +11,12 @@ license = "MIT"
 ratatui = "0.26.0"
 crossterm = "0.27.0"
 
+# GPU acceleration and graphics
+skia-safe = "0.70.0"
+wgpu = "0.17.0"
+winit = "0.29.0"
+raw-window-handle = "0.6.0"
+
 # Command execution and process management
 tokio = { version = "1.0", features = ["full"] }
 

@@ -1,57 +1,379 @@
+/**
+ * @file TODO.txt
+ * @brief Sare Terminal Development Roadmap
+ * 
+ * This file tracks the current implementation status and remaining tasks
+ * for transforming Sare from a shell into a full-featured terminal emulator
+ * that can work with any shell (bash, zsh, fish, etc.).
+ * 
+ * DEVELOPER-FIRST APPROACH: This terminal is built specifically for software
+ * developers with their workflows, tools, and productivity needs in mind.
+ * 
+ * @author KleaSCM
+ * @email KleaSCM@gmail.com
+ * @file TODO.txt
+ * @description Development roadmap for Sare terminal emulator with accurate
+ * status tracking and prioritized feature implementation.
+ */
 
-Core Architecture
-✅ Shell structure with proper modules (shell/, tui/, config/, history/)
-✅ Command parsing with argument handling, quoting, escapes
-✅ Command execution for both built-in and external commands
-✅ Job control with background/foreground process management
-✅ TUI interface using ratatui with proper layout
-✅ Comprehensive command set (30+ commands across all categories)
-Built-in Commands Implemented
-✅ Filesystem: cd, pwd, ls, mkdir, rm, cp, mv, touch
-✅ Process: jobs, kill, bg, fg, wait
-✅ Text: echo, cat, grep, sed, awk, sort, uniq, wc
-✅ System: exit, clear, history, help, alias, export, env, source
-✅ Network: ping, curl, wget, netstat
-✅ Development: git, cargo, make, npm
-Technical Features
-✅ Error handling with anyhow::Result
-✅ Style guide compliance with Doxygen comments and Japanese documentation
-✅ Modular architecture with proper separation of concerns
-✅ Cargo build system with proper dependencies
-�� What's Currently Working:
-✅ Basic TUI with prompt, output display, and input handling
-✅ Command parsing and routing to appropriate handlers
-✅ Built-in command execution with proper output formatting
-✅ External command execution via std::process::Command
-🚧 What's Left to Complete a Full Shell:
-1. Critical Missing Features
-🔴 Real external command execution (currently simulated)
-🔴 Proper I/O redirection (>, <, |)
-🔴 Environment variable expansion ($PATH, $HOME, etc.)
-🔴 Command history persistence (save/load from file)
-�� Tab completion for files and commands
-🔴 Signal handling (Ctrl+C, Ctrl+Z, etc.)
-2. TUI Enhancements
-🔴 Multi-pane support (like wezterm)
-🔴 Scrollable output with proper history
-🔴 Status bar showing current directory, jobs, etc.
-🔴 Color themes and customization
-🔴 Keyboard shortcuts and navigation
-3. Shell Features
-🔴 Alias expansion in command parsing
-🔴 Variable substitution ($VAR)
-�� Command chaining (&&, ||, ;)
-🔴 Subshell execution ($(command))
-🔴 Glob pattern expansion (*.txt, [abc])
-4. Advanced Features
-🔴 Plugin system for extensibility
-�� Script execution with proper flow control
-�� Job control UI (showing running jobs)
-🔴 Configuration file support (.sare_config)
-🔴 Auto-completion with fuzzy matching
-5. Testing & Polish
-🔴 Comprehensive test suite for all commands
-🔴 Integration tests for shell workflows
-🔴 Performance optimization for large outputs
-�� Error recovery and graceful degradation
-🔴 Documentation and user guide
+# Sare Terminal Development Roadmap
+## Developer-First Terminal Emulator
+
+### 🎯 Developer-Centric Design Philosophy
+**Primary Users**: Software developers, DevOps engineers, system administrators
+**Focus**: Productivity, performance, developer workflows, tool integration
+**Goal**: The ultimate terminal for developers who demand speed, reliability, and power
+
+## Current Implementation Status
+
+### ✅ Core Architecture (Fully Implemented)
+- **Shell structure** with proper modules (shell/, tui/, config/, history/)
+- **Command parsing** with argument handling, quoting, escapes
+- **Command execution** for both built-in and external commands
+- **Job control** with background/foreground process management
+- **TUI interface** using ratatui with proper layout
+- **Error handling** with anyhow::Result
+- **Style guide compliance** with Japanese documentation and proper formatting
+
+### ✅ Built-in Commands (Fully Implemented)
+- **Filesystem**: cd, pwd, ls, mkdir, rm, cp, mv, touch
+- **Process**: jobs, kill, bg, fg, wait
+- **Text**: echo, cat, grep, sed, awk, sort, uniq, wc
+- **System**: exit, clear, history, help, alias, export, env, source
+- **Network**: ping, curl, wget, netstat
+- **Development**: git, cargo, make, npm
+
+### ✅ Technical Features (Fully Implemented)
+- **Modular architecture** with proper separation of concerns
+- **Cargo build system** with proper dependencies
+- **Signal handling** (Ctrl+C, Ctrl+Z, Ctrl+D)
+- **Tab completion** for files and commands
+- **Command history** with persistence
+- **Environment variable management**
+- **Alias system** with proper expansion
+
+## Detailed Implementation Roadmap
+
+### 🔴 Phase 1: GPU Acceleration Foundation (Critical Priority)
+
+#### 1.1 Graphics Backend Architecture
+**Goal**: Implement GPU-accelerated rendering like Kitty
+**Timeline**: 2-3 weeks
+**Success Criteria**: 60fps rendering, hardware acceleration detection
+**Developer Focus**: Smooth scrolling for large logs, fast text rendering for code
+
+**Tasks:**
+- [ ] **Create GPU rendering module** (`src/tui/gpu/`)
+  - [ ] `src/tui/gpu/mod.rs` - Main GPU module
+  - [ ] `src/tui/gpu/skia_backend.rs` - Skia GPU backend
+  - [ ] `src/tui/gpu/wgpu_backend.rs` - WGPU fallback backend
+  - [ ] `src/tui/gpu/renderer.rs` - GPU renderer abstraction
+  - [ ] `src/tui/gpu/text.rs` - GPU-accelerated text rendering
+  - [ ] `src/tui/gpu/fonts.rs` - Font management and caching
+
+- [ ] **Hardware acceleration detection**
+  - [ ] GPU capability detection (OpenGL, Vulkan, Metal)
+  - [ ] Fallback to CPU rendering if GPU unavailable
+  - [ ] Performance benchmarking and auto-selection
+  - [ ] Cross-platform compatibility testing
+
+- [ ] **Rendering pipeline optimization**
+  - [ ] GPU-accelerated text rendering with subpixel antialiasing
+  - [ ] Hardware-accelerated scrolling (smooth 60fps)
+  - [ ] Efficient buffer management and memory pooling
+  - [ ] Async rendering pipeline for non-blocking UI
+
+#### 1.2 GPU Performance Features
+**Goal**: Achieve Kitty-level performance
+**Timeline**: 1-2 weeks
+**Success Criteria**: <16ms frame time, smooth scrolling
+**Developer Focus**: Handle large build outputs, git diffs, log files
+
+**Tasks:**
+- [ ] **Frame rate optimization**
+  - [ ] Target 60fps rendering (16.67ms frame time)
+  - [ ] GPU memory pooling and resource reuse
+  - [ ] Efficient texture atlas management
+  - [ ] Minimize GPU state changes
+
+- [ ] **Memory optimization**
+  - [ ] GPU memory usage monitoring
+  - [ ] Automatic resource cleanup
+  - [ ] Efficient font caching and glyph storage
+  - [ ] Texture compression for large outputs
+
+- [ ] **Rendering features**
+  - [ ] GPU-accelerated transparency and compositing
+  - [ ] Hardware-accelerated color management
+  - [ ] GPU-based effects and animations
+  - [ ] Efficient overlay rendering
+
+### 🔴 Phase 2: Terminal Emulator Foundation (High Priority)
+
+#### 2.1 PTY Implementation
+**Goal**: Support external shells (bash, zsh, fish, dash)
+**Timeline**: 2-3 weeks
+**Success Criteria**: Can spawn and manage external shells
+**Developer Focus**: Support for developer shells (zsh with oh-my-zsh, fish with starship)
+
+**Tasks:**
+- [ ] **Create PTY module** (`src/terminal/`)
+  - [ ] `src/terminal/mod.rs` - Main terminal module
+  - [ ] `src/terminal/pty.rs` - Pseudo-terminal implementation
+  - [ ] `src/terminal/shell.rs` - External shell management
+  - [ ] `src/terminal/process.rs` - Process lifecycle management
+  - [ ] `src/terminal/io.rs` - I/O redirection and piping
+
+- [ ] **External shell integration**
+  - [ ] Spawn external shells (bash, zsh, fish, dash)
+  - [ ] Shell process lifecycle management
+  - [ ] Shell-specific configuration detection
+  - [ ] Environment variable inheritance
+
+- [ ] **I/O redirection and piping**
+  - [ ] Implement stdin/stdout/stderr redirection
+  - [ ] Pipeline support (|, >, <, >>, <<)
+  - [ ] Background process I/O handling
+  - [ ] Real-time output streaming
+
+#### 2.2 Multi-pane Architecture
+**Goal**: Multi-pane support like wezterm
+**Timeline**: 3-4 weeks
+**Success Criteria**: Split panes, independent shell sessions
+**Developer Focus**: IDE-like workflow with multiple terminals, build/test/debug panes
+
+**Tasks:**
+- [ ] **Create pane management module** (`src/tui/panes/`)
+  - [ ] `src/tui/panes/mod.rs` - Pane management
+  - [ ] `src/tui/panes/layout.rs` - Pane layout algorithms
+  - [ ] `src/tui/panes/session.rs` - Independent shell sessions
+  - [ ] `src/tui/panes/navigation.rs` - Pane navigation and focus
+
+- [ ] **Pane features**
+  - [ ] Split panes (horizontal/vertical)
+  - [ ] Pane resizing and navigation
+  - [ ] Independent shell sessions per pane
+  - [ ] Pane-specific configuration
+  - [ ] Pane synchronization and coordination
+
+### 🔴 Phase 3: Developer-Specific Features (High Priority)
+
+#### 3.1 Development Workflow Integration
+**Goal**: Seamless integration with developer tools and workflows
+**Timeline**: 2-3 weeks
+**Success Criteria**: Git integration, build tools, debugging support
+
+**Tasks:**
+- [ ] **Git integration**
+  - [ ] Git status in status bar
+  - [ ] Git branch display
+  - [ ] Git diff highlighting
+  - [ ] Git command shortcuts
+
+- [ ] **Build system integration**
+  - [ ] Cargo, npm, make, cmake integration
+  - [ ] Build output parsing and highlighting
+  - [ ] Error highlighting and navigation
+  - [ ] Build status indicators
+
+- [ ] **Debugging support**
+  - [ ] GDB/LLDB integration
+  - [ ] Debug output highlighting
+  - [ ] Breakpoint visualization
+  - [ ] Stack trace navigation
+
+#### 3.2 Advanced TUI Features
+**Goal**: Professional terminal experience for developers
+**Timeline**: 2-3 weeks
+**Success Criteria**: Scrollable output, themes, shortcuts
+**Developer Focus**: Code-friendly themes, syntax highlighting, developer shortcuts
+
+**Tasks:**
+- [ ] **Enhanced TUI features**
+  - [ ] Scrollable output with proper history
+  - [ ] Status bar with shell info, jobs, directory, git status
+  - [ ] Developer-focused color themes (dark themes, syntax highlighting)
+  - [ ] Keyboard shortcuts optimized for developers
+  - [ ] Copy/paste support with syntax preservation
+
+- [ ] **Shell compatibility**
+  - [ ] Support for all major shells (bash, zsh, fish, dash)
+  - [ ] Shell-specific feature detection
+  - [ ] Proper signal forwarding
+  - [ ] Shell completion integration
+
+#### 3.3 Configuration and Plugin System
+**Goal**: Extensible and configurable terminal for developers
+**Timeline**: 2-3 weeks
+**Success Criteria**: Plugin system, configuration files
+**Developer Focus**: Programmable configuration, developer tool plugins
+
+**Tasks:**
+- [ ] **Configuration system**
+  - [ ] .sare_config file support (TOML/YAML)
+  - [ ] Shell-specific configurations
+  - [ ] Developer-focused themes and keybindings
+  - [ ] Project-specific configurations
+
+- [ ] **Plugin system**
+  - [ ] Extensible command system
+  - [ ] Custom shell integrations
+  - [ ] Developer tool plugins (linters, formatters, etc.)
+  - [ ] External tool integrations
+
+### 🔴 Phase 4: Performance and Polish (Medium Priority)
+
+#### 4.1 Performance Optimization
+**Goal**: Handle large outputs efficiently
+**Timeline**: 1-2 weeks
+**Success Criteria**: Smooth performance with large outputs
+**Developer Focus**: Large log files, build outputs, git diffs
+
+**Tasks:**
+- [ ] **Performance optimizations**
+  - [ ] Large output handling (100k+ lines)
+  - [ ] Memory-efficient scrolling
+  - [ ] Fast rendering for real-time updates
+  - [ ] Efficient process management
+
+#### 4.2 Testing and Documentation
+**Goal**: Production-ready quality for developers
+**Timeline**: 2-3 weeks
+**Success Criteria**: Comprehensive tests, documentation
+**Developer Focus**: Developer-friendly documentation, examples, troubleshooting
+
+**Tasks:**
+- [ ] **Comprehensive testing**
+  - [ ] Unit tests for all modules
+  - [ ] Integration tests for shell workflows
+  - [ ] Performance benchmarks
+  - [ ] Cross-platform compatibility
+
+- [ ] **Documentation and user guide**
+  - [ ] Developer installation and setup guide
+  - [ ] Configuration documentation with examples
+  - [ ] Shell integration guide
+  - [ ] Troubleshooting guide for common developer issues
+
+## Developer-Specific Features
+
+### 🚀 Developer Workflow Integration
+- **Git integration**: Status, branch, diff highlighting
+- **Build system support**: Cargo, npm, make, cmake
+- **Debugging tools**: GDB/LLDB integration
+- **Code navigation**: Syntax highlighting, error navigation
+- **Project management**: Multi-project support
+
+### 🎨 Developer-Focused UI
+- **Dark themes**: Optimized for long coding sessions
+- **Syntax highlighting**: Code-friendly color schemes
+- **Developer shortcuts**: Optimized keybindings for coding
+- **Status indicators**: Git, build status, errors
+- **Multi-pane workflows**: IDE-like terminal experience
+
+### ⚡ Performance for Developers
+- **Large file handling**: 100k+ line logs, diffs, outputs
+- **Fast rendering**: 60fps for smooth scrolling
+- **Memory efficiency**: Handle multiple large outputs
+- **Background processing**: Non-blocking UI during builds
+
+## Implementation Strategy
+
+### Development Approach
+1. **Developer-first design** - Every feature optimized for developer workflows
+2. **Modular development** - Each phase builds on the previous
+3. **Incremental testing** - Test each component thoroughly
+4. **Performance monitoring** - Continuous performance measurement
+5. **Cross-platform compatibility** - Test on Linux, macOS, Windows
+
+### Success Metrics
+- **Performance**: 60fps rendering, <16ms frame time
+- **Compatibility**: Works with bash, zsh, fish, dash
+- **Developer features**: Git integration, build tools, debugging
+- **Reliability**: Stable across different development environments
+- **Usability**: Professional terminal experience for developers
+
+### Risk Mitigation
+- **GPU fallback**: CPU rendering if GPU unavailable
+- **Shell fallback**: Internal shell if external fails
+- **Progressive enhancement**: Core features work without advanced features
+- **Comprehensive testing**: Prevent regressions in development workflows
+
+## Technical Architecture
+
+### Current Architecture
+```
+src/
+├── main.rs          # Application entry point
+├── shell/           # Shell implementation (COMPLETE)
+├── tui/             # TUI interface (CPU-based)
+├── history/         # Command history (COMPLETE)
+└── config/          # Configuration (COMPLETE)
+```
+
+### Target Architecture
+```
+src/
+├── main.rs          # Application entry point
+├── shell/           # Internal shell (COMPLETE)
+├── terminal/        # Terminal emulator (NEW)
+│   ├── pty.rs       # Pseudo-terminal
+│   ├── shell.rs     # External shell management
+│   └── process.rs   # Process lifecycle
+├── tui/             # Enhanced TUI (GPU-accelerated)
+│   ├── gpu/         # GPU rendering (NEW)
+│   ├── panes/       # Multi-pane support (NEW)
+│   └── themes/      # Theme system (NEW)
+├── dev/             # Developer features (NEW)
+│   ├── git.rs       # Git integration
+│   ├── build.rs     # Build system integration
+│   └── debug.rs     # Debugging support
+├── history/         # Command history (COMPLETE)
+└── config/          # Configuration (COMPLETE)
+```
+
+## Development Timeline
+
+### Phase 1: GPU Acceleration (Weeks 1-4)
+- Week 1-2: GPU backend architecture
+- Week 3-4: Performance optimization
+
+### Phase 2: Terminal Foundation (Weeks 5-8)
+- Week 5-6: PTY implementation
+- Week 7-8: Multi-pane architecture
+
+### Phase 3: Developer Features (Weeks 9-12)
+- Week 9-10: Development workflow integration
+- Week 11-12: Advanced TUI and configuration
+
+### Phase 4: Polish (Weeks 13-16)
+- Week 13-14: Performance optimization
+- Week 15-16: Testing and documentation
+
+**Total Timeline**: 16 weeks for complete implementation
+
+## Next Steps
+
+### Immediate Actions (This Week)
+1. **Set up GPU development environment**
+   - Install GPU development tools
+   - Set up cross-platform testing
+   - Create GPU module structure
+
+2. **Begin GPU backend implementation**
+   - Start with Skia integration
+   - Implement basic GPU rendering
+   - Add hardware detection
+
+3. **Plan developer features**
+   - Research git integration approaches
+   - Design build system integration
+   - Plan debugging support
+
+### Success Criteria for Each Phase
+- **Phase 1**: GPU rendering working at 60fps
+- **Phase 2**: Can spawn and manage external shells
+- **Phase 3**: Developer workflow integration complete
+- **Phase 4**: Production-ready developer terminal
+
+This roadmap provides a clear path to the ultimate developer terminal emulator! (◕‿◕)♡
