@@ -23,18 +23,69 @@ mod config;
 mod history;
 
 /**
+ * Split direction for pane splitting
+ */
+#[derive(Debug, Clone, PartialEq)]
+enum SplitDirection {
+	/// Vertical split (left/right)
+	Vertical,
+	/// Horizontal split (top/bottom)
+	Horizontal,
+}
+
+/**
+ * Terminal pane with layout information
+ */
+#[derive(Debug, Clone)]
+struct TerminalPane {
+	/// Pane ID
+	id: String,
+	/// Output buffer for this pane
+	output_buffer: Vec<TerminalLine>,
+	/// Current input for this pane
+	current_input: String,
+	/// Cursor position in input
+	cursor_pos: usize,
+	/// Working directory for this pane
+	working_directory: String,
+	/// Whether this pane is active
+	active: bool,
+	/// Pane position and size (x, y, width, height)
+	layout: (f32, f32, f32, f32),
+	/// Parent pane ID (if split)
+	parent_id: Option<String>,
+	/// Child pane IDs (if split)
+	child_ids: Vec<String>,
+	/// Split direction (if this pane was created by splitting)
+	split_direction: Option<SplitDirection>,
+}
+
+/**
+ * Terminal line for output
+ */
+#[derive(Debug, Clone)]
+struct TerminalLine {
+	content: String,
+	color: egui::Color32,
+	is_prompt: bool,
+}
+
+/**
+ * Terminal mode
+ */
+#[derive(Debug, Clone)]
+enum TerminalMode {
+	Normal,
+	Insert,
+}
+
+/**
  * Main Sare terminal application
  * 
  * Provides a real GUI terminal window with actual shell functionality,
  * command execution, and terminal emulation features.
  */
 struct SareTerminal {
-	/// Terminal output buffer
-	output_buffer: Vec<TerminalLine>,
-	/// Current input line
-	current_input: String,
-	/// Cursor position in input
-	cursor_pos: usize,
 	/// Command history
 	command_history: Vec<String>,
 	/// History index for navigation
@@ -53,38 +104,8 @@ struct SareTerminal {
 	panes: Vec<TerminalPane>,
 	/// Currently focused pane
 	focused_pane: usize,
-}
-
-/**
- * Terminal line for output
- */
-#[derive(Debug, Clone)]
-struct TerminalLine {
-	content: String,
-	color: egui::Color32,
-	is_prompt: bool,
-}
-
-/**
- * Terminal pane
- */
-#[derive(Debug, Clone)]
-struct TerminalPane {
-	id: String,
-	output_buffer: Vec<TerminalLine>,
-	current_input: String,
-	cursor_pos: usize,
-	working_directory: String,
-	active: bool,
-}
-
-/**
- * Terminal mode
- */
-#[derive(Debug, Clone, PartialEq)]
-enum TerminalMode {
-	Normal,
-	Insert,
+	/// Current split direction for new panes
+	current_split_direction: SplitDirection,
 }
 
 impl Default for SareTerminal {
@@ -97,7 +118,6 @@ impl Default for SareTerminal {
 		 * 適切なエラーハンドリングで実装しています (◕‿◕)
 		 */
 		
-		// Create default pane
 		let default_pane = TerminalPane {
 			id: "pane_0".to_string(),
 			output_buffer: Vec::new(), // Start with empty output
@@ -108,12 +128,13 @@ impl Default for SareTerminal {
 				.to_string_lossy()
 				.to_string(),
 			active: true,
+			layout: (0.0, 0.0, 1.0, 1.0), // Default to full screen
+			parent_id: None,
+			child_ids: Vec::new(),
+			split_direction: None,
 		};
 		
 		Self {
-			output_buffer: Vec::new(), // Start with empty output
-			current_input: String::new(),
-			cursor_pos: 0,
 			command_history: Vec::new(),
 			history_index: None,
 			current_dir: std::env::current_dir()
@@ -126,6 +147,7 @@ impl Default for SareTerminal {
 			mode: TerminalMode::Normal,
 			panes: vec![default_pane],
 			focused_pane: 0,
+			current_split_direction: SplitDirection::Vertical,
 		}
 	}
 }
@@ -153,8 +175,8 @@ impl SareTerminal {
 			if let Some(pane) = self.panes.get_mut(self.focused_pane) {
 				pane.output_buffer.clear();
 			}
-			self.current_input.clear();
-			self.cursor_pos = 0;
+			self.panes[self.focused_pane].current_input.clear();
+			self.panes[self.focused_pane].cursor_pos = 0;
 			return;
 		}
 		
@@ -179,8 +201,8 @@ impl SareTerminal {
 		}
 		
 		// Clear input
-		self.current_input.clear();
-		self.cursor_pos = 0;
+		self.panes[self.focused_pane].current_input.clear();
+		self.panes[self.focused_pane].cursor_pos = 0;
 	}
 	
 	/**
@@ -258,19 +280,16 @@ impl SareTerminal {
 	}
 	
 	/**
-	 * Adds a line to output buffer
+	 * Adds a line to the output buffer
 	 */
 	fn add_output_line(&mut self, content: String, color: egui::Color32, is_prompt: bool) {
-		self.output_buffer.push(TerminalLine {
+		let line = TerminalLine {
 			content,
 			color,
 			is_prompt,
-		});
+		};
 		
-		// Auto-scroll to bottom
-		if self.auto_scroll {
-			self.scroll_pos = self.output_buffer.len() as f32;
-		}
+		self.panes[self.focused_pane].output_buffer.push(line);
 	}
 	
 	/**
@@ -280,7 +299,7 @@ impl SareTerminal {
 		ctx.input(|input| {
 			// Handle key presses
 			if input.key_pressed(egui::Key::Enter) {
-				let command = self.current_input.clone();
+				let command = self.panes[self.focused_pane].current_input.clone();
 				if !command.trim().is_empty() {
 					self.execute_command(&command);
 				}
@@ -289,35 +308,42 @@ impl SareTerminal {
 			} else if input.key_pressed(egui::Key::ArrowDown) {
 				self.navigate_history_down();
 			} else if input.key_pressed(egui::Key::ArrowLeft) {
-				if self.cursor_pos > 0 {
-					self.cursor_pos -= 1;
+				if self.panes[self.focused_pane].cursor_pos > 0 {
+					self.panes[self.focused_pane].cursor_pos -= 1;
 				}
 			} else if input.key_pressed(egui::Key::ArrowRight) {
-				if self.cursor_pos < self.current_input.len() {
-					self.cursor_pos += 1;
+				let current_input_len = self.panes[self.focused_pane].current_input.len();
+				if self.panes[self.focused_pane].cursor_pos < current_input_len {
+					self.panes[self.focused_pane].cursor_pos += 1;
 				}
 			} else if input.key_pressed(egui::Key::Home) {
-				self.cursor_pos = 0;
+				self.panes[self.focused_pane].cursor_pos = 0;
 			} else if input.key_pressed(egui::Key::End) {
-				self.cursor_pos = self.current_input.len();
+				self.panes[self.focused_pane].cursor_pos = self.panes[self.focused_pane].current_input.len();
 			} else if input.key_pressed(egui::Key::Backspace) {
-				if self.cursor_pos > 0 {
-					self.current_input.remove(self.cursor_pos - 1);
-					self.cursor_pos -= 1;
+				if self.panes[self.focused_pane].cursor_pos > 0 {
+					let cursor_pos = self.panes[self.focused_pane].cursor_pos;
+					self.panes[self.focused_pane].current_input.remove(cursor_pos - 1);
+					self.panes[self.focused_pane].cursor_pos -= 1;
 				}
 			} else if input.key_pressed(egui::Key::Delete) {
-				if self.cursor_pos < self.current_input.len() {
-					self.current_input.remove(self.cursor_pos);
+				let cursor_pos = self.panes[self.focused_pane].cursor_pos;
+				let current_input_len = self.panes[self.focused_pane].current_input.len();
+				if cursor_pos < current_input_len {
+					self.panes[self.focused_pane].current_input.remove(cursor_pos);
 				}
 			} else if input.key_pressed(egui::Key::C) && input.modifiers.ctrl {
 				// Ctrl+C - clear input
-				self.current_input.clear();
-				self.cursor_pos = 0;
+				self.panes[self.focused_pane].current_input.clear();
+				self.panes[self.focused_pane].cursor_pos = 0;
 			} else if input.key_pressed(egui::Key::N) && input.modifiers.ctrl {
-				// Ctrl+N - new pane
-				self.create_new_pane();
-			} else if input.key_pressed(egui::Key::W) && input.modifiers.ctrl {
-				// Ctrl+W - close pane
+				// Ctrl+N - new pane (vertical split)
+				self.split_pane(SplitDirection::Vertical);
+			} else if input.key_pressed(egui::Key::H) && input.modifiers.ctrl {
+				// Ctrl+H - horizontal split
+				self.split_pane(SplitDirection::Horizontal);
+			} else if input.key_pressed(egui::Key::D) && input.modifiers.ctrl {
+				// Ctrl+D - close pane
 				self.close_current_pane();
 			} else if input.key_pressed(egui::Key::Tab) {
 				// Tab - switch panes
@@ -329,8 +355,9 @@ impl SareTerminal {
 				if let egui::Event::Text(text) = event {
 					for ch in text.chars() {
 						if ch.is_ascii() && !ch.is_control() {
-							self.current_input.insert(self.cursor_pos, ch);
-							self.cursor_pos += 1;
+							let cursor_pos = self.panes[self.focused_pane].cursor_pos;
+							self.panes[self.focused_pane].current_input.insert(cursor_pos, ch);
+							self.panes[self.focused_pane].cursor_pos += 1;
 						}
 					}
 				}
@@ -351,8 +378,8 @@ impl SareTerminal {
 		
 		if current_index > 0 {
 			self.history_index = Some(current_index - 1);
-			self.current_input = self.command_history[current_index - 1].clone();
-			self.cursor_pos = self.current_input.len();
+			self.panes[self.focused_pane].current_input = self.command_history[current_index - 1].clone();
+			self.panes[self.focused_pane].cursor_pos = self.panes[self.focused_pane].current_input.len();
 		}
 	}
 	
@@ -369,28 +396,64 @@ impl SareTerminal {
 		
 		if current_index < history_len - 1 {
 			self.history_index = Some(current_index + 1);
-			self.current_input = self.command_history[current_index + 1].clone();
-			self.cursor_pos = self.current_input.len();
+			self.panes[self.focused_pane].current_input = self.command_history[current_index + 1].clone();
+			self.panes[self.focused_pane].cursor_pos = self.panes[self.focused_pane].current_input.len();
 		} else {
 			self.history_index = None;
-			self.current_input.clear();
-			self.cursor_pos = 0;
+			self.panes[self.focused_pane].current_input.clear();
+			self.panes[self.focused_pane].cursor_pos = 0;
 		}
 	}
 	
 	/**
-	 * Creates a new pane
+	 * Splits the current pane in the specified direction
 	 */
-	fn create_new_pane(&mut self) {
-		let new_pane = TerminalPane {
-			id: format!("pane_{}", self.panes.len()),
-			output_buffer: Vec::new(), // Start with empty output
-			current_input: String::new(),
-			cursor_pos: 0,
-			working_directory: self.current_dir.clone(),
-			active: false,
+	fn split_pane(&mut self, direction: SplitDirection) {
+		// Get current pane layout and working directory
+		let current_pane = &self.panes[self.focused_pane];
+		let (x, y, width, height) = current_pane.layout;
+		let working_directory = current_pane.working_directory.clone();
+		let current_pane_id = current_pane.id.clone();
+		let new_pane_id = format!("pane_{}", self.panes.len());
+		
+		// Calculate new pane layout based on split direction
+		let (new_x, new_y, new_width, new_height) = match direction {
+			SplitDirection::Vertical => {
+				// Split vertically: current pane gets left half, new pane gets right half
+				(x + width * 0.5, y, width * 0.5, height)
+			}
+			SplitDirection::Horizontal => {
+				// Split horizontally: current pane gets top half, new pane gets bottom half
+				(x, y + height * 0.5, width, height * 0.5)
+			}
 		};
 		
+		// Update current pane layout
+		let current_pane = &mut self.panes[self.focused_pane];
+		match direction {
+			SplitDirection::Vertical => {
+				current_pane.layout = (x, y, width * 0.5, height);
+			}
+			SplitDirection::Horizontal => {
+				current_pane.layout = (x, y, width, height * 0.5);
+			}
+		}
+		
+		// Create new pane
+		let new_pane = TerminalPane {
+			id: new_pane_id,
+			output_buffer: Vec::new(),
+			current_input: String::new(),
+			cursor_pos: 0,
+			working_directory,
+			active: false,
+			layout: (new_x, new_y, new_width, new_height),
+			parent_id: Some(current_pane_id),
+			child_ids: Vec::new(),
+			split_direction: Some(direction),
+		};
+		
+		// Add new pane
 		self.panes.push(new_pane);
 		self.focused_pane = self.panes.len() - 1;
 		
@@ -398,10 +461,13 @@ impl SareTerminal {
 		for (i, pane) in self.panes.iter_mut().enumerate() {
 			pane.active = i == self.focused_pane;
 		}
-		
-		// Clear current input when switching panes
-		self.current_input.clear();
-		self.cursor_pos = 0;
+	}
+	
+	/**
+	 * Creates a new pane (legacy function, now uses split_pane)
+	 */
+	fn create_new_pane(&mut self) {
+		self.split_pane(SplitDirection::Vertical);
 	}
 	
 	/**
@@ -475,8 +541,8 @@ impl SareTerminal {
 					
 					// Input text with cursor
 					let input_text = format!("{}{}", 
-						&self.current_input[..self.cursor_pos],
-						&self.current_input[self.cursor_pos..]
+						&self.panes[self.focused_pane].current_input[..self.panes[self.focused_pane].cursor_pos],
+						&self.panes[self.focused_pane].current_input[self.panes[self.focused_pane].cursor_pos..]
 					);
 					
 					ui.label(egui::RichText::new(input_text)
