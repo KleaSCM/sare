@@ -16,6 +16,7 @@ pub mod renderer;
 pub mod multiline;
 pub mod heredoc;
 pub mod substitution;
+pub mod expansion;
 
 pub use terminal::SareTerminal;
 pub use pane::{TerminalPane, SplitDirection};
