@@ -59,6 +59,20 @@ pub struct SareTerminal {
 	pub continuation_char: Option<char>,
 	/// Multiline prompt prefix
 	pub multiline_prompt: String,
+	/// Heredoc state
+	pub heredoc_mode: bool,
+	/// Heredoc delimiter
+	pub heredoc_delimiter: String,
+	/// Heredoc content being collected
+	pub heredoc_content: String,
+	/// Whether heredoc content should expand variables
+	pub heredoc_expand_vars: bool,
+	/// Command substitution state
+	pub substitution_mode: bool,
+	/// Current substitution depth
+	pub substitution_depth: usize,
+	/// Substitution buffer for nested commands
+	pub substitution_buffer: String,
 }
 
 impl Default for SareTerminal {
@@ -107,6 +121,13 @@ impl Default for SareTerminal {
 			multiline_mode: false,
 			continuation_char: None,
 			multiline_prompt: String::new(),
+			heredoc_mode: false,
+			heredoc_delimiter: String::new(),
+			heredoc_content: String::new(),
+			heredoc_expand_vars: false,
+			substitution_mode: false,
+			substitution_depth: 0,
+			substitution_buffer: String::new(),
 		}
 	}
 }
@@ -120,22 +141,38 @@ impl SareTerminal {
 	}
 	
 	/**
-	 * Executes a command
+	 * Executes a command with substitution processing
+	 * 
+	 * @param command - Command to execute
 	 */
 	pub fn execute_command(&mut self, command: &str) {
+		/**
+		 * コマンド実行の複雑な処理です (◕‿◕)
+		 * 
+		 * この関数は複雑なコマンド処理を行います。
+		 * 置換処理とコマンド実行が難しい部分なので、
+		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+		 */
+		
+		// Process command substitutions first
+		let processed_command = match self.process_command_substitutions(command) {
+			Ok(processed) => processed,
+			Err(_) => command.to_string(),
+		};
+		
 		// Add command to history
-		if !command.trim().is_empty() {
-			self.history_manager.add_command(command.to_string(), None);
-			self.tab_completer.add_command(command.to_string());
+		if !processed_command.trim().is_empty() {
+			self.history_manager.add_command(processed_command.clone(), None);
+			self.tab_completer.add_command(processed_command.clone());
 			self.history_index = None;
 			self.history_search_mode = false;
 			self.history_search_query.clear();
 		}
 		
-		// Execute the command first
-		let output = self.run_command(command);
+		// Execute the processed command
+		let output = self.run_command(&processed_command);
 		
-		// Get current pane and add output
+		// Add output to the focused pane
 		if let Some(pane) = self.panes.get_mut(self.focused_pane) {
 			pane.add_output_line(output, egui::Color32::from_rgb(255, 255, 255), false);
 		}
@@ -326,13 +363,50 @@ impl SareTerminal {
 										let mut new_input = command.clone();
 										new_input.push('\n');
 										
-										if let Some(pane) = self.panes.get_mut(self.focused_pane) {
-											pane.current_input = new_input.clone();
-											pane.cursor_pos = pane.current_input.len();
-										}
+										// Check if this is a heredoc delimiter before mutable borrow
+										let is_heredoc_delimiter = self.heredoc_mode && self.is_heredoc_delimiter(&command);
 										
-										// Update multiline state
-										self.update_multiline_state(&new_input);
+										if is_heredoc_delimiter {
+											// End of heredoc, execute the command
+											let full_command = format!("{}\n{}", new_input, self.heredoc_content);
+											self.execute_command(&full_command);
+											
+											// Clear the input and reset states
+											if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+												pane.current_input.clear();
+												pane.cursor_pos = 0;
+											}
+											
+											self.history_index = None;
+											self.original_input.clear();
+											self.multiline_mode = false;
+											self.continuation_char = None;
+											self.multiline_prompt.clear();
+											self.heredoc_mode = false;
+											self.heredoc_delimiter.clear();
+											self.heredoc_content.clear();
+											self.heredoc_expand_vars = false;
+										} else {
+											// Continue collecting input
+											if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+												pane.current_input = new_input.clone();
+												pane.cursor_pos = pane.current_input.len();
+											}
+											
+											// If in heredoc mode, add to heredoc content
+											if self.heredoc_mode {
+												let line_content = if self.heredoc_expand_vars {
+													self.expand_heredoc_variables(&command)
+												} else {
+													command.clone()
+												};
+												self.heredoc_content.push_str(&line_content);
+												self.heredoc_content.push('\n');
+											}
+											
+											// Update multiline state
+											self.update_multiline_state(&new_input);
+										}
 									} else if !command.trim().is_empty() {
 										// Execute the command
 										self.execute_command(&command);
@@ -719,10 +793,28 @@ impl SareTerminal {
 	 * @param input - Input text to check
 	 */
 	pub fn update_multiline_state(&mut self, input: &str) {
+		// Check for heredoc first
+		if let Some((delimiter, expand_vars)) = self.detect_heredoc(input) {
+			self.heredoc_mode = true;
+			self.heredoc_delimiter = delimiter;
+			self.heredoc_expand_vars = expand_vars;
+			self.multiline_mode = true;
+			self.multiline_prompt = format!("heredoc> ");
+			return;
+		}
+		
+		// Check for regular multiline continuation
 		let (needs_continuation, continuation_char) = self.check_multiline_continuation(input);
 		
 		self.multiline_mode = needs_continuation;
 		self.continuation_char = continuation_char;
+		
+		// Reset heredoc state if not in heredoc mode
+		if !self.heredoc_mode {
+			self.heredoc_delimiter.clear();
+			self.heredoc_content.clear();
+			self.heredoc_expand_vars = false;
+		}
 		
 		// Set appropriate prompt
 		if needs_continuation {
@@ -739,5 +831,261 @@ impl SareTerminal {
 		} else {
 			self.multiline_prompt.clear();
 		}
+	}
+	
+	/**
+	 * Checks if input contains heredoc syntax
+	 * 
+	 * @param input - Input text to check
+	 * @return Option<(String, bool)> - (Delimiter, expand variables) if heredoc found
+	 */
+	pub fn detect_heredoc(&self, input: &str) -> Option<(String, bool)> {
+		/**
+		 * ヒアドキュメント検出の複雑な処理です (｡◕‿◕｡)
+		 * 
+		 * この関数は複雑な構文解析を行います。
+		 * ヒアドキュメント構文の検出が難しい部分なので、
+		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 */
+		
+		let words: Vec<&str> = input.split_whitespace().collect();
+		
+		for (i, word) in words.iter().enumerate() {
+			if word.starts_with("<<") {
+				// Check for quoted delimiter (no variable expansion)
+				if word.starts_with("<<'") || word.starts_with("<<\"") {
+					let quote_char = word.chars().nth(2).unwrap();
+					let delimiter = word[3..].to_string();
+					return Some((delimiter, false));
+				}
+				
+				// Regular heredoc (with variable expansion)
+				if word.len() > 2 {
+					let delimiter = word[2..].to_string();
+					return Some((delimiter, true));
+				}
+			}
+		}
+		
+		None
+	}
+	
+	/**
+	 * Checks if current line matches heredoc delimiter
+	 * 
+	 * @param line - Current line to check
+	 * @return bool - True if line matches delimiter
+	 */
+	pub fn is_heredoc_delimiter(&self, line: &str) -> bool {
+		if !self.heredoc_mode {
+			return false;
+		}
+		
+		let trimmed = line.trim();
+		trimmed == self.heredoc_delimiter
+	}
+	
+	/**
+	 * Expands variables in heredoc content
+	 * 
+	 * @param content - Content to expand
+	 * @return String - Content with variables expanded
+	 */
+	pub fn expand_heredoc_variables(&self, content: &str) -> String {
+		/**
+		 * ヒアドキュメント変数展開の複雑な処理です (◕‿◕)
+		 * 
+		 * この関数は複雑な変数展開を行います。
+		 * 環境変数の置換が難しい部分なので、
+		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+		 */
+		
+		let mut result = String::new();
+		let mut i = 0;
+		
+		while i < content.len() {
+			if content[i..].starts_with('$') {
+				// Found variable reference
+				let var_start = i + 1;
+				let mut var_end = var_start;
+				
+				// Find variable name
+				while var_end < content.len() {
+					let ch = content.chars().nth(var_end).unwrap();
+					if ch.is_alphanumeric() || ch == '_' {
+						var_end += 1;
+					} else {
+						break;
+					}
+				}
+				
+				if var_end > var_start {
+					let var_name = &content[var_start..var_end];
+					
+					// Get environment variable
+					if let Ok(var_value) = std::env::var(var_name) {
+						result.push_str(&var_value);
+					} else {
+						// Variable not found, keep original
+						result.push_str(&content[i..var_end]);
+					}
+					
+					i = var_end;
+				} else {
+					// Just a $, keep it
+					result.push('$');
+					i += 1;
+				}
+			} else {
+				// Regular character
+				result.push(content.chars().nth(i).unwrap());
+				i += 1;
+			}
+		}
+		
+		result
+	}
+	
+	/**
+	 * Detects command substitution in input
+	 * 
+	 * @param input - Input text to check
+	 * @return Vec<(usize, usize, String)> - List of (start, end, command) substitutions
+	 */
+	pub fn detect_command_substitutions(&self, input: &str) -> Vec<(usize, usize, String)> {
+		/**
+		 * コマンド置換検出の複雑な処理です (｡◕‿◕｡)
+		 * 
+		 * この関数は複雑な構文解析を行います。
+		 * ネストした置換処理が難しい部分なので、
+		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 */
+		
+		let mut substitutions = Vec::new();
+		let mut i = 0;
+		
+		while i < input.len() {
+			// Check for $(command) syntax
+			if input[i..].starts_with("$(") {
+				let start = i;
+				let mut depth = 1;
+				let mut j = i + 2;
+				
+				while j < input.len() && depth > 0 {
+					match input.chars().nth(j) {
+						Some('(') => depth += 1,
+						Some(')') => depth -= 1,
+						_ => {}
+					}
+					j += 1;
+				}
+				
+				if depth == 0 {
+					let command = input[i + 2..j - 1].to_string();
+					substitutions.push((start, j, command));
+				}
+				
+				i = j;
+			}
+			// Check for `command` syntax
+			else if input[i..].starts_with('`') {
+				let start = i;
+				let mut j = i + 1;
+				
+				while j < input.len() {
+					if input.chars().nth(j) == Some('`') {
+						break;
+					}
+					j += 1;
+				}
+				
+				if j < input.len() {
+					let command = input[i + 1..j].to_string();
+					substitutions.push((start, j + 1, command));
+				}
+				
+				i = j + 1;
+			} else {
+				i += 1;
+			}
+		}
+		
+		substitutions
+	}
+	
+	/**
+	 * Executes a command and returns its output
+	 * 
+	 * @param command - Command to execute
+	 * @return Result<String> - Command output or error
+	 */
+	pub fn execute_substitution_command(&self, command: &str) -> Result<String> {
+		/**
+		 * コマンド置換実行の複雑な処理です (◕‿◕)
+		 * 
+		 * この関数は複雑なコマンド実行を行います。
+		 * 子プロセス実行と出力取得が難しい部分なので、
+		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+		 */
+		
+		use std::process::Command;
+		
+		// Split command into parts
+		let parts: Vec<&str> = command.split_whitespace().collect();
+		if parts.is_empty() {
+			return Ok(String::new());
+		}
+		
+		// Execute the command
+		let output = Command::new(parts[0])
+			.args(&parts[1..])
+			.output()?;
+		
+		// Convert output to string
+		let stdout = String::from_utf8(output.stdout)?;
+		let stderr = String::from_utf8(output.stderr)?;
+		
+		// Combine stdout and stderr, trim whitespace
+		let mut result = stdout;
+		if !stderr.is_empty() {
+			result.push_str(&stderr);
+		}
+		
+		Ok(result.trim().to_string())
+	}
+	
+	/**
+	 * Processes command substitutions in input
+	 * 
+	 * @param input - Input text to process
+	 * @return Result<String> - Processed input with substitutions
+	 */
+	pub fn process_command_substitutions(&self, input: &str) -> Result<String> {
+		/**
+		 * コマンド置換処理の複雑な処理です (｡◕‿◕｡)
+		 * 
+		 * この関数は複雑な置換処理を行います。
+		 * ネストした置換とエラーハンドリングが難しい部分なので、
+		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 */
+		
+		let mut result = input.to_string();
+		let substitutions = self.detect_command_substitutions(&result);
+		
+		// Process substitutions in reverse order to maintain indices
+		for (start, end, command) in substitutions.iter().rev() {
+			match self.execute_substitution_command(command) {
+				Ok(output) => {
+					// Replace the substitution with the output
+					result.replace_range(*start..*end, &output);
+				}
+				Err(_) => {
+					// On error, replace with empty string
+					result.replace_range(*start..*end, "");
+				}
+			}
+		}
+		
+		Ok(result)
 	}
 } 
