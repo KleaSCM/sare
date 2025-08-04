@@ -6,6 +6,10 @@ authors = ["KleaSCM <KleaSCM@gmail.com>"]
 description = "A POSIX-compatible Rust shell with TUI interface"
 license = "MIT"
 
+[lib]
+name = "sare"
+path = "src/lib.rs"
+
 [dependencies]
 # GUI Framework
 egui = "0.26"
@@ -49,4 +53,8 @@ env_logger = "0.10"
 log = "0.4"
 
 [dev-dependencies]
-criterion = "0.5" 
+criterion = "0.5"
+
+[[bin]]
+name = "test_runner"
+path = "Tests/test_runner.rs" 
