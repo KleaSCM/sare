@@ -29,54 +29,103 @@ mod history;
  * command execution, and terminal emulation features.
  */
 struct SareTerminal {
-	/// Input buffer for commands
-	input_buffer: String,
-	/// Terminal output history
-	output_history: Vec<String>,
-	/// Current working directory
-	current_dir: String,
-	/// Terminal state
-	terminal_state: TerminalState,
+	/// Terminal output buffer
+	output_buffer: Vec<TerminalLine>,
+	/// Current input line
+	current_input: String,
+	/// Cursor position in input
+	cursor_pos: usize,
 	/// Command history
 	command_history: Vec<String>,
 	/// History index for navigation
 	history_index: Option<usize>,
-}
-
-/**
- * Terminal state
- * 
- * Tracks the current state of the terminal including
- * cursor position, selection, and input mode.
- */
-#[derive(Debug, Clone)]
-struct TerminalState {
-	/// Cursor position in input
-	cursor_pos: usize,
-	/// Whether text is selected
-	selection_active: bool,
-	/// Selection start position
-	selection_start: usize,
-	/// Selection end position
-	selection_end: usize,
+	/// Current working directory
+	current_dir: String,
 	/// Terminal size
 	terminal_size: (u32, u32),
 	/// Scroll position
 	scroll_pos: f32,
 	/// Auto-scroll enabled
 	auto_scroll: bool,
+	/// Terminal mode (normal/insert)
+	mode: TerminalMode,
+	/// Active panes
+	panes: Vec<TerminalPane>,
+	/// Currently focused pane
+	focused_pane: usize,
 }
 
-impl Default for TerminalState {
+/**
+ * Terminal line for output
+ */
+#[derive(Debug, Clone)]
+struct TerminalLine {
+	content: String,
+	color: egui::Color32,
+	is_prompt: bool,
+}
+
+/**
+ * Terminal pane
+ */
+#[derive(Debug, Clone)]
+struct TerminalPane {
+	id: String,
+	output_buffer: Vec<TerminalLine>,
+	current_input: String,
+	cursor_pos: usize,
+	working_directory: String,
+	active: bool,
+}
+
+/**
+ * Terminal mode
+ */
+#[derive(Debug, Clone, PartialEq)]
+enum TerminalMode {
+	Normal,
+	Insert,
+}
+
+impl Default for SareTerminal {
 	fn default() -> Self {
-		Self {
+		/**
+		 * Sareターミナル初期化の複雑な処理です (｡◕‿◕｡)
+		 * 
+		 * この関数は複雑なターミナル初期化を行います。
+		 * デフォルト設定とパネ管理が難しい部分なので、
+		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 */
+		
+		// Create default pane
+		let default_pane = TerminalPane {
+			id: "pane_0".to_string(),
+			output_buffer: Vec::new(), // Start with empty output
+			current_input: String::new(),
 			cursor_pos: 0,
-			selection_active: false,
-			selection_start: 0,
-			selection_end: 0,
+			working_directory: std::env::current_dir()
+				.unwrap_or_default()
+				.to_string_lossy()
+				.to_string(),
+			active: true,
+		};
+		
+		Self {
+			output_buffer: Vec::new(), // Start with empty output
+			current_input: String::new(),
+			cursor_pos: 0,
+			command_history: Vec::new(),
+			history_index: None,
+			current_dir: std::env::current_dir()
+				.unwrap_or_default()
+				.to_string_lossy()
+				.to_string(),
 			terminal_size: (80, 24),
 			scroll_pos: 0.0,
 			auto_scroll: true,
+			mode: TerminalMode::Normal,
+			panes: vec![default_pane],
+			focused_pane: 0,
 		}
 	}
 }
@@ -84,89 +133,66 @@ impl Default for TerminalState {
 impl SareTerminal {
 	/**
 	 * Creates a new Sare terminal
-	 * 
-	 * Initializes the GUI terminal with real shell functionality
-	 * and command execution capabilities.
-	 * 
-	 * @return Result<SareTerminal> - New terminal instance or error
 	 */
-	fn new() -> Result<Self> {
-		/**
-		 * Sareターミナル初期化の複雑な処理です (｡◕‿◕｡)
-		 * 
-		 * この関数は複雑なターミナル初期化を行います。
-		 * シェル統合とコマンド実行が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
-		 */
-		
-		// Get current directory
-		let current_dir = std::env::current_dir()?
-			.to_string_lossy()
-			.to_string();
-		
-		// Initialize output with welcome message
-		let mut output_history = Vec::new();
-		output_history.push("🌸 Welcome to Sare Terminal Emulator 🌸".to_string());
-		output_history.push("".to_string());
-		output_history.push(format!("Current directory: {}", current_dir));
-		output_history.push("Type 'help' for available commands".to_string());
-		output_history.push("".to_string());
-		
-		Ok(Self {
-			input_buffer: String::new(),
-			output_history,
-			current_dir,
-			terminal_state: TerminalState::default(),
-			command_history: Vec::new(),
-			history_index: None,
-		})
+	fn new() -> anyhow::Result<Self> {
+		Ok(Self::default())
 	}
 	
 	/**
-	 * Executes a shell command
-	 * 
-	 * Executes the given command using the system shell
-	 * and captures the output for display.
-	 * 
-	 * @param command - Command to execute
+	 * Executes a command
 	 */
 	fn execute_command(&mut self, command: &str) {
-		/**
-		 * コマンド実行の複雑な処理です (◕‿◕)
-		 * 
-		 * この関数は複雑なシェルコマンド実行を行います。
-		 * プロセス作成と出力キャプチャが難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
-		 */
+		// Add command to history
+		if !command.trim().is_empty() {
+			self.command_history.push(command.to_string());
+			self.history_index = None;
+		}
 		
-		if command.trim().is_empty() {
+		// Handle clear command specially
+		if command.trim() == "clear" {
+			if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+				pane.output_buffer.clear();
+			}
+			self.current_input.clear();
+			self.cursor_pos = 0;
 			return;
 		}
 		
-		// Add command to history
-		self.command_history.push(command.to_string());
-		self.output_history.push(format!("$ {}", command));
+		// Execute the command first
+		let output = self.run_command(command);
+		
+		// Get current pane and add output
+		if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+			// Add command to pane output
+			pane.output_buffer.push(TerminalLine {
+				content: format!("sare@user:{} $ {}", self.current_dir, command),
+				color: egui::Color32::from_rgb(0, 255, 0),
+				is_prompt: true,
+			});
+			
+			// Add output to pane
+			pane.output_buffer.push(TerminalLine {
+				content: output,
+				color: egui::Color32::from_rgb(255, 255, 255),
+				is_prompt: false,
+			});
+		}
+		
+		// Clear input
+		self.current_input.clear();
+		self.cursor_pos = 0;
+	}
+	
+	/**
+	 * Runs a command using std::process::Command
+	 */
+	fn run_command(&mut self, command: &str) -> String {
+		use std::process::Command;
 		
 		// Handle built-in commands
 		match command.trim() {
-			"clear" => {
-				self.output_history.clear();
-				self.output_history.push("🌸 Sare Terminal Emulator 🌸".to_string());
-				return;
-			}
-			"help" => {
-				self.output_history.push("Available commands:".to_string());
-				self.output_history.push("  clear - Clear terminal".to_string());
-				self.output_history.push("  help - Show this help".to_string());
-				self.output_history.push("  pwd - Show current directory".to_string());
-				self.output_history.push("  ls - List files".to_string());
-				self.output_history.push("  cd <dir> - Change directory".to_string());
-				self.output_history.push("  exit - Exit terminal".to_string());
-				return;
-			}
 			"pwd" => {
-				self.output_history.push(self.current_dir.clone());
-				return;
+				return self.current_dir.clone();
 			}
 			"exit" => {
 				std::process::exit(0);
@@ -177,14 +203,16 @@ impl SareTerminal {
 		// Handle cd command specially
 		if command.starts_with("cd ") {
 			let new_dir = command[3..].trim();
-			if let Ok(new_path) = std::env::set_current_dir(new_dir) {
+			if let Ok(_) = std::env::set_current_dir(new_dir) {
 				if let Ok(current_dir) = std::env::current_dir() {
-					self.current_dir = current_dir.to_string_lossy().to_string();
+					let new_path = current_dir.to_string_lossy().to_string();
+					// Update current directory
+					self.current_dir = new_path.clone();
+					return format!("Changed directory to: {}", new_path);
 				}
 			} else {
-				self.output_history.push(format!("Error: Cannot change to directory '{}'", new_dir));
+				return format!("Error: Cannot change to directory '{}'", new_dir);
 			}
-			return;
 		}
 		
 		// Execute system command
@@ -196,135 +224,117 @@ impl SareTerminal {
 		
 		match output {
 			Ok(output) => {
+				let mut result = String::new();
+				
 				// Add stdout
 				if !output.stdout.is_empty() {
 					let stdout = String::from_utf8_lossy(&output.stdout);
-					for line in stdout.lines() {
-						self.output_history.push(line.to_string());
-					}
+					result.push_str(&stdout);
 				}
 				
 				// Add stderr
 				if !output.stderr.is_empty() {
 					let stderr = String::from_utf8_lossy(&output.stderr);
-					for line in stderr.lines() {
-						self.output_history.push(format!("ERROR: {}", line));
+					if !result.is_empty() {
+						result.push('\n');
 					}
+					result.push_str(&stderr);
 				}
 				
-				// Add exit status
+				// Add exit status if not successful
 				if !output.status.success() {
-					self.output_history.push(format!("Exit code: {}", output.status));
+					if !result.is_empty() {
+						result.push('\n');
+					}
+					result.push_str(&format!("Exit code: {}", output.status));
 				}
+				
+				result
 			}
 			Err(e) => {
-				self.output_history.push(format!("Error executing command: {}", e));
+				format!("Error executing command: {}", e)
 			}
 		}
-		
-		// Clear input buffer
-		self.input_buffer.clear();
-		self.terminal_state.cursor_pos = 0;
 	}
 	
 	/**
-	 * Renders the terminal interface
-	 * 
-	 * Renders the terminal GUI with output history, command input,
-	 * and proper terminal styling.
-	 * 
-	 * @param ctx - Egui context
+	 * Adds a line to output buffer
 	 */
-	fn render_terminal(&mut self, ctx: &egui::Context) {
-		/**
-		 * ターミナルレンダリングの複雑な処理です (｡◕‿◕｡)
-		 * 
-		 * この関数は複雑なGUIレンダリングを行います。
-		 * リアルタイム出力表示とユーザーインターフェースが難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
-		 */
+	fn add_output_line(&mut self, content: String, color: egui::Color32, is_prompt: bool) {
+		self.output_buffer.push(TerminalLine {
+			content,
+			color,
+			is_prompt,
+		});
 		
-		egui::CentralPanel::default().show(ctx, |ui| {
-			// Set terminal background
-			ui.painter().rect_filled(
-				ui.available_rect_before_wrap(),
-				0.0,
-				egui::Color32::from_rgb(0, 0, 0),
-			);
+		// Auto-scroll to bottom
+		if self.auto_scroll {
+			self.scroll_pos = self.output_buffer.len() as f32;
+		}
+	}
+	
+	/**
+	 * Handles key input
+	 */
+	fn handle_key_input(&mut self, ctx: &egui::Context) {
+		ctx.input(|input| {
+			// Handle key presses
+			if input.key_pressed(egui::Key::Enter) {
+				let command = self.current_input.clone();
+				if !command.trim().is_empty() {
+					self.execute_command(&command);
+				}
+			} else if input.key_pressed(egui::Key::ArrowUp) {
+				self.navigate_history_up();
+			} else if input.key_pressed(egui::Key::ArrowDown) {
+				self.navigate_history_down();
+			} else if input.key_pressed(egui::Key::ArrowLeft) {
+				if self.cursor_pos > 0 {
+					self.cursor_pos -= 1;
+				}
+			} else if input.key_pressed(egui::Key::ArrowRight) {
+				if self.cursor_pos < self.current_input.len() {
+					self.cursor_pos += 1;
+				}
+			} else if input.key_pressed(egui::Key::Home) {
+				self.cursor_pos = 0;
+			} else if input.key_pressed(egui::Key::End) {
+				self.cursor_pos = self.current_input.len();
+			} else if input.key_pressed(egui::Key::Backspace) {
+				if self.cursor_pos > 0 {
+					self.current_input.remove(self.cursor_pos - 1);
+					self.cursor_pos -= 1;
+				}
+			} else if input.key_pressed(egui::Key::Delete) {
+				if self.cursor_pos < self.current_input.len() {
+					self.current_input.remove(self.cursor_pos);
+				}
+			} else if input.key_pressed(egui::Key::C) && input.modifiers.ctrl {
+				// Ctrl+C - clear input
+				self.current_input.clear();
+				self.cursor_pos = 0;
+			} else if input.key_pressed(egui::Key::N) && input.modifiers.ctrl {
+				// Ctrl+N - new pane
+				self.create_new_pane();
+			} else if input.key_pressed(egui::Key::W) && input.modifiers.ctrl {
+				// Ctrl+W - close pane
+				self.close_current_pane();
+			} else if input.key_pressed(egui::Key::Tab) {
+				// Tab - switch panes
+				self.switch_to_next_pane();
+			}
 			
-			// Configure terminal text style
-			let text_style = egui::TextStyle::Monospace;
-			
-			// Render output area
-			ui.group(|ui| {
-				ui.set_enabled(false);
-				
-				// Scrollable output area
-				egui::ScrollArea::vertical()
-					.max_height(ui.available_height() - 60.0)
-					.show(ui, |ui| {
-						for output in &self.output_history {
-							ui.label(egui::RichText::new(output)
-								.color(egui::Color32::from_rgb(255, 255, 255))
-								.text_style(text_style));
+			// Handle text input
+			for event in &input.events {
+				if let egui::Event::Text(text) = event {
+					for ch in text.chars() {
+						if ch.is_ascii() && !ch.is_control() {
+							self.current_input.insert(self.cursor_pos, ch);
+							self.cursor_pos += 1;
 						}
-					});
-			});
-			
-			// Render command input area
-			ui.group(|ui| {
-				ui.horizontal(|ui| {
-					// Terminal prompt
-					ui.label(egui::RichText::new(format!("sare@{}:{} $ ", 
-						whoami::username(), 
-						self.current_dir
-					)).color(egui::Color32::from_rgb(0, 255, 0))
-					.text_style(text_style));
-					
-					// Command input field
-					let response = ui.add_sized(
-						[ui.available_width(), 20.0],
-						egui::TextEdit::singleline(&mut self.input_buffer)
-							.text_style(text_style)
-							.desired_width(f32::INFINITY)
-							.hint_text("Enter command...")
-							.cursor_at_end(true)
-					);
-					
-					// Handle Enter key for command execution
-					if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-						let command = self.input_buffer.clone();
-						if !command.trim().is_empty() {
-							self.execute_command(&command);
-						}
 					}
-					
-					// Handle Up/Down for command history
-					if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
-						self.navigate_history_up();
-					}
-					
-					if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
-						self.navigate_history_down();
-					}
-					
-					// Handle Ctrl+C to clear input
-					if ui.input(|i| i.key_pressed(egui::Key::C) && i.modifiers.ctrl) {
-						self.input_buffer.clear();
-						self.terminal_state.cursor_pos = 0;
-					}
-				});
-			});
-			
-			// Render status bar
-			ui.group(|ui| {
-				ui.horizontal(|ui| {
-					ui.label(egui::RichText::new("Ready").color(egui::Color32::from_rgb(0, 255, 0)));
-					ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-						ui.label(egui::RichText::new("Ctrl+C: Clear | Ctrl+D: Exit | ↑↓: History").color(egui::Color32::from_rgb(128, 128, 128)));
-					});
-				});
-			});
+				}
+			}
 		});
 	}
 	
@@ -341,8 +351,8 @@ impl SareTerminal {
 		
 		if current_index > 0 {
 			self.history_index = Some(current_index - 1);
-			self.input_buffer = self.command_history[current_index - 1].clone();
-			self.terminal_state.cursor_pos = self.input_buffer.len();
+			self.current_input = self.command_history[current_index - 1].clone();
+			self.cursor_pos = self.current_input.len();
 		}
 	}
 	
@@ -359,23 +369,136 @@ impl SareTerminal {
 		
 		if current_index < history_len - 1 {
 			self.history_index = Some(current_index + 1);
-			self.input_buffer = self.command_history[current_index + 1].clone();
-			self.terminal_state.cursor_pos = self.input_buffer.len();
+			self.current_input = self.command_history[current_index + 1].clone();
+			self.cursor_pos = self.current_input.len();
 		} else {
 			self.history_index = None;
-			self.input_buffer.clear();
-			self.terminal_state.cursor_pos = 0;
+			self.current_input.clear();
+			self.cursor_pos = 0;
 		}
+	}
+	
+	/**
+	 * Creates a new pane
+	 */
+	fn create_new_pane(&mut self) {
+		let new_pane = TerminalPane {
+			id: format!("pane_{}", self.panes.len()),
+			output_buffer: Vec::new(), // Start with empty output
+			current_input: String::new(),
+			cursor_pos: 0,
+			working_directory: self.current_dir.clone(),
+			active: false,
+		};
+		
+		self.panes.push(new_pane);
+		self.focused_pane = self.panes.len() - 1;
+		
+		// Update active states
+		for (i, pane) in self.panes.iter_mut().enumerate() {
+			pane.active = i == self.focused_pane;
+		}
+		
+		// Clear current input when switching panes
+		self.current_input.clear();
+		self.cursor_pos = 0;
+	}
+	
+	/**
+	 * Closes the current pane
+	 */
+	fn close_current_pane(&mut self) {
+		if self.panes.len() > 1 {
+			self.panes.remove(self.focused_pane);
+			if self.focused_pane >= self.panes.len() {
+				self.focused_pane = self.panes.len() - 1;
+			}
+			
+			// Update active states
+			for (i, pane) in self.panes.iter_mut().enumerate() {
+				pane.active = i == self.focused_pane;
+			}
+		}
+	}
+	
+	/**
+	 * Switches to next pane
+	 */
+	fn switch_to_next_pane(&mut self) {
+		if self.panes.len() > 1 {
+			self.focused_pane = (self.focused_pane + 1) % self.panes.len();
+			
+			// Update active states
+			for (i, pane) in self.panes.iter_mut().enumerate() {
+				pane.active = i == self.focused_pane;
+			}
+		}
+	}
+	
+	/**
+	 * Renders the terminal interface
+	 */
+	fn render_terminal(&mut self, ctx: &egui::Context) {
+		egui::CentralPanel::default().show(ctx, |ui| {
+			// Set terminal background
+			ui.painter().rect_filled(
+				ui.available_rect_before_wrap(),
+				0.0,
+				egui::Color32::from_rgb(0, 0, 0),
+			);
+			
+			// Use vertical layout to put prompt at bottom
+			ui.vertical(|ui| {
+				// Output area (takes most space)
+				egui::ScrollArea::vertical()
+					.max_height(ui.available_height() - 40.0)
+					.show(ui, |ui| {
+						// Show output from current pane
+						if let Some(pane) = self.panes.get(self.focused_pane) {
+							for line in &pane.output_buffer {
+								ui.label(egui::RichText::new(&line.content)
+									.color(line.color)
+									.text_style(egui::TextStyle::Monospace));
+							}
+						}
+					});
+				
+				// Input area with prompt at bottom
+				ui.horizontal(|ui| {
+					// Terminal prompt
+					let prompt = format!("sare@user:{} $ ", 
+						self.current_dir
+					);
+					ui.label(egui::RichText::new(prompt)
+						.color(egui::Color32::from_rgb(0, 255, 0))
+						.text_style(egui::TextStyle::Monospace));
+					
+					// Input text with cursor
+					let input_text = format!("{}{}", 
+						&self.current_input[..self.cursor_pos],
+						&self.current_input[self.cursor_pos..]
+					);
+					
+					ui.label(egui::RichText::new(input_text)
+						.color(egui::Color32::from_rgb(255, 255, 255))
+						.text_style(egui::TextStyle::Monospace));
+					
+					// Blinking cursor
+					if (ctx.input(|i| i.time) * 2.0).sin() > 0.0 {
+						ui.label(egui::RichText::new("█")
+							.color(egui::Color32::from_rgb(255, 255, 255))
+							.text_style(egui::TextStyle::Monospace));
+					}
+				});
+			});
+		});
 	}
 }
 
 impl eframe::App for SareTerminal {
 	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-		// Handle global keyboard shortcuts
-		if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-			self.input_buffer.clear();
-			self.terminal_state.cursor_pos = 0;
-		}
+		// Handle key input
+		self.handle_key_input(ctx);
 		
 		// Render the terminal interface
 		self.render_terminal(ctx);
@@ -390,15 +513,7 @@ impl eframe::App for SareTerminal {
 	}
 }
 
-fn main() -> Result<(), eframe::Error> {
-	/**
-	 * メインアプリケーション初期化の複雑な処理です (｡◕‿◕｡)
-	 * 
-	 * この関数は複雑なGUI初期化を行います。
-	 * ウィンドウ作成とアプリケーション設定が難しい部分なので、
-	 * 適切なエラーハンドリングで実装しています (◕‿◕)
-	 */
-	
+fn main() -> anyhow::Result<()> {
 	// Initialize logging
 	env_logger::init();
 	
@@ -413,5 +528,5 @@ fn main() -> Result<(), eframe::Error> {
 		"Sare Terminal Emulator",
 		native_options,
 		Box::new(|_cc| Box::new(app)),
-	)
+	).map_err(|e| anyhow::anyhow!("Failed to run app: {}", e))
 } 

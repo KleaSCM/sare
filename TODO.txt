@@ -383,4 +383,132 @@ The Sare terminal emulator is now a fully-featured developer terminal with:
 - ✅ **Developer features** (Git integration, build tools, debugging, syntax highlighting)
 - ✅ **Advanced UI features** (scrollable output, copy/paste, status bar, shortcuts)
 
+
+
+
+
+A. POSIX Shell Completion & History
+
+Tab completion with context awareness (files, commands, flags)
+
+Quoted / escaped path handling in completion
+
+Command history navigation (↑↓, incremental, reverse-i-search)
+
+Multiline input / continuation line support (\, pipes, quotes)
+
+Heredocs (<<EOF)
+
+Command substitution ($(...), `...`)
+
+Brace expansion + globbing (*.rs, {dev,test})
+
+
+CJK + emoji width handling
+
+Proper cursor positioning in multibyte sequences
+
+Split double-width glyphs on line wrap
+
+BiDi (right-to-left) rendering (optional, edge-case)
+
+
+
+Scrollback buffer (off-screen lines stored)
+
+Full ANSI escape parsing (VT100 + xterm256)
+
+Alternate screen buffer (Vim, man, less)
+
+Bracketed paste mode
+
+Mouse mode support (for ncurses, drag)
+
+24-bit color (truecolor) support
+
+ZWJ cluster rendering (emoji family, flags, ligatures)
+
+
+Detached sessions (tmux-like)
+
+Named session management
+
+Session recovery / reconnection
+
+Tab support (optional, maybe for v1.5+)
+
+
+
+Path sanitization (config/plugin)
+
+Lua sandboxing (deny FS/net access unless allowed)
+
+Shell escaping in injected commands (TUI/GUI safety)
+
+
+
+Live REPL visualizer (real-time pipe preview)
+
+Built-in file explorer (like lf, scroll + mouse + emoji aware)
+
+GPU image rendering (Sixel, Kitty protocol)
+
+Embedded web rendering via WASM + WGPU
+
+Sylvanas-mini AI integration (contextual help + execution)
+
+Git graph mode (git log --graph with branch/merge renderer)
+
+
+
+Full Unicode-aware cursor model
+
+Line-wrapping performance pass
+
+GPU layout perf audit
+
+Config loading (Lua/JSON/TOML/CSS-like)
+
+CSS keyword translator (map > style > Lua)
+
+TUI redraw + resize jitter fix
+
+Panic-safe recovery (non-crash on shell/TTY kill)
+
+Startup time measurement + optimization
+
+
+
+Command history (read/write, clear, reverse search)
+
+External shell selection (bash/zsh/fish)
+
+TUI init screen with “sessions” + “workspace” selector
+
+Plugin system scaffold (safe, async, hot-reloadable)
+
+Built-in benchmarking / logging flags
+
+Unit test harness for shell parser + job runner
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 **Ready for production use!** 🚀

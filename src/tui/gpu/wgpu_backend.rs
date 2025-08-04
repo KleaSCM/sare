@@ -30,7 +30,7 @@ pub struct WgpuBackend {
 	/// WGPU queue for command submission
 	queue: Option<wgpu::Queue>,
 	/// WGPU surface for window integration
-	surface: Option<wgpu::Surface>,
+	surface: Option<wgpu::Surface<'static>>,
 	/// Performance metrics
 	performance_metrics: Arc<RwLock<PerformanceMetrics>>,
 	/// Configuration options
