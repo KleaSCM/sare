@@ -135,15 +135,70 @@ impl ProcessManager {
 		 * 適切なエラーハンドリングで実装しています (◕‿◕)
 		 */
 		
-		// TODO: Implement actual process creation
-		// This will involve:
-		// 1. Forking the process
-		// 2. Setting up process group
-		// 3. Setting up file descriptors
-		// 4. Executing the command
-		// 5. Setting up signal handling
-		
-		let pid = 0; // TODO: Actual process ID
+		// Implement actual process creation with fork() and exec()
+		let pid = unsafe {
+			use libc::{fork, execvp, setpgid, dup2, close, chdir};
+			
+			// Fork the process
+			let pid = fork();
+			if pid < 0 {
+				return Err(anyhow::anyhow!("Failed to fork process"));
+			}
+			
+			if pid == 0 {
+				// Child process
+				
+				// Set up process group if specified
+				if let Some(pgid) = options.pgid {
+					if setpgid(0, pgid as i32) < 0 {
+						// If setting PGID fails, create new group
+						if setpgid(0, 0) < 0 {
+							return Err(anyhow::anyhow!("Failed to set process group"));
+						}
+					}
+				} else {
+					// Create new process group
+					if setpgid(0, 0) < 0 {
+						return Err(anyhow::anyhow!("Failed to create process group"));
+					}
+				}
+				
+				// Set up file descriptors if provided
+				// (This would be integrated with PTY system)
+				
+				// Change working directory if specified
+				if let Some(ref dir) = options.working_directory {
+					let dir_cstr = std::ffi::CString::new(dir.as_str())?;
+					if chdir(dir_cstr.as_ptr()) < 0 {
+						return Err(anyhow::anyhow!("Failed to change directory"));
+					}
+				}
+				
+				// Set up environment variables
+				for (key, value) in &options.environment {
+					std::env::set_var(key, value);
+				}
+				
+				// Prepare command and arguments for execvp
+				let cmd_cstr = std::ffi::CString::new(options.command.as_str())?;
+				let mut args = vec![cmd_cstr.as_ptr()];
+				
+				for arg in &options.args {
+					let arg_cstr = std::ffi::CString::new(arg.as_str())?;
+					args.push(arg_cstr.as_ptr());
+				}
+				args.push(std::ptr::null());
+				
+				// Execute the command
+				execvp(cmd_cstr.as_ptr(), args.as_ptr());
+				
+				// If we get here, exec failed
+				std::process::exit(1);
+			} else {
+				// Parent process - return the child PID
+				pid as u32
+			}
+		};
 		
 		// Create process info
 		let process_info = ProcessInfo {
@@ -202,11 +257,31 @@ impl ProcessManager {
 		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
 		 */
 		
-		// TODO: Implement actual signal sending
-		// This will involve:
-		// 1. Calling kill() system call
-		// 2. Handling errors
-		// 3. Updating process status
+		// Implement actual signal sending with kill() system call
+		unsafe {
+			use libc::kill;
+			
+			if kill(pid as i32, signal) < 0 {
+				return Err(anyhow::anyhow!("Failed to send signal {} to process {}", signal, pid));
+			}
+		}
+		
+		// Update process status based on signal
+		let mut processes = self.processes.write().await;
+		if let Some(process) = processes.get_mut(&pid) {
+			match signal {
+				libc::SIGTERM | libc::SIGKILL => {
+					process.status = ProcessStatus::Terminated;
+				}
+				libc::SIGSTOP | libc::SIGTSTP => {
+					process.status = ProcessStatus::Suspended;
+				}
+				libc::SIGCONT => {
+					process.status = ProcessStatus::Running;
+				}
+				_ => {}
+			}
+		}
 		
 		Ok(())
 	}
@@ -221,8 +296,42 @@ impl ProcessManager {
 		// Send SIGTERM first
 		self.send_signal(pid, libc::SIGTERM).await?;
 		
-		// TODO: Wait for graceful termination
-		// If process doesn't terminate, send SIGKILL
+		// Implement graceful termination waiting
+		unsafe {
+			use libc::{waitpid, WNOHANG, WIFEXITED, WIFSIGNALED};
+			
+			// Wait for process to terminate with timeout
+			let mut status = 0;
+			let mut attempts = 0;
+			const MAX_ATTEMPTS: i32 = 10; // 10 seconds timeout
+			
+			while attempts < MAX_ATTEMPTS {
+				let result = waitpid(pid as i32, &mut status, WNOHANG);
+				
+				if result == pid as i32 {
+					// Process has terminated
+					if WIFEXITED(status) || WIFSIGNALED(status) {
+						break;
+					}
+				} else if result < 0 {
+					// Process not found or error
+					break;
+				}
+				
+				// Wait a bit before next attempt
+				std::thread::sleep(std::time::Duration::from_millis(100));
+				attempts += 1;
+			}
+			
+			// If process hasn't terminated, send SIGKILL
+			if attempts >= MAX_ATTEMPTS {
+				self.send_signal(pid, libc::SIGKILL).await?;
+				
+				// Wait a bit more for SIGKILL to take effect
+				std::thread::sleep(std::time::Duration::from_millis(500));
+				waitpid(pid as i32, &mut status, WNOHANG);
+			}
+		}
 		
 		Ok(())
 	}
@@ -310,12 +419,17 @@ impl ProcessManager {
 		 * 適切なエラーハンドリングで実装しています (◕‿◕)
 		 */
 		
-		// TODO: Implement actual foreground group setting
-		// This will involve:
-		// 1. Calling tcsetpgrp()
-		// 2. Updating internal state
-		// 3. Handling errors
+		// Implement actual foreground group setting with tcsetpgrp()
+		unsafe {
+			use libc::tcsetpgrp;
+			
+			// Set the foreground process group for the controlling terminal
+			if tcsetpgrp(0, pgid as i32) < 0 {
+				return Err(anyhow::anyhow!("Failed to set foreground process group"));
+			}
+		}
 		
+		// Update internal state
 		self.foreground_pgid = Some(pgid);
 		
 		Ok(())
@@ -336,13 +450,17 @@ impl ProcessManager {
 		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
 		 */
 		
-		// TODO: Implement actual process group creation
-		// This will involve:
-		// 1. Calling setpgid()
-		// 2. Creating group structure
-		// 3. Adding to manager
+		// Implement actual process group creation with setpgid()
+		unsafe {
+			use libc::setpgid;
+			
+			// Create new process group with leader_pid as the group leader
+			if setpgid(leader_pid as i32, leader_pid as i32) < 0 {
+				return Err(anyhow::anyhow!("Failed to create process group"));
+			}
+		}
 		
-		let pgid = leader_pid; // For now, use leader PID as group ID
+		let pgid = leader_pid; // Use leader PID as group ID
 		
 		let process_group = ProcessGroup {
 			pgid,

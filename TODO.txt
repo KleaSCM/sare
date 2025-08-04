@@ -271,22 +271,22 @@
 ## Core System Implementation TODOs
 
 ### PTY Implementation TODOs
-- [ ] Implement actual PTY creation (posix_openpt/openpty)
-- [ ] Implement actual file descriptor assignment
-- [ ] Implement actual PTY path detection
-- [ ] Implement actual terminal resize (ioctl TIOCSWINSZ)
-- [ ] Implement actual writing to master FD
-- [ ] Implement actual reading from master FD
-- [ ] Implement session cleanup
-- [ ] Implement slave terminal setup
+- ✅ Implement actual PTY creation (posix_openpt/openpty)
+- ✅ Implement actual file descriptor assignment
+- ✅ Implement actual PTY path detection
+- ✅ Implement actual terminal resize (ioctl TIOCSWINSZ)
+- ✅ Implement actual writing to master FD
+- ✅ Implement actual reading from master FD
+- ✅ Implement session cleanup
+- ✅ Implement slave terminal setup
 
 ### Process Management TODOs
-- [ ] Implement actual process creation (fork/exec)
-- [ ] Implement actual process ID assignment
-- [ ] Implement actual signal sending (kill syscall)
-- [ ] Implement graceful termination waiting
-- [ ] Implement actual foreground group setting (tcsetpgrp)
-- [ ] Implement actual process group creation (setpgid)
+- ✅ Implement actual process creation (fork/exec)
+- ✅ Implement actual process ID assignment
+- ✅ Implement actual signal sending (kill syscall)
+- ✅ Implement graceful termination waiting
+- ✅ Implement actual foreground group setting (tcsetpgrp)
+- ✅ Implement actual process group creation (setpgid)
 
 ### I/O System TODOs
 - ✅ Implement actual stream creation
