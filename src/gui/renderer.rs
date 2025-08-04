@@ -103,7 +103,11 @@ impl TerminalRenderer {
 						}
 						
 						// Render prompt for this pane
-						let prompt_text = format!("sare@user:{} $ ", pane.working_directory);
+						let prompt_text = if terminal.multiline_mode && pane_index == terminal.focused_pane {
+							format!("sare@user:{} {} ", pane.working_directory, terminal.multiline_prompt)
+						} else {
+							format!("sare@user:{} $ ", pane.working_directory)
+						};
 						ui.label(egui::RichText::new(prompt_text)
 							.color(egui::Color32::from_rgb(0, 255, 0))
 							.text_style(egui::TextStyle::Monospace));
