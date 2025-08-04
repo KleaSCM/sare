@@ -70,86 +70,86 @@ impl CommandHandler for GitCommand {
             Err(_) => {
                 // Fallback to simulated output if git is not available
                 let mut output = String::new();
-                
-                match git_command.as_str() {
-                    "status" => {
-                        output.push_str("On branch main\n");
-                        output.push_str("Your branch is up to date with 'origin/main'.\n");
-                        output.push_str("\n");
-                        output.push_str("Changes not staged for commit:\n");
-                        output.push_str("  (use \"git add <file>...\" to update what will be committed)\n");
-                        output.push_str("  (use \"git restore <file>...\" to discard changes in working directory)\n");
-                        output.push_str("        modified:   src/main.rs\n");
-                        output.push_str("\n");
-                        output.push_str("no changes added to commit (use \"git add\" and/or \"git commit -a\")\n");
-                    }
-                    "add" => {
-                        if args.is_empty() {
-                            return Err(anyhow::anyhow!("Usage: git add <file>"));
-                        }
-                        output.push_str(&format!("Added {} to staging area\n", args.join(", ")));
-                    }
-                    "commit" => {
-                        let message = args.iter()
-                            .find(|arg| arg.starts_with("-m"))
-                            .and_then(|arg| arg.split('=').nth(1))
-                            .unwrap_or("Update");
-                        
-                        output.push_str(&format!("[main abc1234] {}\n", message));
-                        output.push_str(" 1 file changed, 5 insertions(+), 2 deletions(-)\n");
-                    }
-                    "log" => {
-                        output.push_str("commit abc1234567890abcdef1234567890abcdef1234\n");
-                        output.push_str("Author: KleaSCM <kleascm@gmail.com>\n");
-                        output.push_str("Date:   Mon Jan 1 12:00:00 2024 +0000\n");
-                        output.push_str("\n");
-                        output.push_str("    Update main.rs\n");
-                        output.push_str("\n");
-                        output.push_str("commit def1234567890abcdef1234567890abcdef1235\n");
-                        output.push_str("Author: KleaSCM <kleascm@gmail.com>\n");
-                        output.push_str("Date:   Sun Dec 31 12:00:00 2023 +0000\n");
-                        output.push_str("\n");
-                        output.push_str("    Initial commit\n");
-                    }
-                    "branch" => {
-                        output.push_str("* main\n");
-                        output.push_str("  feature/new-command\n");
-                        output.push_str("  bugfix/fix-parser\n");
-                    }
-                    "checkout" => {
-                        if args.is_empty() {
-                            return Err(anyhow::anyhow!("Usage: git checkout <branch>"));
-                        }
-                        let branch = &args[0];
-                        output.push_str(&format!("Switched to branch '{}'\n", branch));
-                    }
-                    "pull" => {
-                        output.push_str("From https://github.com/user/repo\n");
-                        output.push_str("   abc1234..def5678  main     -> origin/main\n");
-                        output.push_str("Updating abc1234..def5678\n");
-                        output.push_str("Fast-forward\n");
-                        output.push_str(" src/main.rs | 5 +++++\n");
-                        output.push_str(" 1 file changed, 5 insertions(+)\n");
-                    }
-                    "push" => {
-                        output.push_str("Enumerating objects: 5, done.\n");
-                        output.push_str("Counting objects: 100% (5/5), done.\n");
-                        output.push_str("Delta compression using up to 8 threads\n");
-                        output.push_str("Compressing objects: 100% (3/3), done.\n");
-                        output.push_str("Writing objects: 100% (3/3), 234 bytes | 234.00 KiB/s, done.\n");
-                        output.push_str("Total 3 (delta 2), reused 0 (delta 0), pack-reused 0\n");
-                        output.push_str("To https://github.com/user/repo.git\n");
-                        output.push_str("   def5678..abc1234  main -> main\n");
-                    }
-                    _ => {
-                        return Err(anyhow::anyhow!("Unknown git command: {}", git_command));
-                    }
+        
+        match git_command.as_str() {
+            "status" => {
+                output.push_str("On branch main\n");
+                output.push_str("Your branch is up to date with 'origin/main'.\n");
+                output.push_str("\n");
+                output.push_str("Changes not staged for commit:\n");
+                output.push_str("  (use \"git add <file>...\" to update what will be committed)\n");
+                output.push_str("  (use \"git restore <file>...\" to discard changes in working directory)\n");
+                output.push_str("        modified:   src/main.rs\n");
+                output.push_str("\n");
+                output.push_str("no changes added to commit (use \"git add\" and/or \"git commit -a\")\n");
+            }
+            "add" => {
+                if args.is_empty() {
+                    return Err(anyhow::anyhow!("Usage: git add <file>"));
                 }
+                output.push_str(&format!("Added {} to staging area\n", args.join(", ")));
+            }
+            "commit" => {
+                let message = args.iter()
+                    .find(|arg| arg.starts_with("-m"))
+                    .and_then(|arg| arg.split('=').nth(1))
+                    .unwrap_or("Update");
                 
-                Ok(CommandResult {
-                    output,
-                    exit_code: 0,
-                })
+                output.push_str(&format!("[main abc1234] {}\n", message));
+                output.push_str(" 1 file changed, 5 insertions(+), 2 deletions(-)\n");
+            }
+            "log" => {
+                output.push_str("commit abc1234567890abcdef1234567890abcdef1234\n");
+                output.push_str("Author: KleaSCM <kleascm@gmail.com>\n");
+                output.push_str("Date:   Mon Jan 1 12:00:00 2024 +0000\n");
+                output.push_str("\n");
+                output.push_str("    Update main.rs\n");
+                output.push_str("\n");
+                output.push_str("commit def1234567890abcdef1234567890abcdef1235\n");
+                output.push_str("Author: KleaSCM <kleascm@gmail.com>\n");
+                output.push_str("Date:   Sun Dec 31 12:00:00 2023 +0000\n");
+                output.push_str("\n");
+                output.push_str("    Initial commit\n");
+            }
+            "branch" => {
+                output.push_str("* main\n");
+                output.push_str("  feature/new-command\n");
+                output.push_str("  bugfix/fix-parser\n");
+            }
+            "checkout" => {
+                if args.is_empty() {
+                    return Err(anyhow::anyhow!("Usage: git checkout <branch>"));
+                }
+                let branch = &args[0];
+                output.push_str(&format!("Switched to branch '{}'\n", branch));
+            }
+            "pull" => {
+                output.push_str("From https://github.com/user/repo\n");
+                output.push_str("   abc1234..def5678  main     -> origin/main\n");
+                output.push_str("Updating abc1234..def5678\n");
+                output.push_str("Fast-forward\n");
+                output.push_str(" src/main.rs | 5 +++++\n");
+                output.push_str(" 1 file changed, 5 insertions(+)\n");
+            }
+            "push" => {
+                output.push_str("Enumerating objects: 5, done.\n");
+                output.push_str("Counting objects: 100% (5/5), done.\n");
+                output.push_str("Delta compression using up to 8 threads\n");
+                output.push_str("Compressing objects: 100% (3/3), done.\n");
+                output.push_str("Writing objects: 100% (3/3), 234 bytes | 234.00 KiB/s, done.\n");
+                output.push_str("Total 3 (delta 2), reused 0 (delta 0), pack-reused 0\n");
+                output.push_str("To https://github.com/user/repo.git\n");
+                output.push_str("   def5678..abc1234  main -> main\n");
+            }
+            _ => {
+                return Err(anyhow::anyhow!("Unknown git command: {}", git_command));
+            }
+        }
+        
+        Ok(CommandResult {
+            output,
+            exit_code: 0,
+        })
             }
         }
     }
@@ -341,73 +341,73 @@ impl CommandHandler for CargoCommand {
             Err(_) => {
                 // Fallback to simulated output if cargo is not available
                 let mut output = String::new();
+        
+        match cargo_command.as_str() {
+            "build" => {
+                let release = args.iter().any(|arg| arg == "--release");
+                let target = if release { "release" } else { "debug" };
                 
-                match cargo_command.as_str() {
-                    "build" => {
-                        let release = args.iter().any(|arg| arg == "--release");
-                        let target = if release { "release" } else { "debug" };
-                        
-                        output.push_str(&format!("   Compiling {} v0.1.0 ({})\n", 
-                            shell.get_project_name().unwrap_or_else(|| "project".to_string()), 
-                            shell.current_path().display()));
-                        output.push_str("    Finished ");
-                        output.push_str(target);
-                        output.push_str(" [optimized");
-                        if release { output.push_str(" + debug"); }
-                        output.push_str("] target(s) in 1.23s\n");
-                    }
-                    "run" => {
-                        output.push_str("    Finished dev [unoptimized + debuginfo] target(s) in 0.12s\n");
-                        output.push_str("     Running `target/debug/project`\n");
-                        output.push_str("Hello, World!\n");
-                    }
-                    "test" => {
-                        output.push_str("   Compiling project v0.1.0 (/path/to/project)\n");
-                        output.push_str("    Finished test [unoptimized + debuginfo] target(s) in 0.45s\n");
-                        output.push_str("     Running unittests src/lib.rs (target/debug/deps/project-abc123)\n");
-                        output.push_str("\n");
-                        output.push_str("running 3 tests\n");
-                        output.push_str("test tests::test_function ... ok\n");
-                        output.push_str("test tests::test_another_function ... ok\n");
-                        output.push_str("test tests::test_third_function ... ok\n");
-                        output.push_str("\n");
-                        output.push_str("test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out\n");
-                    }
-                    "check" => {
-                        output.push_str("    Checking project v0.1.0 (/path/to/project)\n");
-                        output.push_str("    Finished dev [unoptimized + debuginfo] target(s) in 0.23s\n");
-                    }
-                    "new" => {
-                        if args.is_empty() {
-                            return Err(anyhow::anyhow!("Usage: cargo new <project_name>"));
-                        }
-                        let project_name = &args[0];
-                        output.push_str(&format!("     Created binary (application) `{}` package\n", project_name));
-                    }
-                    "init" => {
-                        output.push_str("     Created binary (application) package\n");
-                    }
-                    "add" => {
-                        if args.is_empty() {
-                            return Err(anyhow::anyhow!("Usage: cargo add <dependency>"));
-                        }
-                        let dependency = &args[0];
-                        output.push_str(&format!("    Adding {} to dependencies\n", dependency));
-                    }
-                    "update" => {
-                        output.push_str("    Updating crates.io index\n");
-                        output.push_str("    Updating serde v1.0.219 -> v1.0.220\n");
-                        output.push_str("    Updating tokio v1.47.1 -> v1.47.2\n");
-                    }
-                    _ => {
-                        return Err(anyhow::anyhow!("Unknown cargo command: {}", cargo_command));
-                    }
+                output.push_str(&format!("   Compiling {} v0.1.0 ({})\n", 
+                    shell.get_project_name().unwrap_or_else(|| "project".to_string()), 
+                    shell.current_path().display()));
+                output.push_str("    Finished ");
+                output.push_str(target);
+                output.push_str(" [optimized");
+                if release { output.push_str(" + debug"); }
+                output.push_str("] target(s) in 1.23s\n");
+            }
+            "run" => {
+                output.push_str("    Finished dev [unoptimized + debuginfo] target(s) in 0.12s\n");
+                output.push_str("     Running `target/debug/project`\n");
+                output.push_str("Hello, World!\n");
+            }
+            "test" => {
+                output.push_str("   Compiling project v0.1.0 (/path/to/project)\n");
+                output.push_str("    Finished test [unoptimized + debuginfo] target(s) in 0.45s\n");
+                output.push_str("     Running unittests src/lib.rs (target/debug/deps/project-abc123)\n");
+                output.push_str("\n");
+                output.push_str("running 3 tests\n");
+                output.push_str("test tests::test_function ... ok\n");
+                output.push_str("test tests::test_another_function ... ok\n");
+                output.push_str("test tests::test_third_function ... ok\n");
+                output.push_str("\n");
+                output.push_str("test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out\n");
+            }
+            "check" => {
+                output.push_str("    Checking project v0.1.0 (/path/to/project)\n");
+                output.push_str("    Finished dev [unoptimized + debuginfo] target(s) in 0.23s\n");
+            }
+            "new" => {
+                if args.is_empty() {
+                    return Err(anyhow::anyhow!("Usage: cargo new <project_name>"));
                 }
-                
-                Ok(CommandResult {
-                    output,
-                    exit_code: 0,
-                })
+                let project_name = &args[0];
+                output.push_str(&format!("     Created binary (application) `{}` package\n", project_name));
+            }
+            "init" => {
+                output.push_str("     Created binary (application) package\n");
+            }
+            "add" => {
+                if args.is_empty() {
+                    return Err(anyhow::anyhow!("Usage: cargo add <dependency>"));
+                }
+                let dependency = &args[0];
+                output.push_str(&format!("    Adding {} to dependencies\n", dependency));
+            }
+            "update" => {
+                output.push_str("    Updating crates.io index\n");
+                output.push_str("    Updating serde v1.0.219 -> v1.0.220\n");
+                output.push_str("    Updating tokio v1.47.1 -> v1.47.2\n");
+            }
+            _ => {
+                return Err(anyhow::anyhow!("Unknown cargo command: {}", cargo_command));
+            }
+        }
+        
+        Ok(CommandResult {
+            output,
+            exit_code: 0,
+        })
             }
         }
     }

@@ -115,9 +115,9 @@ impl Default for SareTerminal {
 		 * 
 		 * この関数は複雑なターミナル初期化を行います。
 		 * デフォルト設定とパネ管理が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
-		 */
-		
+	 * 適切なエラーハンドリングで実装しています (◕‿◕)
+	 */
+	
 		let default_pane = TerminalPane {
 			id: "pane_0".to_string(),
 			output_buffer: Vec::new(), // Start with empty output
@@ -297,69 +297,100 @@ impl SareTerminal {
 	 */
 	fn handle_key_input(&mut self, ctx: &egui::Context) {
 		ctx.input(|input| {
-			// Handle key presses
-			if input.key_pressed(egui::Key::Enter) {
-				let command = self.panes[self.focused_pane].current_input.clone();
-				if !command.trim().is_empty() {
-					self.execute_command(&command);
-				}
-			} else if input.key_pressed(egui::Key::ArrowUp) {
-				self.navigate_history_up();
-			} else if input.key_pressed(egui::Key::ArrowDown) {
-				self.navigate_history_down();
-			} else if input.key_pressed(egui::Key::ArrowLeft) {
-				if self.panes[self.focused_pane].cursor_pos > 0 {
-					self.panes[self.focused_pane].cursor_pos -= 1;
-				}
-			} else if input.key_pressed(egui::Key::ArrowRight) {
-				let current_input_len = self.panes[self.focused_pane].current_input.len();
-				if self.panes[self.focused_pane].cursor_pos < current_input_len {
-					self.panes[self.focused_pane].cursor_pos += 1;
-				}
-			} else if input.key_pressed(egui::Key::Home) {
-				self.panes[self.focused_pane].cursor_pos = 0;
-			} else if input.key_pressed(egui::Key::End) {
-				self.panes[self.focused_pane].cursor_pos = self.panes[self.focused_pane].current_input.len();
-			} else if input.key_pressed(egui::Key::Backspace) {
-				if self.panes[self.focused_pane].cursor_pos > 0 {
-					let cursor_pos = self.panes[self.focused_pane].cursor_pos;
-					self.panes[self.focused_pane].current_input.remove(cursor_pos - 1);
-					self.panes[self.focused_pane].cursor_pos -= 1;
-				}
-			} else if input.key_pressed(egui::Key::Delete) {
-				let cursor_pos = self.panes[self.focused_pane].cursor_pos;
-				let current_input_len = self.panes[self.focused_pane].current_input.len();
-				if cursor_pos < current_input_len {
-					self.panes[self.focused_pane].current_input.remove(cursor_pos);
-				}
-			} else if input.key_pressed(egui::Key::C) && input.modifiers.ctrl {
-				// Ctrl+C - clear input
-				self.panes[self.focused_pane].current_input.clear();
-				self.panes[self.focused_pane].cursor_pos = 0;
-			} else if input.key_pressed(egui::Key::N) && input.modifiers.ctrl {
-				// Ctrl+N - new pane (vertical split)
-				self.split_pane(SplitDirection::Vertical);
-			} else if input.key_pressed(egui::Key::H) && input.modifiers.ctrl {
-				// Ctrl+H - horizontal split
-				self.split_pane(SplitDirection::Horizontal);
-			} else if input.key_pressed(egui::Key::D) && input.modifiers.ctrl {
-				// Ctrl+D - close pane
-				self.close_current_pane();
-			} else if input.key_pressed(egui::Key::Tab) {
-				// Tab - switch panes
-				self.switch_to_next_pane();
-			}
-			
-			// Handle text input
+			// Debug: Print all key events
 			for event in &input.events {
-				if let egui::Event::Text(text) = event {
-					for ch in text.chars() {
-						if ch.is_ascii() && !ch.is_control() {
-							let cursor_pos = self.panes[self.focused_pane].cursor_pos;
-							self.panes[self.focused_pane].current_input.insert(cursor_pos, ch);
-							self.panes[self.focused_pane].cursor_pos += 1;
+				match event {
+					egui::Event::Key { key, pressed, modifiers, .. } => {
+						if *pressed {
+							println!("Key pressed: {:?} with modifiers: {:?}", key, modifiers);
+							
+							// Handle Ctrl combinations
+							if modifiers.ctrl {
+								match key {
+									egui::Key::N => {
+										println!("Ctrl+N detected - creating vertical split");
+										self.split_pane(SplitDirection::Vertical);
+									}
+									egui::Key::H => {
+										println!("Ctrl+H detected - creating horizontal split");
+										self.split_pane(SplitDirection::Horizontal);
+									}
+									egui::Key::D => {
+										println!("Ctrl+D detected - closing pane");
+										self.close_current_pane();
+									}
+									egui::Key::C => {
+										println!("Ctrl+C detected - clearing input");
+										self.panes[self.focused_pane].current_input.clear();
+										self.panes[self.focused_pane].cursor_pos = 0;
+									}
+									_ => {}
+								}
+						} else {
+								// Handle single keys
+								match key {
+									egui::Key::Enter => {
+										let command = self.panes[self.focused_pane].current_input.clone();
+										if !command.trim().is_empty() {
+											self.execute_command(&command);
+										}
+									}
+									egui::Key::ArrowUp => {
+										self.navigate_history_up();
+									}
+									egui::Key::ArrowDown => {
+										self.navigate_history_down();
+									}
+									egui::Key::ArrowLeft => {
+										if self.panes[self.focused_pane].cursor_pos > 0 {
+											self.panes[self.focused_pane].cursor_pos -= 1;
+										}
+									}
+									egui::Key::ArrowRight => {
+										let current_input_len = self.panes[self.focused_pane].current_input.len();
+										if self.panes[self.focused_pane].cursor_pos < current_input_len {
+											self.panes[self.focused_pane].cursor_pos += 1;
+										}
+									}
+									egui::Key::Home => {
+										self.panes[self.focused_pane].cursor_pos = 0;
+									}
+									egui::Key::End => {
+										self.panes[self.focused_pane].cursor_pos = self.panes[self.focused_pane].current_input.len();
+									}
+									egui::Key::Backspace => {
+										if self.panes[self.focused_pane].cursor_pos > 0 {
+											let cursor_pos = self.panes[self.focused_pane].cursor_pos;
+											self.panes[self.focused_pane].current_input.remove(cursor_pos - 1);
+											self.panes[self.focused_pane].cursor_pos -= 1;
+										}
+									}
+									egui::Key::Delete => {
+										let cursor_pos = self.panes[self.focused_pane].cursor_pos;
+										let current_input_len = self.panes[self.focused_pane].current_input.len();
+										if cursor_pos < current_input_len {
+											self.panes[self.focused_pane].current_input.remove(cursor_pos);
+										}
+									}
+									egui::Key::Tab => {
+										println!("Tab detected - switching panes");
+										self.switch_to_next_pane();
+									}
+									_ => {}
+								}
+							}
 						}
 					}
+					egui::Event::Text(text) => {
+						for ch in text.chars() {
+							if ch.is_ascii() && !ch.is_control() {
+								let cursor_pos = self.panes[self.focused_pane].cursor_pos;
+								self.panes[self.focused_pane].current_input.insert(cursor_pos, ch);
+								self.panes[self.focused_pane].cursor_pos += 1;
+							}
+						}
+					}
+					_ => {}
 				}
 			}
 		});
@@ -502,7 +533,7 @@ impl SareTerminal {
 	}
 	
 	/**
-	 * Renders the terminal interface
+	 * Renders the terminal interface with multiple panes
 	 */
 	fn render_terminal(&mut self, ctx: &egui::Context) {
 		egui::CentralPanel::default().show(ctx, |ui| {
@@ -513,50 +544,98 @@ impl SareTerminal {
 				egui::Color32::from_rgb(0, 0, 0),
 			);
 			
-			// Use vertical layout to put prompt at bottom
-			ui.vertical(|ui| {
-				// Output area (takes most space)
-				egui::ScrollArea::vertical()
-					.max_height(ui.available_height() - 40.0)
-					.show(ui, |ui| {
-						// Show output from current pane
-						if let Some(pane) = self.panes.get(self.focused_pane) {
-							for line in &pane.output_buffer {
-								ui.label(egui::RichText::new(&line.content)
-									.color(line.color)
-									.text_style(egui::TextStyle::Monospace));
-							}
-						}
-					});
+			// Get the available area for rendering
+			let available_rect = ui.available_rect_before_wrap();
+			let total_width = available_rect.width();
+			let total_height = available_rect.height();
+			
+			// Render each pane according to its layout
+			for (pane_index, pane) in self.panes.iter().enumerate() {
+				let (x, y, width, height) = pane.layout;
 				
-				// Input area with prompt at bottom
-				ui.horizontal(|ui| {
-					// Terminal prompt
-					let prompt = format!("sare@user:{} $ ", 
-						self.current_dir
-					);
-					ui.label(egui::RichText::new(prompt)
-						.color(egui::Color32::from_rgb(0, 255, 0))
-						.text_style(egui::TextStyle::Monospace));
-					
-					// Input text with cursor
-					let input_text = format!("{}{}", 
-						&self.panes[self.focused_pane].current_input[..self.panes[self.focused_pane].cursor_pos],
-						&self.panes[self.focused_pane].current_input[self.panes[self.focused_pane].cursor_pos..]
-					);
-					
-					ui.label(egui::RichText::new(input_text)
-						.color(egui::Color32::from_rgb(255, 255, 255))
-						.text_style(egui::TextStyle::Monospace));
-					
-					// Blinking cursor
-					if (ctx.input(|i| i.time) * 2.0).sin() > 0.0 {
-						ui.label(egui::RichText::new("█")
-							.color(egui::Color32::from_rgb(255, 255, 255))
-							.text_style(egui::TextStyle::Monospace));
-					}
+				// Convert relative coordinates to absolute pixel coordinates
+				let pane_x = available_rect.min.x + x * total_width;
+				let pane_y = available_rect.min.y + y * total_height;
+				let pane_width = width * total_width;
+				let pane_height = height * total_height;
+				
+				// Create a clip rect for this pane
+				let pane_rect = egui::Rect::from_min_size(
+					egui::pos2(pane_x, pane_y),
+					egui::vec2(pane_width, pane_height),
+				);
+				
+				// Render pane background (different color for focused pane)
+				let bg_color = if pane_index == self.focused_pane {
+					egui::Color32::from_rgb(20, 20, 20) // Slightly lighter for focused pane
+				} else {
+					egui::Color32::from_rgb(10, 10, 10) // Darker for unfocused panes
+				};
+				
+				ui.painter().rect_filled(pane_rect, 0.0, bg_color);
+				
+				// Draw pane border
+				let border_color = if pane_index == self.focused_pane {
+					egui::Color32::from_rgb(100, 100, 100) // Highlight focused pane
+				} else {
+					egui::Color32::from_rgb(50, 50, 50) // Subtle border for unfocused
+				};
+				ui.painter().rect_stroke(pane_rect, 1.0, (1.0, border_color));
+				
+				// Render pane content in a clipped area
+				ui.set_clip_rect(pane_rect);
+				
+				// Create a child UI for this pane
+				ui.allocate_ui_at_rect(pane_rect, |ui| {
+					// Vertical layout for this pane
+					ui.vertical(|ui| {
+						// Output area (most of the pane)
+						let output_height = pane_height - 30.0; // Leave space for input
+						
+						egui::ScrollArea::vertical()
+							.max_height(output_height)
+							.show(ui, |ui| {
+								// Show output from this pane
+								for line in &pane.output_buffer {
+									ui.label(egui::RichText::new(&line.content)
+										.color(line.color)
+										.text_style(egui::TextStyle::Monospace));
+								}
+							});
+						
+						// Input area at bottom of pane
+						ui.horizontal(|ui| {
+							// Terminal prompt
+							let prompt = format!("sare@user:{} $ ", pane.working_directory);
+							ui.label(egui::RichText::new(prompt)
+								.color(egui::Color32::from_rgb(0, 255, 0))
+								.text_style(egui::TextStyle::Monospace));
+							
+							// Input text with cursor (only for focused pane)
+							if pane_index == self.focused_pane {
+								let input_text = format!("{}{}", 
+									&pane.current_input[..pane.cursor_pos],
+									&pane.current_input[pane.cursor_pos..]
+								);
+								
+								ui.label(egui::RichText::new(input_text)
+									.color(egui::Color32::from_rgb(255, 255, 255))
+									.text_style(egui::TextStyle::Monospace));
+								
+								// Blinking cursor (only for focused pane)
+								if (ctx.input(|i| i.time) * 2.0).sin() > 0.0 {
+									ui.label(egui::RichText::new("█")
+										.color(egui::Color32::from_rgb(255, 255, 255))
+										.text_style(egui::TextStyle::Monospace));
+								}
+							}
+						});
+					});
 				});
-			});
+				
+				// Reset clip rect
+				ui.set_clip_rect(ui.available_rect_before_wrap());
+			}
 		});
 	}
 }

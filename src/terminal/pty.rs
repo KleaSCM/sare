@@ -240,8 +240,8 @@ impl PtyManager {
 			
 			if bytes_written < 0 {
 				return Err(anyhow::anyhow!("Failed to write to PTY"));
-			}
-			
+		}
+		
 			Ok(bytes_written as usize)
 		} else {
 			Err(anyhow::anyhow!("No PTY session available"))
@@ -272,8 +272,8 @@ impl PtyManager {
 			
 			if bytes_read < 0 {
 				return Err(anyhow::anyhow!("Failed to read from PTY"));
-			}
-			
+		}
+		
 			Ok(bytes_read as usize)
 		} else {
 			Err(anyhow::anyhow!("No PTY session available"))
