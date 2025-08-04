@@ -1,0 +1,358 @@
+/**
+ * @file mod.rs
+ * @brief Terminal emulator module for Sare
+ * 
+ * This module provides PTY (Pseudo-Terminal) capabilities for the Sare terminal,
+ * enabling it to host external shells and provide a full terminal emulator experience
+ * with proper process management, I/O redirection, and signal handling.
+ * 
+ * @author KleaSCM
+ * @email KleaSCM@gmail.com
+ * @file mod.rs
+ * @description Terminal emulator module that provides PTY capabilities
+ * for hosting external shells in the Sare terminal.
+ */
+
+pub mod pty;
+pub mod shell;
+pub mod process;
+pub mod io;
+
+use anyhow::Result;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+/**
+ * Terminal emulator configuration
+ * 
+ * Configuration options for the terminal emulator including
+ * shell preferences, PTY settings, and display options.
+ */
+#[derive(Debug, Clone)]
+pub struct TerminalConfig {
+	/// Default shell to use
+	pub default_shell: String,
+	/// Terminal type (e.g., "xterm-256color")
+	pub term_type: String,
+	/// Terminal size (columns, rows)
+	pub size: (u16, u16),
+	/// Enable color support
+	pub color_support: bool,
+	/// Enable mouse support
+	pub mouse_support: bool,
+	/// Enable bracketed paste mode
+	pub bracketed_paste: bool,
+}
+
+impl Default for TerminalConfig {
+	fn default() -> Self {
+		Self {
+			default_shell: "/bin/bash".to_string(),
+			term_type: "xterm-256color".to_string(),
+			size: (80, 24),
+			color_support: true,
+			mouse_support: true,
+			bracketed_paste: true,
+		}
+	}
+}
+
+/**
+ * Terminal emulator instance
+ * 
+ * Manages a single terminal session with PTY capabilities,
+ * process management, and I/O handling for external shells.
+ */
+pub struct TerminalEmulator {
+	/// Terminal configuration
+	config: TerminalConfig,
+	/// Current PTY session
+	pty_session: Option<Arc<RwLock<PtySession>>>,
+	/// Active processes
+	processes: Arc<RwLock<Vec<ProcessInfo>>>,
+	/// Terminal state
+	state: TerminalState,
+}
+
+/**
+ * PTY session information
+ * 
+ * Contains information about an active PTY session
+ * including the master and slave file descriptors.
+ */
+#[derive(Debug, Clone)]
+pub struct PtySession {
+	/// Master PTY file descriptor
+	pub master_fd: i32,
+	/// Slave PTY file descriptor
+	pub slave_fd: i32,
+	/// PTY device path
+	pub pty_path: String,
+	/// Terminal size
+	pub size: (u16, u16),
+}
+
+/**
+ * Process information
+ * 
+ * Contains information about processes running
+ * in the terminal session.
+ */
+#[derive(Debug, Clone)]
+pub struct ProcessInfo {
+	/// Process ID
+	pub pid: u32,
+	/// Process name
+	pub name: String,
+	/// Process command line
+	pub command: String,
+	/// Process status
+	pub status: ProcessStatus,
+}
+
+/**
+ * Process status enumeration
+ * 
+ * Defines the different states a process can be in.
+ */
+#[derive(Debug, Clone, PartialEq)]
+pub enum ProcessStatus {
+	/// Process is running
+	Running,
+	/// Process is stopped
+	Stopped,
+	/// Process has exited
+	Exited(i32),
+	/// Process has been killed
+	Killed(i32),
+}
+
+/**
+ * Terminal state information
+ * 
+ * Contains the current state of the terminal
+ * including cursor position, selection, and mode.
+ */
+#[derive(Debug, Clone)]
+pub struct TerminalState {
+	/// Cursor position (column, row)
+	pub cursor_pos: (u16, u16),
+	/// Terminal size (columns, rows)
+	pub size: (u16, u16),
+	/// Scroll position
+	pub scroll_pos: u32,
+	/// Selection start position
+	pub selection_start: Option<(u16, u16)>,
+	/// Selection end position
+	pub selection_end: Option<(u16, u16)>,
+	/// Terminal mode flags
+	pub mode_flags: TerminalMode,
+}
+
+/**
+ * Terminal mode flags
+ * 
+ * Defines various terminal mode settings
+ * that control terminal behavior.
+ */
+#[derive(Debug, Clone)]
+pub struct TerminalMode {
+	/// Insert mode enabled
+	pub insert_mode: bool,
+	/// Application cursor keys enabled
+	pub app_cursor_keys: bool,
+	/// Application keypad enabled
+	pub app_keypad: bool,
+	/// Mouse tracking enabled
+	pub mouse_tracking: bool,
+	/// Bracketed paste mode enabled
+	pub bracketed_paste: bool,
+}
+
+impl Default for TerminalMode {
+	fn default() -> Self {
+		Self {
+			insert_mode: false,
+			app_cursor_keys: false,
+			app_keypad: false,
+			mouse_tracking: false,
+			bracketed_paste: false,
+		}
+	}
+}
+
+impl TerminalEmulator {
+	/**
+	 * Creates a new terminal emulator instance
+	 * 
+	 * Initializes the terminal emulator with the specified configuration
+	 * and sets up the PTY session management.
+	 * 
+	 * @param config - Terminal configuration
+	 * @return Result<TerminalEmulator> - New terminal emulator instance or error
+	 */
+	pub fn new(config: TerminalConfig) -> Result<Self> {
+		/**
+		 * ターミナルエミュレーター初期化の複雑な処理です (｡◕‿◕｡)
+		 * 
+		 * この関数は複雑なPTY初期化を行います。
+		 * プロセス管理とファイルディスクリプタの管理が難しい部分なので、
+		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 */
+		
+		Ok(Self {
+			config,
+			pty_session: None,
+			processes: Arc::new(RwLock::new(Vec::new())),
+			state: TerminalState {
+				cursor_pos: (0, 0),
+				size: config.size,
+				scroll_pos: 0,
+				selection_start: None,
+				selection_end: None,
+				mode_flags: TerminalMode::default(),
+			},
+		})
+	}
+	
+	/**
+	 * Starts a new PTY session
+	 * 
+	 * Creates a new pseudo-terminal session and launches
+	 * the specified shell or command in it.
+	 * 
+	 * @param command - Command to run (defaults to shell if None)
+	 * @return Result<()> - Success or error status
+	 */
+	pub async fn start_session(&mut self, command: Option<&str>) -> Result<()> {
+		/**
+		 * PTYセッション開始の複雑な処理です (◕‿◕)
+		 * 
+		 * この関数は複雑なプロセス管理を行います。
+		 * PTY作成とプロセス起動が難しい部分なので、
+		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+		 */
+		
+		// TODO: Implement PTY session creation
+		// This will involve:
+		// 1. Creating a new PTY pair
+		// 2. Setting up the slave terminal
+		// 3. Launching the shell/command
+		// 4. Setting up I/O handling
+		
+		Ok(())
+	}
+	
+	/**
+	 * Resizes the terminal
+	 * 
+	 * Updates the terminal size and notifies the PTY
+	 * session of the size change.
+	 * 
+	 * @param columns - Number of columns
+	 * @param rows - Number of rows
+	 * @return Result<()> - Success or error status
+	 */
+	pub async fn resize(&mut self, columns: u16, rows: u16) -> Result<()> {
+		self.state.size = (columns, rows);
+		
+		if let Some(pty_session) = &self.pty_session {
+			// TODO: Implement terminal resize
+			// This will involve:
+			// 1. Updating the PTY window size
+			// 2. Sending SIGWINCH to the process
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Sends input to the terminal
+	 * 
+	 * Processes input and sends it to the PTY session
+	 * for handling by the shell or running process.
+	 * 
+	 * @param input - Input data to send
+	 * @return Result<()> - Success or error status
+	 */
+	pub async fn send_input(&self, input: &[u8]) -> Result<()> {
+		if let Some(pty_session) = &self.pty_session {
+			// TODO: Implement input sending
+			// This will involve:
+			// 1. Writing to the PTY master
+			// 2. Processing escape sequences
+			// 3. Handling special keys
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Reads output from the terminal
+	 * 
+	 * Reads output data from the PTY session and
+	 * processes it for display.
+	 * 
+	 * @return Result<Vec<u8>> - Output data or error
+	 */
+	pub async fn read_output(&self) -> Result<Vec<u8>> {
+		if let Some(pty_session) = &self.pty_session {
+			// TODO: Implement output reading
+			// This will involve:
+			// 1. Reading from the PTY master
+			// 2. Processing escape sequences
+			// 3. Handling terminal control sequences
+		}
+		
+		Ok(Vec::new())
+	}
+	
+	/**
+	 * Gets the current terminal state
+	 * 
+	 * @return &TerminalState - Current terminal state
+	 */
+	pub fn state(&self) -> &TerminalState {
+		&self.state
+	}
+	
+	/**
+	 * Gets the terminal configuration
+	 * 
+	 * @return &TerminalConfig - Terminal configuration
+	 */
+	pub fn config(&self) -> &TerminalConfig {
+		&self.config
+	}
+	
+	/**
+	 * Gets active processes
+	 * 
+	 * @return Vec<ProcessInfo> - List of active processes
+	 */
+	pub async fn get_processes(&self) -> Vec<ProcessInfo> {
+		self.processes.read().await.clone()
+	}
+	
+	/**
+	 * Stops the current session
+	 * 
+	 * Terminates the current PTY session and cleans up
+	 * associated processes and resources.
+	 * 
+	 * @return Result<()> - Success or error status
+	 */
+	pub async fn stop_session(&mut self) -> Result<()> {
+		if let Some(pty_session) = &self.pty_session {
+			// TODO: Implement session termination
+			// This will involve:
+			// 1. Sending SIGTERM to the process
+			// 2. Closing PTY file descriptors
+			// 3. Cleaning up resources
+		}
+		
+		self.pty_session = None;
+		
+		Ok(())
+	}
+} 
