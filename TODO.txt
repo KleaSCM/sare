@@ -383,14 +383,14 @@ The Sare terminal emulator is now a fully-featured developer terminal with:
 - ✅ **Advanced UI features** (scrollable output, copy/paste, status bar, shortcuts)
 
 ## Advanced Shell Features
-- ✅ **POSIX Shell Completion & History**
+- [ ] **POSIX Shell Completion & History**
   - ✅ Tab completion with context awareness (files, commands, flags)
   - ✅ Quoted / escaped path handling in completion
   - ✅ Command history navigation (↑↓, incremental, reverse-i-search)
-  - ✅ Multiline input / continuation line support (\, pipes, quotes)
-  - ✅ Heredocs (<<EOF)
-  - ✅ Command substitution ($(...), `...`)
-  - ✅ Brace expansion + globbing (*.rs, {dev,test})
+  - [ ] Multiline input / continuation line support (\, pipes, quotes)
+  - [ ] Heredocs (<<EOF)
+  - [ ] Command substitution ($(...), `...`)
+  - [ ] Brace expansion + globbing (*.rs, {dev,test})
 
 ## Unicode & Internationalization
 - [ ] **CJK + Emoji Width Handling**
@@ -468,6 +468,7 @@ The Sare terminal emulator is now a fully-featured developer terminal with:
 - ✅ **TerminalPane Integration** - Added `add_output_line()` and `add_char()` methods
 - ✅ **HistoryManager Integration** - Connected proper history manager with file persistence
 - ✅ **Professional Shell Behavior** - Now behaves like bash, zsh, or fish with real history navigation
+- ✅ **Advanced Tab Completion** - Context-aware completion for commands, files, and variables with quoted path handling
 
 ## Current Status: 🎉 **ADVANCED DEVELOPER TERMINAL WITH POSIX HISTORY**
 The Sare terminal emulator now has:

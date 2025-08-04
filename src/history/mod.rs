@@ -13,6 +13,7 @@
  */
 
 pub mod navigation;
+pub mod completion;
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -21,6 +22,7 @@ use std::fs;
 use std::path::PathBuf;
 
 pub use navigation::{HistoryNavigator, HistoryNavigationState};
+pub use completion::{TabCompleter, CompletionResult, CompletionContext};
 
 /**
  * Represents a single history entry

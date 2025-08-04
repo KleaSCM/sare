@@ -15,7 +15,7 @@ use eframe::egui;
 use std::process::Command;
 
 use super::pane::{TerminalPane, SplitDirection, TerminalMode, TerminalLine};
-use crate::history::HistoryManager;
+use crate::history::{HistoryManager, TabCompleter};
 
 /**
  * Main terminal interface
@@ -27,6 +27,8 @@ use crate::history::HistoryManager;
 pub struct SareTerminal {
 	/// Command history manager
 	pub history_manager: HistoryManager,
+	/// Tab completion engine
+	pub tab_completer: TabCompleter,
 	/// History index for navigation
 	pub history_index: Option<usize>,
 	/// Current working directory
@@ -74,8 +76,13 @@ impl Default for SareTerminal {
 				})
 		});
 		
+		let working_directory = std::env::current_dir()
+			.unwrap_or_default();
+		let tab_completer = TabCompleter::new(working_directory);
+		
 		Self {
 			history_manager,
+			tab_completer,
 			history_index: None,
 			current_dir: std::env::current_dir()
 				.unwrap_or_default()
@@ -110,6 +117,7 @@ impl SareTerminal {
 		// Add command to history
 		if !command.trim().is_empty() {
 			self.history_manager.add_command(command.to_string(), None);
+			self.tab_completer.add_command(command.to_string());
 			self.history_index = None;
 			self.history_search_mode = false;
 			self.history_search_query.clear();
@@ -244,8 +252,26 @@ impl SareTerminal {
 								}
 							}
 							egui::Key::Tab => {
-								// Tab: Switch between panes
-								println!("Tab detected - switching panes");
+								// Tab: Perform tab completion
+								if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+									let input = &pane.current_input;
+									let cursor_pos = pane.cursor_pos;
+									
+									if let Ok(Some(completion)) = self.tab_completer.complete(input, cursor_pos) {
+										// Apply the completion
+										pane.current_input = completion.completed_text;
+										pane.cursor_pos = pane.current_input.len();
+										
+										// If partial completion, show alternatives
+										if completion.is_partial && !completion.alternatives.is_empty() {
+											println!("Available completions: {:?}", completion.alternatives);
+										}
+									}
+								}
+							}
+							egui::Key::Tab if modifiers.shift => {
+								// Shift+Tab: Switch between panes
+								println!("Shift+Tab detected - switching panes");
 								self.switch_to_next_pane();
 							}
 							egui::Key::D => {
