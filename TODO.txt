@@ -13,6 +13,7 @@
 ## Core Features
 - ✅ Shell structure with modules
 - ✅ TUI interface with ratatui
+- ✅ GUI interface with egui (standalone window)
 - ✅ Error handling with anyhow::Result
 - ✅ Style guide compliance
 

@@ -317,17 +317,7 @@ async fn main() -> Result<()> {
 	let app = SareApp::new()?;
 	
 	// Configure native options
-	let native_options = eframe::NativeOptions {
-		initial_window_size: Some([1024.0, 768.0].into()),
-		min_window_size: Some([800.0, 600.0].into()),
-		transparent: false,
-		decorated: true,
-		vsync: true,
-		multisampling: 4,
-		depth_buffer: 0,
-		stencil_buffer: 0,
-		..Default::default()
-	};
+	let native_options = eframe::NativeOptions::default();
 	
 	// Run the application
 	eframe::run_native(

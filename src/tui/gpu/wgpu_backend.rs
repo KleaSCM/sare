@@ -76,8 +76,8 @@ impl WgpuBackend {
 		let (device, queue) = adapter
 			.request_device(
 				&wgpu::DeviceDescriptor {
-					features: wgpu::Features::empty(),
-					limits: wgpu::Limits::default(),
+					required_features: wgpu::Features::empty(),
+					required_limits: wgpu::Limits::default(),
 					label: Some("Sare Terminal WGPU Device"),
 				},
 				None,
