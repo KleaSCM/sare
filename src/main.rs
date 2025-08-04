@@ -11,8 +11,8 @@
  * Description: GUI application entry point for Sare terminal emulator
  */
 
-use anyhow::Result;
 use eframe::egui;
+use std::process::Command;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -23,152 +23,119 @@ mod config;
 mod history;
 
 /**
- * Main Sare application
+ * Main Sare terminal application
  * 
- * Provides the main GUI window with terminal emulation,
- * multi-pane support, and developer features.
+ * Provides a real GUI terminal window with actual shell functionality,
+ * command execution, and terminal emulation features.
  */
-struct SareApp {
-	/// Terminal emulator
-	terminal: Arc<RwLock<terminal::TerminalEmulator>>,
-	/// Shell instance
-	shell: Arc<RwLock<shell::Shell>>,
-	/// Input buffer
+struct SareTerminal {
+	/// Input buffer for commands
 	input_buffer: String,
-	/// Output history
+	/// Terminal output history
 	output_history: Vec<String>,
 	/// Current working directory
 	current_dir: String,
-	/// Application state
-	state: AppState,
+	/// Terminal state
+	terminal_state: TerminalState,
+	/// Command history
+	command_history: Vec<String>,
+	/// History index for navigation
+	history_index: Option<usize>,
 }
 
 /**
- * Application state
+ * Terminal state
  * 
- * Tracks the current state of the Sare application
- * including UI state and user interactions.
+ * Tracks the current state of the terminal including
+ * cursor position, selection, and input mode.
  */
 #[derive(Debug, Clone)]
-struct AppState {
-	/// Whether the application is focused
-	focused: bool,
-	/// Current input mode
-	input_mode: InputMode,
-	/// Window size
-	window_size: (f32, f32),
-	/// Theme settings
-	theme: Theme,
+struct TerminalState {
+	/// Cursor position in input
+	cursor_pos: usize,
+	/// Whether text is selected
+	selection_active: bool,
+	/// Selection start position
+	selection_start: usize,
+	/// Selection end position
+	selection_end: usize,
+	/// Terminal size
+	terminal_size: (u32, u32),
+	/// Scroll position
+	scroll_pos: f32,
+	/// Auto-scroll enabled
+	auto_scroll: bool,
 }
 
-/**
- * Input mode enumeration
- * 
- * Defines the different input modes for the terminal.
- */
-#[derive(Debug, Clone, PartialEq)]
-enum InputMode {
-	/// Normal input mode
-	Normal,
-	/// Command input mode
-	Command,
-	/// Search mode
-	Search,
-}
-
-/**
- * Theme settings
- * 
- * Contains theme configuration for the terminal interface.
- */
-#[derive(Debug, Clone)]
-struct Theme {
-	/// Background color
-	background_color: egui::Color32,
-	/// Text color
-	text_color: egui::Color32,
-	/// Prompt color
-	prompt_color: egui::Color32,
-	/// Error color
-	error_color: egui::Color32,
-	/// Success color
-	success_color: egui::Color32,
-	/// Font size
-	font_size: f32,
-}
-
-impl Default for Theme {
+impl Default for TerminalState {
 	fn default() -> Self {
 		Self {
-			background_color: egui::Color32::from_rgb(0, 0, 0),
-			text_color: egui::Color32::from_rgb(255, 255, 255),
-			prompt_color: egui::Color32::from_rgb(0, 255, 0),
-			error_color: egui::Color32::from_rgb(255, 0, 0),
-			success_color: egui::Color32::from_rgb(0, 255, 0),
-			font_size: 14.0,
+			cursor_pos: 0,
+			selection_active: false,
+			selection_start: 0,
+			selection_end: 0,
+			terminal_size: (80, 24),
+			scroll_pos: 0.0,
+			auto_scroll: true,
 		}
 	}
 }
 
-impl SareApp {
+impl SareTerminal {
 	/**
-	 * Creates a new Sare application
+	 * Creates a new Sare terminal
 	 * 
-	 * Initializes the terminal emulator, shell, and GUI components
-	 * for a complete terminal emulation experience.
+	 * Initializes the GUI terminal with real shell functionality
+	 * and command execution capabilities.
 	 * 
-	 * @return Result<SareApp> - New Sare application or error
+	 * @return Result<SareTerminal> - New terminal instance or error
 	 */
 	fn new() -> Result<Self> {
 		/**
-		 * Sareアプリケーション初期化の複雑な処理です (｡◕‿◕｡)
+		 * Sareターミナル初期化の複雑な処理です (｡◕‿◕｡)
 		 * 
-		 * この関数は複雑なGUI初期化を行います。
-		 * ターミナルエミュレーターとシェルの統合が難しい部分なので、
+		 * この関数は複雑なターミナル初期化を行います。
+		 * シェル統合とコマンド実行が難しい部分なので、
 		 * 適切なエラーハンドリングで実装しています (◕‿◕)
 		 */
-		
-		// Initialize terminal emulator
-		let terminal_config = terminal::TerminalConfig::default();
-		let terminal = Arc::new(RwLock::new(terminal::TerminalEmulator::new(terminal_config)?));
-		
-		// Initialize shell
-		let shell = Arc::new(RwLock::new(shell::Shell::new()?));
 		
 		// Get current directory
 		let current_dir = std::env::current_dir()?
 			.to_string_lossy()
 			.to_string();
 		
+		// Initialize output with welcome message
+		let mut output_history = Vec::new();
+		output_history.push("🌸 Welcome to Sare Terminal Emulator 🌸".to_string());
+		output_history.push("".to_string());
+		output_history.push(format!("Current directory: {}", current_dir));
+		output_history.push("Type 'help' for available commands".to_string());
+		output_history.push("".to_string());
+		
 		Ok(Self {
-			terminal,
-			shell,
 			input_buffer: String::new(),
-			output_history: Vec::new(),
+			output_history,
 			current_dir,
-			state: AppState {
-				focused: true,
-				input_mode: InputMode::Normal,
-				window_size: (1024.0, 768.0),
-				theme: Theme::default(),
-			},
+			terminal_state: TerminalState::default(),
+			command_history: Vec::new(),
+			history_index: None,
 		})
 	}
 	
 	/**
-	 * Handles command execution
+	 * Executes a shell command
 	 * 
-	 * Executes shell commands and updates the output history
-	 * with command results and error handling.
+	 * Executes the given command using the system shell
+	 * and captures the output for display.
 	 * 
 	 * @param command - Command to execute
 	 */
-	async fn execute_command(&mut self, command: &str) {
+	fn execute_command(&mut self, command: &str) {
 		/**
 		 * コマンド実行の複雑な処理です (◕‿◕)
 		 * 
 		 * この関数は複雑なシェルコマンド実行を行います。
-		 * 非同期コマンド実行とエラーハンドリングが難しい部分なので、
+		 * プロセス作成と出力キャプチャが難しい部分なので、
 		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
 		 */
 		
@@ -177,21 +144,94 @@ impl SareApp {
 		}
 		
 		// Add command to history
+		self.command_history.push(command.to_string());
 		self.output_history.push(format!("$ {}", command));
 		
-		// For now, just simulate command execution
-		// TODO: Implement proper async command execution
-		self.output_history.push(format!("Command executed: {}", command));
+		// Handle built-in commands
+		match command.trim() {
+			"clear" => {
+				self.output_history.clear();
+				self.output_history.push("🌸 Sare Terminal Emulator 🌸".to_string());
+				return;
+			}
+			"help" => {
+				self.output_history.push("Available commands:".to_string());
+				self.output_history.push("  clear - Clear terminal".to_string());
+				self.output_history.push("  help - Show this help".to_string());
+				self.output_history.push("  pwd - Show current directory".to_string());
+				self.output_history.push("  ls - List files".to_string());
+				self.output_history.push("  cd <dir> - Change directory".to_string());
+				self.output_history.push("  exit - Exit terminal".to_string());
+				return;
+			}
+			"pwd" => {
+				self.output_history.push(self.current_dir.clone());
+				return;
+			}
+			"exit" => {
+				std::process::exit(0);
+			}
+			_ => {}
+		}
+		
+		// Handle cd command specially
+		if command.starts_with("cd ") {
+			let new_dir = command[3..].trim();
+			if let Ok(new_path) = std::env::set_current_dir(new_dir) {
+				if let Ok(current_dir) = std::env::current_dir() {
+					self.current_dir = current_dir.to_string_lossy().to_string();
+				}
+			} else {
+				self.output_history.push(format!("Error: Cannot change to directory '{}'", new_dir));
+			}
+			return;
+		}
+		
+		// Execute system command
+		let output = Command::new("sh")
+			.arg("-c")
+			.arg(command)
+			.current_dir(&self.current_dir)
+			.output();
+		
+		match output {
+			Ok(output) => {
+				// Add stdout
+				if !output.stdout.is_empty() {
+					let stdout = String::from_utf8_lossy(&output.stdout);
+					for line in stdout.lines() {
+						self.output_history.push(line.to_string());
+					}
+				}
+				
+				// Add stderr
+				if !output.stderr.is_empty() {
+					let stderr = String::from_utf8_lossy(&output.stderr);
+					for line in stderr.lines() {
+						self.output_history.push(format!("ERROR: {}", line));
+					}
+				}
+				
+				// Add exit status
+				if !output.status.success() {
+					self.output_history.push(format!("Exit code: {}", output.status));
+				}
+			}
+			Err(e) => {
+				self.output_history.push(format!("Error executing command: {}", e));
+			}
+		}
 		
 		// Clear input buffer
 		self.input_buffer.clear();
+		self.terminal_state.cursor_pos = 0;
 	}
 	
 	/**
 	 * Renders the terminal interface
 	 * 
-	 * Renders the terminal GUI with output history, input area,
-	 * and status information in a modern interface.
+	 * Renders the terminal GUI with output history, command input,
+	 * and proper terminal styling.
 	 * 
 	 * @param ctx - Egui context
 	 */
@@ -205,59 +245,73 @@ impl SareApp {
 		 */
 		
 		egui::CentralPanel::default().show(ctx, |ui| {
-			// Set background color
+			// Set terminal background
 			ui.painter().rect_filled(
 				ui.available_rect_before_wrap(),
 				0.0,
-				self.state.theme.background_color,
+				egui::Color32::from_rgb(0, 0, 0),
 			);
 			
-			// Configure text style
-			let mut text_style = egui::TextStyle::Monospace;
-			text_style.size = self.state.theme.font_size;
+			// Configure terminal text style
+			let text_style = egui::TextStyle::Monospace;
 			
-			// Render output history
+			// Render output area
 			ui.group(|ui| {
 				ui.set_enabled(false);
-				ui.label(egui::RichText::new("Sare Terminal Emulator").color(self.state.theme.prompt_color));
-				ui.separator();
 				
-				// Display output history
-				for output in &self.output_history {
-					ui.label(egui::RichText::new(output).color(self.state.theme.text_color));
-				}
+				// Scrollable output area
+				egui::ScrollArea::vertical()
+					.max_height(ui.available_height() - 60.0)
+					.show(ui, |ui| {
+						for output in &self.output_history {
+							ui.label(egui::RichText::new(output)
+								.color(egui::Color32::from_rgb(255, 255, 255))
+								.text_style(text_style));
+						}
+					});
 			});
 			
-			// Render input area
+			// Render command input area
 			ui.group(|ui| {
 				ui.horizontal(|ui| {
-					// Prompt
+					// Terminal prompt
 					ui.label(egui::RichText::new(format!("sare@{}:{} $ ", 
 						whoami::username(), 
 						self.current_dir
-					)).color(self.state.theme.prompt_color));
+					)).color(egui::Color32::from_rgb(0, 255, 0))
+					.text_style(text_style));
 					
-					// Input field
+					// Command input field
 					let response = ui.add_sized(
 						[ui.available_width(), 20.0],
 						egui::TextEdit::singleline(&mut self.input_buffer)
 							.text_style(text_style)
 							.desired_width(f32::INFINITY)
 							.hint_text("Enter command...")
+							.cursor_at_end(true)
 					);
 					
-					// Handle Enter key
-					if response.gained_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+					// Handle Enter key for command execution
+					if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
 						let command = self.input_buffer.clone();
 						if !command.trim().is_empty() {
-							// Execute command asynchronously
-							let command_clone = command.clone();
-							ui.ctx().run_async(|ctx| async move {
-								// This would need to be handled differently in a real async context
-								// For now, we'll just add it to history
-								// In a real implementation, you'd use a channel or similar
-							});
+							self.execute_command(&command);
 						}
+					}
+					
+					// Handle Up/Down for command history
+					if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+						self.navigate_history_up();
+					}
+					
+					if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
+						self.navigate_history_down();
+					}
+					
+					// Handle Ctrl+C to clear input
+					if ui.input(|i| i.key_pressed(egui::Key::C) && i.modifiers.ctrl) {
+						self.input_buffer.clear();
+						self.terminal_state.cursor_pos = 0;
 					}
 				});
 			});
@@ -265,25 +319,62 @@ impl SareApp {
 			// Render status bar
 			ui.group(|ui| {
 				ui.horizontal(|ui| {
-					ui.label(egui::RichText::new("Ready").color(self.state.theme.success_color));
+					ui.label(egui::RichText::new("Ready").color(egui::Color32::from_rgb(0, 255, 0)));
 					ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-						ui.label(egui::RichText::new("Ctrl+C to interrupt | Ctrl+D to exit").color(self.state.theme.text_color));
+						ui.label(egui::RichText::new("Ctrl+C: Clear | Ctrl+D: Exit | ↑↓: History").color(egui::Color32::from_rgb(128, 128, 128)));
 					});
 				});
 			});
 		});
 	}
-}
-
-impl eframe::App for SareApp {
-	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-		// Handle keyboard shortcuts
-		if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
-			self.state.input_mode = InputMode::Normal;
+	
+	/**
+	 * Navigate up in command history
+	 */
+	fn navigate_history_up(&mut self) {
+		if self.command_history.is_empty() {
+			return;
 		}
 		
-		if ctx.input(|i| i.key_pressed(egui::Key::F1)) {
-			self.state.input_mode = InputMode::Command;
+		let history_len = self.command_history.len();
+		let current_index = self.history_index.unwrap_or(history_len);
+		
+		if current_index > 0 {
+			self.history_index = Some(current_index - 1);
+			self.input_buffer = self.command_history[current_index - 1].clone();
+			self.terminal_state.cursor_pos = self.input_buffer.len();
+		}
+	}
+	
+	/**
+	 * Navigate down in command history
+	 */
+	fn navigate_history_down(&mut self) {
+		if self.command_history.is_empty() {
+			return;
+		}
+		
+		let history_len = self.command_history.len();
+		let current_index = self.history_index.unwrap_or(history_len);
+		
+		if current_index < history_len - 1 {
+			self.history_index = Some(current_index + 1);
+			self.input_buffer = self.command_history[current_index + 1].clone();
+			self.terminal_state.cursor_pos = self.input_buffer.len();
+		} else {
+			self.history_index = None;
+			self.input_buffer.clear();
+			self.terminal_state.cursor_pos = 0;
+		}
+	}
+}
+
+impl eframe::App for SareTerminal {
+	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+		// Handle global keyboard shortcuts
+		if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+			self.input_buffer.clear();
+			self.terminal_state.cursor_pos = 0;
 		}
 		
 		// Render the terminal interface
@@ -294,14 +385,12 @@ impl eframe::App for SareApp {
 	}
 	
 	fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-		// Set background color to match terminal theme
-		let color = self.state.theme.background_color;
-		[color.r() / 255.0, color.g() / 255.0, color.b() / 255.0, color.a() / 255.0]
+		// Set background color to terminal black
+		[0.0, 0.0, 0.0, 1.0]
 	}
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<(), eframe::Error> {
 	/**
 	 * メインアプリケーション初期化の複雑な処理です (｡◕‿◕｡)
 	 * 
@@ -313,18 +402,16 @@ async fn main() -> Result<()> {
 	// Initialize logging
 	env_logger::init();
 	
-	// Create the Sare application
-	let app = SareApp::new()?;
+	// Create the Sare terminal application
+	let app = SareTerminal::new()?;
 	
-	// Configure native options
+	// Configure native options for terminal window
 	let native_options = eframe::NativeOptions::default();
 	
-	// Run the application
+	// Run the terminal application
 	eframe::run_native(
 		"Sare Terminal Emulator",
 		native_options,
 		Box::new(|_cc| Box::new(app)),
-	)?;
-	
-	Ok(())
+	)
 } 
