@@ -497,11 +497,33 @@ impl PaneManager {
 		if let Some(pane) = panes.get_mut(pane_id) {
 			pane.layout.size = new_size;
 			
-			// TODO: Implement layout recalculation
-			// This will involve:
-			// 1. Adjusting neighboring pane sizes
-			// 2. Updating layout tree
-			// 3. Notifying terminals of size changes
+			// Implement layout recalculation
+			use crate::tui::panes::layout::LayoutManager;
+			
+			// Create layout manager for recalculation
+			let layout_manager = LayoutManager::new(
+				self.layout.algorithm.clone(),
+				crate::tui::panes::layout::LayoutConstraints::default()
+			);
+			
+			// Get all pane IDs for layout calculation
+			let pane_ids: Vec<String> = panes.keys().cloned().collect();
+			let total_size = (80, 24); // Default terminal size
+			
+			// Calculate new layout for all panes
+			let layout_results = layout_manager.calculate_layout(&pane_ids, total_size)?;
+			
+			// Update pane sizes and positions
+			for (pane_id, layout_result) in layout_results {
+				if let Some(pane) = panes.get_mut(&pane_id) {
+					pane.layout.position = layout_result.position;
+					pane.layout.size = layout_result.size;
+					
+					// Notify terminal of size change
+					let mut terminal = pane.terminal.write().await;
+					terminal.resize(layout_result.size.0, layout_result.size.1).await?;
+				}
+			}
 		}
 		
 		Ok(())
@@ -562,6 +584,21 @@ impl PaneManager {
 		
 		let panes = self.panes.read().await;
 		
+		// Implement session synchronization
+		use crate::tui::panes::session::SessionManager;
+		
+		// Create session manager for synchronization
+		let mut session_manager = SessionManager::new();
+		
+		// Get all session IDs from panes
+		let session_ids: Vec<String> = panes.values()
+			.map(|pane| pane.pane_id.clone())
+			.collect();
+		
+		// Synchronize all sessions
+		session_manager.synchronize_sessions(&session_ids).await?;
+		
+		// Send input to all panes
 		for pane in panes.values() {
 			let terminal = pane.terminal.read().await;
 			terminal.send_input(input).await?;

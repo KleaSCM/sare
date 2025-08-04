@@ -412,26 +412,93 @@ impl NavigationManager {
 		
 		let target_index = match direction {
 			MoveDirection::Left => {
+				// Implement grid-based navigation (Left)
 				if let Some(idx) = current_index {
-					if idx > 0 { Some(idx - 1) } else { Some(panes.len() - 1) }
+					// Calculate grid dimensions
+					let grid_cols = (panes.len() as f32).sqrt().ceil() as usize;
+					let current_row = idx / grid_cols;
+					let current_col = idx % grid_cols;
+					
+					if current_col > 0 {
+						// Move to pane on the left
+						Some(idx - 1)
+					} else {
+						// Wrap to rightmost column
+						let target_idx = current_row * grid_cols + (grid_cols - 1);
+						if target_idx < panes.len() {
+							Some(target_idx)
+						} else {
+							Some(panes.len() - 1)
+						}
+					}
 				} else {
 					Some(0)
 				}
 			}
 			MoveDirection::Right => {
+				// Implement grid-based navigation (Right)
 				if let Some(idx) = current_index {
-					if idx < panes.len() - 1 { Some(idx + 1) } else { Some(0) }
+					// Calculate grid dimensions
+					let grid_cols = (panes.len() as f32).sqrt().ceil() as usize;
+					let current_row = idx / grid_cols;
+					let current_col = idx % grid_cols;
+					
+					let target_idx = idx + 1;
+					if target_idx < panes.len() && (target_idx / grid_cols) == current_row {
+						// Move to pane on the right (same row)
+						Some(target_idx)
+					} else {
+						// Wrap to leftmost column
+						Some(current_row * grid_cols)
+					}
 				} else {
 					Some(0)
 				}
 			}
 			MoveDirection::Up => {
-				// TODO: Implement grid-based navigation
-				current_index
+				// Implement grid-based navigation (Up)
+				if let Some(idx) = current_index {
+					// Calculate grid dimensions
+					let grid_cols = (panes.len() as f32).sqrt().ceil() as usize;
+					let current_row = idx / grid_cols;
+					let current_col = idx % grid_cols;
+					
+					if current_row > 0 {
+						// Move to pane above
+						Some(idx - grid_cols)
+					} else {
+						// Wrap to bottom row
+						let bottom_row = (panes.len() - 1) / grid_cols;
+						let target_idx = bottom_row * grid_cols + current_col;
+						if target_idx < panes.len() {
+							Some(target_idx)
+						} else {
+							Some(panes.len() - 1)
+						}
+					}
+				} else {
+					Some(0)
+				}
 			}
 			MoveDirection::Down => {
-				// TODO: Implement grid-based navigation
-				current_index
+				// Implement grid-based navigation (Down)
+				if let Some(idx) = current_index {
+					// Calculate grid dimensions
+					let grid_cols = (panes.len() as f32).sqrt().ceil() as usize;
+					let current_row = idx / grid_cols;
+					let current_col = idx % grid_cols;
+					
+					let target_idx = idx + grid_cols;
+					if target_idx < panes.len() {
+						// Move to pane below
+						Some(target_idx)
+					} else {
+						// Wrap to top row
+						Some(current_col)
+					}
+				} else {
+					Some(0)
+				}
 			}
 		};
 		

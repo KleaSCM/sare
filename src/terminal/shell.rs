@@ -227,9 +227,22 @@ impl ShellManager {
 		let config = self.configurations.get(shell_type)
 			.ok_or_else(|| anyhow::anyhow!("Unknown shell type: {}", shell_type))?;
 		
-		// Create process info
+		// Create process info with actual process ID
+		use crate::terminal::process::{ProcessManager, ProcessOptions};
+		
+		let mut process_manager = ProcessManager::new();
+		let options = ProcessOptions {
+			command: config.executable.clone(),
+			args: Vec::new(),
+			environment: config.environment.clone(),
+			working_directory: Some(working_directory.to_string()),
+			pgid: None,
+			foreground: true,
+		};
+		let pid = process_manager.create_process(options).await?;
+		
 		let process = ProcessInfo {
-			pid: 0, // TODO: Actual process ID
+			pid,
 			name: config.name.clone(),
 			command: config.executable.clone(),
 			status: ProcessStatus::Running,
@@ -292,12 +305,14 @@ impl ShellManager {
 		if let Some(session) = sessions.get_mut(session_id) {
 			session.state = SessionState::ShuttingDown;
 			
-			// TODO: Implement actual session termination
-			// This will involve:
-			// 1. Sending SIGTERM to the process
-			// 2. Waiting for graceful shutdown
-			// 3. Force killing if necessary
-			// 4. Cleaning up resources
+			// Terminate the process using ProcessManager
+			use crate::terminal::process::ProcessManager;
+			
+			let mut process_manager = ProcessManager::new();
+			process_manager.terminate_process(session.process.pid).await?;
+			
+			// Update session state
+			session.state = SessionState::Terminated(0);
 		}
 		
 		Ok(())

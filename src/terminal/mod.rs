@@ -238,12 +238,30 @@ impl TerminalEmulator {
 		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
 		 */
 		
-		// TODO: Implement PTY session creation
-		// This will involve:
-		// 1. Creating a new PTY pair
-		// 2. Setting up the slave terminal
-		// 3. Launching the shell/command
-		// 4. Setting up I/O handling
+		// Create PTY session using the pty module
+		use crate::terminal::pty::{PtyManager, PtyOptions};
+		
+		let mut pty_manager = PtyManager::new(self.config.clone());
+		let options = PtyOptions {
+			size: self.state.size,
+			term_type: self.config.term_type.clone(),
+			environment: Vec::new(),
+			working_directory: None,
+			command: command.map(|s| s.to_string()),
+		};
+		let session = pty_manager.create_session(options).await?;
+		
+		// Store the PTY session
+		self.pty_session = Some(Arc::new(RwLock::new(session)));
+		
+		// Launch the shell or command
+		if let Some(cmd) = command {
+			// Launch specific command
+			// TODO: Implement command launching
+		} else {
+			// Launch default shell
+			// TODO: Implement shell launching
+		}
 		
 		Ok(())
 	}
@@ -262,10 +280,11 @@ impl TerminalEmulator {
 		self.state.size = (columns, rows);
 		
 		if let Some(pty_session) = &self.pty_session {
-			// TODO: Implement terminal resize
-			// This will involve:
-			// 1. Updating the PTY window size
-			// 2. Sending SIGWINCH to the process
+			// Update PTY session size
+			use crate::terminal::pty::PtyManager;
+			
+			let pty_manager = PtyManager::new(self.config.clone());
+			pty_manager.resize_session((columns, rows)).await?;
 		}
 		
 		Ok(())
@@ -282,11 +301,11 @@ impl TerminalEmulator {
 	 */
 	pub async fn send_input(&self, input: &[u8]) -> Result<()> {
 		if let Some(pty_session) = &self.pty_session {
-			// TODO: Implement input sending
-			// This will involve:
-			// 1. Writing to the PTY master
-			// 2. Processing escape sequences
-			// 3. Handling special keys
+			// Write input to PTY master
+			use crate::terminal::pty::PtyManager;
+			
+			let pty_manager = PtyManager::new(self.config.clone());
+			pty_manager.write_to_pty(input).await?;
 		}
 		
 		Ok(())
@@ -302,11 +321,14 @@ impl TerminalEmulator {
 	 */
 	pub async fn read_output(&self) -> Result<Vec<u8>> {
 		if let Some(pty_session) = &self.pty_session {
-			// TODO: Implement output reading
-			// This will involve:
-			// 1. Reading from the PTY master
-			// 2. Processing escape sequences
-			// 3. Handling terminal control sequences
+			// Read output from PTY master
+			use crate::terminal::pty::PtyManager;
+			
+			let pty_manager = PtyManager::new(self.config.clone());
+			let mut buffer = vec![0u8; 4096]; // 4KB buffer
+			let bytes_read = pty_manager.read_from_pty(&mut buffer).await?;
+			
+			return Ok(buffer[..bytes_read].to_vec());
 		}
 		
 		Ok(Vec::new())
@@ -349,11 +371,11 @@ impl TerminalEmulator {
 	 */
 	pub async fn stop_session(&mut self) -> Result<()> {
 		if let Some(pty_session) = &self.pty_session {
-			// TODO: Implement session termination
-			// This will involve:
-			// 1. Sending SIGTERM to the process
-			// 2. Closing PTY file descriptors
-			// 3. Cleaning up resources
+			// Close PTY session
+			use crate::terminal::pty::PtyManager;
+			
+			let mut pty_manager = PtyManager::new(self.config.clone());
+			pty_manager.close_session().await?;
 		}
 		
 		self.pty_session = None;

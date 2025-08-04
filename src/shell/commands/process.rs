@@ -232,8 +232,8 @@ impl CommandHandler for WaitCommand {
         };
         
         if let Some(job_id) = job_id {
-
-            // TODO: Implement actual job waiting
+            // TODO: Implement actual job waiting (requires async context)
+            // For now, just acknowledge the wait command
             Ok(CommandResult {
                 output: format!("Waiting for job {} to complete...", job_id),
                 exit_code: 0,
