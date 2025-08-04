@@ -102,4 +102,25 @@ impl Default for TerminalPane {
 			split_direction: None,
 		}
 	}
-} 
+}
+
+impl TerminalPane {
+	/**
+	 * Adds an output line to the pane
+	 */
+	pub fn add_output_line(&mut self, content: String, color: egui::Color32, is_prompt: bool) {
+		self.output_buffer.push(TerminalLine {
+			content,
+			color,
+			is_prompt,
+		});
+	}
+	
+	/**
+	 * Adds a character to the current input
+	 */
+	pub fn add_char(&mut self, c: char) {
+		self.current_input.push(c);
+		self.cursor_pos = self.current_input.len();
+	}
+}

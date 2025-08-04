@@ -14,7 +14,8 @@ use anyhow::Result;
 use eframe::egui;
 use std::process::Command;
 
-use super::pane::{TerminalPane, SplitDirection, TerminalMode};
+use super::pane::{TerminalPane, SplitDirection, TerminalMode, TerminalLine};
+use crate::history::HistoryManager;
 
 /**
  * Main terminal interface
@@ -24,8 +25,8 @@ use super::pane::{TerminalPane, SplitDirection, TerminalMode};
  */
 #[derive(Debug)]
 pub struct SareTerminal {
-	/// Command history
-	pub command_history: Vec<String>,
+	/// Command history manager
+	pub history_manager: HistoryManager,
 	/// History index for navigation
 	pub history_index: Option<usize>,
 	/// Current working directory
@@ -44,6 +45,12 @@ pub struct SareTerminal {
 	pub focused_pane: usize,
 	/// Current split direction for new panes
 	pub current_split_direction: SplitDirection,
+	/// History search mode
+	pub history_search_mode: bool,
+	/// History search query
+	pub history_search_query: String,
+	/// Original input before history navigation
+	pub original_input: String,
 }
 
 impl Default for SareTerminal {
@@ -57,9 +64,18 @@ impl Default for SareTerminal {
 		 */
 		
 		let default_pane = TerminalPane::default();
+		let history_manager = HistoryManager::new().unwrap_or_else(|_| {
+			// Create a basic history manager with fallback config
+			HistoryManager::with_config(1000, std::path::PathBuf::from(".sare_history"))
+				.unwrap_or_else(|_| HistoryManager {
+					history: std::collections::VecDeque::new(),
+					max_entries: 1000,
+					history_file: std::path::PathBuf::from(".sare_history"),
+				})
+		});
 		
 		Self {
-			command_history: Vec::new(),
+			history_manager,
 			history_index: None,
 			current_dir: std::env::current_dir()
 				.unwrap_or_default()
@@ -72,6 +88,9 @@ impl Default for SareTerminal {
 			panes: vec![default_pane],
 			focused_pane: 0,
 			current_split_direction: SplitDirection::Vertical,
+			history_search_mode: false,
+			history_search_query: String::new(),
+			original_input: String::new(),
 		}
 	}
 }
@@ -90,8 +109,10 @@ impl SareTerminal {
 	pub fn execute_command(&mut self, command: &str) {
 		// Add command to history
 		if !command.trim().is_empty() {
-			self.command_history.push(command.to_string());
+			self.history_manager.add_command(command.to_string(), None);
 			self.history_index = None;
+			self.history_search_mode = false;
+			self.history_search_query.clear();
 		}
 		
 		// Execute the command first
@@ -99,302 +120,359 @@ impl SareTerminal {
 		
 		// Get current pane and add output
 		if let Some(pane) = self.panes.get_mut(self.focused_pane) {
-			// Add command to pane output
-			pane.output_buffer.push(super::pane::TerminalLine {
-				content: format!("sare@user:{} $ {}", self.current_dir, command),
-				color: egui::Color32::from_rgb(0, 255, 0),
-				is_prompt: true,
-			});
-			
-			// Add output to pane
-			pane.output_buffer.push(super::pane::TerminalLine {
-				content: output,
-				color: egui::Color32::from_rgb(255, 255, 255),
-				is_prompt: false,
-			});
+			pane.add_output_line(output, egui::Color32::from_rgb(255, 255, 255), false);
 		}
-		
-		// Clear input
-		self.panes[self.focused_pane].current_input.clear();
-		self.panes[self.focused_pane].cursor_pos = 0;
 	}
 	
 	/**
 	 * Runs a command and returns the output
 	 */
 	pub fn run_command(&mut self, command: &str) -> String {
-		let trimmed = command.trim();
+		if command.trim().is_empty() {
+			return String::new();
+		}
 		
-		match trimmed {
+		// Handle built-in commands first
+		match command.trim() {
 			"clear" => {
-				// Clear the output buffer
-				self.panes[self.focused_pane].output_buffer.clear();
+				// Clear all panes
+				for pane in &mut self.panes {
+					pane.output_buffer.clear();
+				}
 				return String::new();
 			}
 			"pwd" => {
-				return self.current_dir.clone();
+				return format!("{}\n", self.current_dir);
 			}
-			"exit" => {
-				std::process::exit(0);
+			"history" => {
+				return self.get_history_display();
 			}
-			_ => {}
-		}
-		
-		// Handle ping command with arguments
-		if trimmed.starts_with("ping ") {
-			let args = trimmed[5..].trim(); // Remove "ping " prefix
-			let output = Command::new("ping")
-				.arg("-c")
-				.arg("5")
-				.arg(args)
-				.current_dir(&self.current_dir)
-				.output();
-			
-			match output {
-				Ok(output) => {
-					let mut result = String::new();
-					
-					// Add stdout
-					if !output.stdout.is_empty() {
+			_ => {
+				// Try to execute as external command
+				let parts: Vec<&str> = command.split_whitespace().collect();
+				if parts.is_empty() {
+					return String::new();
+				}
+				
+				match Command::new(parts[0])
+					.args(&parts[1..])
+					.current_dir(&self.current_dir)
+					.output() {
+					Ok(output) => {
 						let stdout = String::from_utf8_lossy(&output.stdout);
-						result.push_str(&stdout);
-					}
-					
-					// Add stderr
-					if !output.stderr.is_empty() {
 						let stderr = String::from_utf8_lossy(&output.stderr);
-						if !result.is_empty() {
+						
+						let mut result = String::new();
+						if !stdout.is_empty() {
+							result.push_str(&stdout);
+						}
+						if !stderr.is_empty() {
+							result.push_str(&stderr);
+						}
+						
+						if result.is_empty() {
 							result.push('\n');
 						}
-						result.push_str(&stderr);
+						
+						result
 					}
-					
-					// Add exit status if not successful
-					if !output.status.success() {
-						if !result.is_empty() {
-							result.push('\n');
-						}
-						result.push_str(&format!("Exit code: {}", output.status));
+					Err(e) => {
+						format!("Error executing command: {}\n", e)
 					}
-					
-					return result;
 				}
-				Err(e) => {
-					return format!("Error executing command: {}", e);
-				}
-			}
-		}
-		
-		// Handle cd command specially
-		if trimmed.starts_with("cd ") {
-			let new_dir = trimmed[3..].trim();
-			if let Ok(_) = std::env::set_current_dir(new_dir) {
-				if let Ok(current_dir) = std::env::current_dir() {
-					let new_path = current_dir.to_string_lossy().to_string();
-					// Update current directory
-					self.current_dir = new_path.clone();
-					return format!("Changed directory to: {}", new_path);
-				}
-			} else {
-				return format!("Error: Cannot change to directory '{}'", new_dir);
-			}
-		}
-		
-		// Execute system command
-		let output = Command::new("sh")
-			.arg("-c")
-			.arg(trimmed)
-			.current_dir(&self.current_dir)
-			.output();
-		
-		match output {
-			Ok(output) => {
-				let mut result = String::new();
-				
-				// Add stdout
-				if !output.stdout.is_empty() {
-					let stdout = String::from_utf8_lossy(&output.stdout);
-					result.push_str(&stdout);
-				}
-				
-				// Add stderr
-				if !output.stderr.is_empty() {
-					let stderr = String::from_utf8_lossy(&output.stderr);
-					if !result.is_empty() {
-						result.push('\n');
-					}
-					result.push_str(&stderr);
-				}
-				
-				// Add exit status if not successful
-				if !output.status.success() {
-					if !result.is_empty() {
-						result.push('\n');
-					}
-					result.push_str(&format!("Exit code: {}", output.status));
-				}
-				
-				result
-			}
-			Err(e) => {
-				format!("Error executing command: {}", e)
 			}
 		}
 	}
 	
 	/**
-	 * Adds a line to the output buffer
+	 * Gets history display for history command
+	 */
+	fn get_history_display(&self) -> String {
+		let history = self.history_manager.get_history();
+		let mut display = String::new();
+		
+		for (i, entry) in history.iter().enumerate() {
+			display.push_str(&format!("{:4}  {}\n", i + 1, entry.command));
+		}
+		
+		display
+	}
+	
+	/**
+	 * Adds an output line to the current pane
 	 */
 	pub fn add_output_line(&mut self, content: String, color: egui::Color32, is_prompt: bool) {
-		let line = super::pane::TerminalLine {
-			content,
-			color,
-			is_prompt,
-		};
-		
-		self.panes[self.focused_pane].output_buffer.push(line);
+		if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+			pane.add_output_line(content, color, is_prompt);
+		}
 	}
 	
 	/**
-	 * Handles key input
+	 * Handles key input with advanced history navigation
 	 */
 	pub fn handle_key_input(&mut self, ctx: &egui::Context) {
+		/**
+		 * キー入力処理の複雑な処理です (｡◕‿◕｡)
+		 * 
+		 * この関数は複雑なキー入力処理を行います。
+		 * 履歴ナビゲーションとショートカット処理が難しい部分なので、
+		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 */
+		
 		ctx.input(|input| {
-			// Debug: Print all key events
+			// Handle key presses
 			for event in &input.events {
-				match event {
-					egui::Event::Key { key, pressed, modifiers, .. } => {
-						if *pressed {
-							println!("Key pressed: {:?} with modifiers: {:?}", key, modifiers);
-							
-							// Handle Ctrl combinations
-							if modifiers.ctrl {
-								match key {
-									egui::Key::N => {
-										println!("Ctrl+N detected - creating vertical split");
-										self.split_pane(SplitDirection::Vertical);
-									}
-									egui::Key::H => {
-										println!("Ctrl+H detected - creating horizontal split");
-										self.split_pane(SplitDirection::Horizontal);
-									}
-									egui::Key::D => {
-										println!("Ctrl+D detected - closing pane");
-										self.close_current_pane();
-									}
-									egui::Key::C => {
-										println!("Ctrl+C detected - clearing input");
-										self.panes[self.focused_pane].current_input.clear();
-										self.panes[self.focused_pane].cursor_pos = 0;
-									}
-									_ => {}
+				if let egui::Event::Key { key, pressed, modifiers, .. } = event {
+					if *pressed {
+						match *key {
+							egui::Key::ArrowUp => {
+								if modifiers.ctrl {
+									// Ctrl+Up: Navigate history up
+									self.navigate_history_up();
+								} else {
+									// Up: Navigate history up
+									self.navigate_history_up();
 								}
-							} else {
-								// Handle single keys
-								match key {
-									egui::Key::Enter => {
-										let command = self.panes[self.focused_pane].current_input.clone();
-										if !command.trim().is_empty() {
-											self.execute_command(&command);
+							}
+							egui::Key::ArrowDown => {
+								if modifiers.ctrl {
+									// Ctrl+Down: Navigate history down
+									self.navigate_history_down();
+								} else {
+									// Down: Navigate history down
+									self.navigate_history_down();
+								}
+							}
+							egui::Key::Tab => {
+								// Tab: Switch between panes
+								println!("Tab detected - switching panes");
+								self.switch_to_next_pane();
+							}
+							egui::Key::D => {
+								if modifiers.ctrl {
+									// Ctrl+D: Close current pane
+									println!("Ctrl+D detected - closing pane");
+									self.close_current_pane();
+								}
+							}
+							egui::Key::N => {
+								if modifiers.ctrl {
+									// Ctrl+N: Create new pane
+									println!("Ctrl+N detected - creating new pane");
+									self.split_pane(SplitDirection::Horizontal);
+								}
+							}
+							egui::Key::H => {
+								if modifiers.ctrl {
+									// Ctrl+H: Create new pane
+									println!("Ctrl+H detected - creating new pane");
+									self.split_pane(SplitDirection::Vertical);
+								}
+							}
+							egui::Key::R => {
+								if modifiers.ctrl {
+									// Ctrl+R: Reverse incremental search
+									self.start_reverse_search();
+								}
+							}
+							egui::Key::Escape => {
+								// Escape: Exit history search mode
+								if self.history_search_mode {
+									self.exit_history_search();
+								}
+							}
+							egui::Key::Enter => {
+								// Enter: Execute current command
+								if let Some(pane) = self.panes.get(self.focused_pane) {
+									let command = pane.current_input.clone();
+									if !command.trim().is_empty() {
+										// Execute the command
+										self.execute_command(&command);
+										
+										// Clear the input and reset history navigation
+										if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+											pane.current_input.clear();
+											pane.cursor_pos = 0;
+										}
+										
+										self.history_index = None;
+										self.original_input.clear();
+									}
+								}
+							}
+							_ => {
+								// Handle regular character input
+								if let Some(c) = Self::key_to_char(*key) {
+									if self.history_search_mode {
+										// Add to search query
+										self.history_search_query.push(c);
+										self.perform_reverse_search();
+									} else {
+										// Add to current pane input
+										if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+											pane.add_char(c);
 										}
 									}
-									egui::Key::ArrowUp => {
-										self.navigate_history_up();
-									}
-									egui::Key::ArrowDown => {
-										self.navigate_history_down();
-									}
-									egui::Key::ArrowLeft => {
-										if self.panes[self.focused_pane].cursor_pos > 0 {
-											self.panes[self.focused_pane].cursor_pos -= 1;
-										}
-									}
-									egui::Key::ArrowRight => {
-										let current_input_len = self.panes[self.focused_pane].current_input.len();
-										if self.panes[self.focused_pane].cursor_pos < current_input_len {
-											self.panes[self.focused_pane].cursor_pos += 1;
-										}
-									}
-									egui::Key::Home => {
-										self.panes[self.focused_pane].cursor_pos = 0;
-									}
-									egui::Key::End => {
-										self.panes[self.focused_pane].cursor_pos = self.panes[self.focused_pane].current_input.len();
-									}
-									egui::Key::Backspace => {
-										if self.panes[self.focused_pane].cursor_pos > 0 {
-											let cursor_pos = self.panes[self.focused_pane].cursor_pos;
-											self.panes[self.focused_pane].current_input.remove(cursor_pos - 1);
-											self.panes[self.focused_pane].cursor_pos -= 1;
-										}
-									}
-									egui::Key::Delete => {
-										let cursor_pos = self.panes[self.focused_pane].cursor_pos;
-										let current_input_len = self.panes[self.focused_pane].current_input.len();
-										if cursor_pos < current_input_len {
-											self.panes[self.focused_pane].current_input.remove(cursor_pos);
-										}
-									}
-									egui::Key::Tab => {
-										println!("Tab detected - switching panes");
-										self.switch_to_next_pane();
-									}
-									_ => {}
 								}
 							}
 						}
 					}
-					egui::Event::Text(text) => {
-						for ch in text.chars() {
-							if ch.is_ascii() && !ch.is_control() {
-								let cursor_pos = self.panes[self.focused_pane].cursor_pos;
-								self.panes[self.focused_pane].current_input.insert(cursor_pos, ch);
-								self.panes[self.focused_pane].cursor_pos += 1;
-							}
-						}
-					}
-					_ => {}
 				}
 			}
 		});
 	}
 	
 	/**
-	 * Navigates up in command history
+	 * Converts a key to a character
+	 */
+	fn key_to_char(key: egui::Key) -> Option<char> {
+		match key {
+			egui::Key::A => Some('a'),
+			egui::Key::B => Some('b'),
+			egui::Key::C => Some('c'),
+			egui::Key::D => Some('d'),
+			egui::Key::E => Some('e'),
+			egui::Key::F => Some('f'),
+			egui::Key::G => Some('g'),
+			egui::Key::H => Some('h'),
+			egui::Key::I => Some('i'),
+			egui::Key::J => Some('j'),
+			egui::Key::K => Some('k'),
+			egui::Key::L => Some('l'),
+			egui::Key::M => Some('m'),
+			egui::Key::N => Some('n'),
+			egui::Key::O => Some('o'),
+			egui::Key::P => Some('p'),
+			egui::Key::Q => Some('q'),
+			egui::Key::R => Some('r'),
+			egui::Key::S => Some('s'),
+			egui::Key::T => Some('t'),
+			egui::Key::U => Some('u'),
+			egui::Key::V => Some('v'),
+			egui::Key::W => Some('w'),
+			egui::Key::X => Some('x'),
+			egui::Key::Y => Some('y'),
+			egui::Key::Z => Some('z'),
+			egui::Key::Space => Some(' '),
+			_ => None,
+		}
+	}
+	
+	/**
+	 * Navigates history up (older commands)
 	 */
 	pub fn navigate_history_up(&mut self) {
-		if self.history_index.is_none() {
-			self.history_index = Some(self.command_history.len());
+		/**
+		 * 履歴ナビゲーション上移動の複雑な処理です (◕‿◕)
+		 * 
+		 * この関数は複雑な履歴ナビゲーションを行います。
+		 * 履歴インデックス管理が難しい部分なので、
+		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+		 */
+		
+		let history = self.history_manager.get_history();
+		if history.is_empty() {
+			return;
 		}
 		
-		if let Some(ref mut index) = self.history_index {
-			if *index > 0 {
-				*index -= 1;
-				if let Some(command) = self.command_history.get(*index) {
-					self.panes[self.focused_pane].current_input = command.clone();
-					self.panes[self.focused_pane].cursor_pos = command.len();
+		let current_index = self.history_index.unwrap_or(history.len());
+		
+		if current_index > 0 {
+			self.history_index = Some(current_index - 1);
+			if let Some(entry) = history.get(current_index - 1) {
+				// Save original input if this is the first navigation
+				if self.original_input.is_empty() {
+					if let Some(pane) = self.panes.get(self.focused_pane) {
+						self.original_input = pane.current_input.clone();
+					}
+				}
+				
+				// Set the command from history
+				if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+					pane.current_input = entry.command.clone();
 				}
 			}
 		}
 	}
 	
 	/**
-	 * Navigates down in command history
+	 * Navigates history down (newer commands)
 	 */
 	pub fn navigate_history_down(&mut self) {
-		if let Some(ref mut index) = self.history_index {
-			if *index < self.command_history.len() - 1 {
-				*index += 1;
-				if let Some(command) = self.command_history.get(*index) {
-					self.panes[self.focused_pane].current_input = command.clone();
-					self.panes[self.focused_pane].cursor_pos = command.len();
+		let history = self.history_manager.get_history();
+		if history.is_empty() {
+			return;
+		}
+		
+		let current_index = self.history_index.unwrap_or(history.len());
+		
+		if current_index < history.len() - 1 {
+			self.history_index = Some(current_index + 1);
+			if let Some(entry) = history.get(current_index + 1) {
+				if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+					pane.current_input = entry.command.clone();
 				}
-			} else {
-				self.history_index = None;
-				self.panes[self.focused_pane].current_input.clear();
-				self.panes[self.focused_pane].cursor_pos = 0;
+			}
+		} else {
+			// Reached the end, restore original input
+			self.history_index = None;
+			if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+				pane.current_input = self.original_input.clone();
+			}
+			self.original_input.clear();
+		}
+	}
+	
+	/**
+	 * Starts reverse incremental search (Ctrl+R)
+	 */
+	pub fn start_reverse_search(&mut self) {
+		self.history_search_mode = true;
+		self.history_search_query.clear();
+		self.history_index = None;
+		
+		// Save current input
+		if let Some(pane) = self.panes.get(self.focused_pane) {
+			self.original_input = pane.current_input.clone();
+		}
+	}
+	
+	/**
+	 * Performs reverse incremental search
+	 */
+	pub fn perform_reverse_search(&mut self) {
+		let history = self.history_manager.get_history();
+		let query = &self.history_search_query;
+		
+		if query.is_empty() {
+			return;
+		}
+		
+		// Search backwards through history
+		for (i, entry) in history.iter().enumerate().rev() {
+			if entry.command.contains(query) {
+				self.history_index = Some(i);
+				if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+					pane.current_input = entry.command.clone();
+				}
+				break;
 			}
 		}
+	}
+	
+	/**
+	 * Exits history search mode
+	 */
+	pub fn exit_history_search(&mut self) {
+		self.history_search_mode = false;
+		self.history_search_query.clear();
+		self.history_index = None;
+		
+		// Restore original input
+		if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+			pane.current_input = self.original_input.clone();
+		}
+		self.original_input.clear();
 	}
 	
 	/**
@@ -478,7 +556,7 @@ impl SareTerminal {
 	}
 	
 	/**
-	 * Switches to next pane
+	 * Switches to the next pane
 	 */
 	pub fn switch_to_next_pane(&mut self) {
 		if self.panes.len() > 1 {

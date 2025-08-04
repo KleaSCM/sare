@@ -5,18 +5,22 @@
  * This module handles persistent command history storage
  * and retrieval for the shell.
  * 
- * @author KleaSCM
- * @email KleaSCM@gmail.com
- * @file mod.rs
- * @description History management with file-based persistence
+ * Author: KleaSCM
+ * Email: KleaSCM@gmail.com
+ * File: mod.rs
+ * Description: History management with file-based persistence
  * for command history across shell sessions.
  */
+
+pub mod navigation;
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::collections::VecDeque;
 use std::fs;
 use std::path::PathBuf;
+
+pub use navigation::{HistoryNavigator, HistoryNavigationState};
 
 /**
  * Represents a single history entry
@@ -39,13 +43,14 @@ pub struct HistoryEntry {
  * Provides functionality to store, retrieve, and persist
  * command history across shell sessions.
  */
+#[derive(Debug)]
 pub struct HistoryManager {
     /// In-memory history storage
-    history: VecDeque<HistoryEntry>,
+    pub history: VecDeque<HistoryEntry>,
     /// Maximum number of entries to keep
-    max_entries: usize,
+    pub max_entries: usize,
     /// Path to history file
-    history_file: PathBuf,
+    pub history_file: PathBuf,
 }
 
 impl HistoryManager {
@@ -55,6 +60,17 @@ impl HistoryManager {
      * @return Result<HistoryManager> - New history manager or error
      */
     pub fn new() -> Result<Self> {
+        Self::with_config(1000, PathBuf::from(".sare_history"))
+    }
+    
+    /**
+     * Creates a history manager with custom configuration
+     * 
+     * @param max_entries - Maximum number of entries to keep
+     * @param history_file - Path to history file
+     * @return Result<HistoryManager> - New history manager or error
+     */
+    pub fn with_config(max_entries: usize, history_file: PathBuf) -> Result<Self> {
         let history_file = dirs::home_dir()
             .unwrap_or_else(|| PathBuf::from("/"))
             .join(".sare_history");
