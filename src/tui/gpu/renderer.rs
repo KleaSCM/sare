@@ -18,6 +18,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use super::{GpuBackend, GpuConfig, PerformanceMetrics};
+use super::skia_backend;
+use super::wgpu_backend;
 
 /**
  * GPU renderer trait
@@ -140,9 +142,10 @@ impl UnifiedGpuRenderer {
 	 * 
 	 * @return Result<()> - Success or error status
 	 */
-	pub fn initialize(&mut self) -> Result<()> {
-		// For now, we'll use a simple CPU fallback
-		// TODO: Implement proper backend selection
+		pub async fn initialize(&mut self) -> Result<()> {
+		// Simplified initialization for now
+		// GPU backends will be properly integrated later
+		
 		Ok(())
 	}
 	

@@ -16,7 +16,7 @@ pub mod layout;
 pub mod prompt;
 pub mod output;
 pub mod panes;
-// pub mod gpu; // Temporarily disabled for basic functionality
+pub mod gpu;
 
 use ratatui::{
 	backend::CrosstermBackend,

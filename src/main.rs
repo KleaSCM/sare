@@ -31,6 +31,7 @@ use std::io;
 
 mod shell;
 mod tui;
+mod terminal;
 mod config;
 mod history;
 

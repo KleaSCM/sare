@@ -254,7 +254,7 @@ impl NavigationManager {
 			"l" | "right" => self.focus_direction(panes, current_focus, MoveDirection::Right).await,
 			"k" | "up" => self.focus_direction(panes, current_focus, MoveDirection::Up).await,
 			"j" | "down" => self.focus_direction(panes, current_focus, MoveDirection::Down).await,
-			"1"..="9" => self.focus_by_number(input, panes).await,
+			input if input.len() == 1 && input.chars().next().unwrap().is_ascii_digit() => self.focus_by_number(input, panes).await,
 			_ => Ok(NavigationResult {
 				success: false,
 				action: None,

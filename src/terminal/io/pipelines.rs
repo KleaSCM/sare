@@ -107,14 +107,14 @@ impl PipelineManager {
 		
 		// Create pipes for each process pair
 		for _ in 0..num_processes - 1 {
-			let mut pipe = [0; 2];
+			let mut pipe_array = [0; 2];
 			unsafe {
 				use libc::pipe;
-				if pipe(pipe.as_mut_ptr()) != 0 {
+				if pipe(pipe_array.as_mut_ptr()) != 0 {
 					return Err(anyhow::anyhow!("Failed to create pipe"));
 				}
 			}
-			pipe_fds.extend_from_slice(&pipe);
+			pipe_fds.extend_from_slice(&pipe_array);
 		}
 		
 		Ok(pipe_fds)

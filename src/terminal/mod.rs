@@ -63,6 +63,7 @@ impl Default for TerminalConfig {
  * Manages a single terminal session with PTY capabilities,
  * process management, and I/O handling for external shells.
  */
+#[derive(Debug)]
 pub struct TerminalEmulator {
 	/// Terminal configuration
 	config: TerminalConfig,
@@ -121,6 +122,10 @@ pub enum ProcessStatus {
 	Running,
 	/// Process is stopped
 	Stopped,
+	/// Process has terminated
+	Terminated(i32),
+	/// Process is suspended
+	Suspended,
 	/// Process has exited
 	Exited(i32),
 	/// Process has been killed
@@ -201,12 +206,12 @@ impl TerminalEmulator {
 		 */
 		
 		Ok(Self {
-			config,
+			config: config.clone(),
 			pty_session: None,
 			processes: Arc::new(RwLock::new(Vec::new())),
 			state: TerminalState {
 				cursor_pos: (0, 0),
-				size: config.size,
+				size: config.size.clone(),
 				scroll_pos: 0,
 				selection_start: None,
 				selection_end: None,

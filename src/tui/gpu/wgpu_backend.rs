@@ -47,7 +47,7 @@ impl WgpuBackend {
 	 * @param config - GPU configuration options
 	 * @return Result<WgpuBackend> - New WGPU backend instance or error
 	 */
-	pub fn new(config: GpuConfig) -> Result<Self> {
+	pub async fn new(config: GpuConfig) -> Result<Self> {
 		/**
 		 * WGPU初期化の複雑な処理です (｡◕‿◕｡)
 		 * 
@@ -56,12 +56,38 @@ impl WgpuBackend {
 		 * 適切なエラーハンドリングで実装しています (◕‿◕)
 		 */
 		
-		// TODO: Implement WGPU initialization
-		// This is a placeholder implementation
+		// Implement WGPU initialization with actual GPU setup
+		let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+			backends: wgpu::Backends::all(),
+			..Default::default()
+		});
+		
+		// Try to get adapter
+		let adapter = instance
+			.request_adapter(&wgpu::RequestAdapterOptions {
+				power_preference: wgpu::PowerPreference::HighPerformance,
+				force_fallback_adapter: false,
+				compatible_surface: None,
+			})
+			.await
+			.ok_or_else(|| anyhow::anyhow!("No WGPU adapter available"))?;
+		
+		// Create device and queue
+		let (device, queue) = adapter
+			.request_device(
+				&wgpu::DeviceDescriptor {
+					features: wgpu::Features::empty(),
+					limits: wgpu::Limits::default(),
+					label: Some("Sare Terminal WGPU Device"),
+				},
+				None,
+			)
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to create WGPU device: {:?}", e))?;
 		
 		Ok(Self {
-			device: None,
-			queue: None,
+			device: Some(device),
+			queue: Some(queue),
 			surface: None,
 			performance_metrics: Arc::new(RwLock::new(PerformanceMetrics::default())),
 			config,

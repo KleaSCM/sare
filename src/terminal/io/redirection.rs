@@ -144,10 +144,10 @@ impl RedirectionManager {
 		
 		// Create pipes for each command pair
 		for i in 0..commands.len() - 1 {
-			let mut pipe = [0; 2];
+			let mut pipe_array = [0; 2];
 			unsafe {
 				use libc::pipe;
-				if pipe(pipe.as_mut_ptr()) != 0 {
+				if pipe(pipe_array.as_mut_ptr()) != 0 {
 					return Err(anyhow::anyhow!("Failed to create pipe"));
 				}
 			}
@@ -157,11 +157,11 @@ impl RedirectionManager {
 				use libc::dup2;
 				if i == 0 {
 					// First command: write to pipe
-					dup2(pipe[1], 1);
+					dup2(pipe_array[1], 1);
 				} else {
 					// Middle commands: read from previous pipe, write to current pipe
-					dup2(pipe[0], 0);
-					dup2(pipe[1], 1);
+					dup2(pipe_array[0], 0);
+					dup2(pipe_array[1], 1);
 				}
 			}
 		}

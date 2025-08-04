@@ -330,39 +330,60 @@ impl PaneManager {
 		let new_pane_id = uuid::Uuid::new_v4().to_string();
 		
 		// Create new pane
-		let new_pane_id = self.create_pane(title, &self.config.default_shell).await?;
+		let shell = self.config.default_shell.clone();
+		let new_pane_id = self.create_pane(title, &shell).await?;
 		
 		// Update layout
 		let mut panes = self.panes.write().await;
 		
+				// Get parent pane info first
+		let parent_info = if let Some(parent_pane) = panes.get(pane_id) {
+			(parent_pane.layout.size, parent_pane.layout.position)
+		} else {
+			return Err(anyhow::anyhow!("Parent pane not found"));
+		};
+		
+		// Update parent pane layout
 		if let Some(parent_pane) = panes.get_mut(pane_id) {
-			// Update parent pane layout
 			parent_pane.layout.child_ids.push(new_pane_id.clone());
 			parent_pane.layout.split_direction = Some(direction.clone());
+		}
+		
+		// Update new pane layout and calculate sizes
+		if let Some(new_pane) = panes.get_mut(&new_pane_id) {
+			new_pane.layout.parent_id = Some(pane_id.to_string());
 			
-			// Update new pane layout
-			if let Some(new_pane) = panes.get_mut(&new_pane_id) {
-				new_pane.layout.parent_id = Some(pane_id.to_string());
-				
-				// Calculate new sizes based on split direction
+			// Use stored parent info for calculations
+			let (parent_size, parent_position) = parent_info;
+			
+			// Calculate new sizes based on split direction
+			match direction {
+				SplitDirection::Horizontal => {
+					// Split vertically (left/right)
+					let parent_width = parent_size.0;
+					let new_width = parent_width / 2;
+					
+					new_pane.layout.size.0 = new_width;
+					new_pane.layout.position.0 = parent_position.0 + new_width;
+				}
+				SplitDirection::Vertical => {
+					// Split horizontally (top/bottom)
+					let parent_height = parent_size.1;
+					let new_height = parent_height / 2;
+					
+					new_pane.layout.size.1 = new_height;
+					new_pane.layout.position.1 = parent_position.1 + new_height;
+				}
+			}
+			
+			// Update parent pane size after new pane is configured
+			if let Some(parent_pane) = panes.get_mut(pane_id) {
 				match direction {
 					SplitDirection::Horizontal => {
-						// Split vertically (left/right)
-						let parent_width = parent_pane.layout.size.0;
-						let new_width = parent_width / 2;
-						
-						parent_pane.layout.size.0 = new_width;
-						new_pane.layout.size.0 = new_width;
-						new_pane.layout.position.0 = parent_pane.layout.position.0 + new_width;
+						parent_pane.layout.size.0 = parent_size.0 / 2;
 					}
 					SplitDirection::Vertical => {
-						// Split horizontally (top/bottom)
-						let parent_height = parent_pane.layout.size.1;
-						let new_height = parent_height / 2;
-						
-						parent_pane.layout.size.1 = new_height;
-						new_pane.layout.size.1 = new_height;
-						new_pane.layout.position.1 = parent_pane.layout.position.1 + new_height;
+						parent_pane.layout.size.1 = parent_size.1 / 2;
 					}
 				}
 			}
@@ -420,18 +441,23 @@ impl PaneManager {
 		
 		let mut panes = self.panes.write().await;
 		
-		if let Some(pane) = panes.get(pane_id) {
-			// Stop terminal session
-			if let Ok(mut terminal) = pane.terminal.write().await {
-				terminal.stop_session().await?;
-			}
-			
-			// Remove pane
-			panes.remove(pane_id);
-			
-			// Update layout if needed
-			if let Some(parent_id) = &pane.layout.parent_id {
-				if let Some(parent_pane) = panes.get_mut(parent_id) {
+		// Get pane info first
+		let pane_info = if let Some(pane) = panes.get(pane_id) {
+			(pane.layout.parent_id.clone(), pane.terminal.clone())
+		} else {
+			return Ok(());
+		};
+		
+		// Stop terminal session
+		let mut terminal = pane_info.1.write().await;
+		terminal.stop_session().await?;
+		
+		// Remove pane
+		panes.remove(pane_id);
+		
+		// Update layout if needed
+		if let Some(parent_id) = &pane_info.0 {
+			if let Some(parent_pane) = panes.get_mut(parent_id) {
 					// Remove from parent's children
 					parent_pane.layout.child_ids.retain(|id| id != pane_id);
 					
@@ -439,7 +465,6 @@ impl PaneManager {
 					if parent_pane.layout.child_ids.is_empty() {
 						parent_pane.layout.split_direction = None;
 					}
-				}
 			}
 			
 			// Update focused pane if needed
@@ -538,9 +563,8 @@ impl PaneManager {
 		let panes = self.panes.read().await;
 		
 		for pane in panes.values() {
-			if let Ok(terminal) = pane.terminal.read().await {
-				terminal.send_input(input).await?;
-			}
+			let terminal = pane.terminal.read().await;
+			terminal.send_input(input).await?;
 		}
 		
 		Ok(())

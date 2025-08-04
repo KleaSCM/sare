@@ -127,13 +127,13 @@ impl IoUtils {
 	 * @return Result<(i32, i32)> - Read and write file descriptors or error
 	 */
 	pub fn create_pipe() -> Result<(i32, i32)> {
-		let mut pipe = [0; 2];
+		let mut pipe_array = [0; 2];
 		unsafe {
 			use libc::pipe;
-			if pipe(pipe.as_mut_ptr()) != 0 {
+			if pipe(pipe_array.as_mut_ptr()) != 0 {
 				return Err(anyhow::anyhow!("Failed to create pipe"));
 			}
 		}
-		Ok((pipe[0], pipe[1]))
+		Ok((pipe_array[0], pipe_array[1]))
 	}
 } 

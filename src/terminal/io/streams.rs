@@ -17,8 +17,7 @@ use tokio::sync::RwLock;
 use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::os::unix::io::{AsRawFd, RawFd};
-use nix::fcntl::{open, O_RDONLY, O_WRONLY, O_CREAT, O_APPEND};
-use nix::sys::stat::Mode;
+use libc::{open, O_RDONLY, O_WRONLY, O_CREAT, O_APPEND, S_IRWXU};
 
 use super::redirection::IoRedirectOptions;
 
@@ -171,7 +170,10 @@ impl StreamManager {
 				
 				// Open pipe for reading and writing
 				let flags = O_RDONLY | O_WRONLY;
-				let fd = unsafe { open(pipe_name.as_ptr() as *const i8, flags) }?;
+				let fd = unsafe { open(pipe_name.as_ptr() as *const i8, flags) };
+				if fd < 0 {
+					return Err(anyhow::anyhow!("Failed to open pipe"));
+				}
 				Ok(fd)
 			}
 		}

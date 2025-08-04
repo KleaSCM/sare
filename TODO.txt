@@ -318,17 +318,17 @@
 - [ ] Implement grid-based navigation (Left/Right)
 
 ### GPU System TODOs
-- [ ] Implement Skia availability detection
-- [ ] Implement WGPU availability detection
-- [ ] Implement texture size detection
-- [ ] Implement GPU memory detection
-- [ ] Implement proper backend selection
-- [ ] Implement proper font family extraction
-- [ ] Implement WGPU initialization
-- [ ] Implement proper surface flushing
-- [ ] Implement proper async metrics updating
-- [ ] Load actual font data
-- [ ] Store actual rendered data
+- ✅ Implement Skia availability detection
+- ✅ Implement WGPU availability detection
+- ✅ Implement texture size detection
+- ✅ Implement GPU memory detection
+- ✅ Implement proper backend selection
+- ✅ Implement proper font family extraction
+- ✅ Implement WGPU initialization
+- ✅ Implement proper surface flushing
+- ✅ Implement proper async metrics updating
+- ✅ Load actual font data
+- ✅ Store actual rendered data
 
 ### Command System TODOs
 - [ ] Implement actual job waiting

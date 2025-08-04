@@ -455,7 +455,7 @@ impl LayoutUtils {
 		
 		// Calculate based on golden ratio for aesthetic splits
 		let golden_ratio = 1.618;
-		let ratio = 1.0 / golden_ratio;
+		let ratio: f32 = 1.0 / golden_ratio;
 		
 		ratio.max(0.2).min(0.8) // Clamp between 20% and 80%
 	}

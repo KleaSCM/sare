@@ -271,7 +271,7 @@ impl ProcessManager {
 		if let Some(process) = processes.get_mut(&pid) {
 			match signal {
 				libc::SIGTERM | libc::SIGKILL => {
-					process.status = ProcessStatus::Terminated;
+					process.status = ProcessStatus::Terminated(0);
 				}
 				libc::SIGSTOP | libc::SIGTSTP => {
 					process.status = ProcessStatus::Suspended;

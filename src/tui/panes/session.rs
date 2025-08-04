@@ -300,9 +300,8 @@ impl SessionManager {
 		
 		if let Some(session) = sessions.get_mut(session_id) {
 			// Start terminal session
-			if let Ok(mut terminal) = session.terminal.write().await {
-				terminal.start_session(None).await?;
-			}
+			let mut terminal = session.terminal.write().await;
+			terminal.start_session(None).await?;
 			
 			// Update session state
 			session.state = SessionState::Active;
@@ -344,9 +343,8 @@ impl SessionManager {
 			session.state = SessionState::Stopping;
 			
 			// Stop terminal session
-			if let Ok(mut terminal) = session.terminal.write().await {
-				terminal.stop_session().await?;
-			}
+			let mut terminal = session.terminal.write().await;
+			terminal.stop_session().await?;
 			
 			// Update session state
 			session.state = SessionState::Terminated(0);
@@ -410,15 +408,13 @@ impl SessionManager {
 		
 		if let Some(session) = sessions.get(session_id) {
 			// Send input to terminal
-			if let Ok(terminal) = session.terminal.read().await {
-				terminal.send_input(input).await?;
-			}
+			let terminal = session.terminal.read().await;
+			terminal.send_input(input).await?;
 			
 			// Update last activity
-			if let Ok(mut session) = self.sessions.write().await {
-				if let Some(session) = session.get_mut(session_id) {
-					session.metadata.last_activity = chrono::Utc::now();
-				}
+			let mut sessions = self.sessions.write().await;
+			if let Some(session) = sessions.get_mut(session_id) {
+				session.metadata.last_activity = chrono::Utc::now();
 			}
 		}
 		
@@ -436,9 +432,8 @@ impl SessionManager {
 		
 		if let Some(session) = sessions.get(session_id) {
 			// Read output from terminal
-			if let Ok(terminal) = session.terminal.read().await {
-				return terminal.read_output().await;
-			}
+			let terminal = session.terminal.read().await;
+			return terminal.read_output().await;
 		}
 		
 		Ok(Vec::new())
