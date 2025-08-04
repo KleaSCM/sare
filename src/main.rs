@@ -585,50 +585,53 @@ impl SareTerminal {
 				// Render pane content in a clipped area
 				ui.set_clip_rect(pane_rect);
 				
-				// Create a child UI for this pane
+				// Create a child UI for this pane with unique ID
 				ui.allocate_ui_at_rect(pane_rect, |ui| {
-					// Vertical layout for this pane
-					ui.vertical(|ui| {
-						// Output area (most of the pane)
-						let output_height = pane_height - 30.0; // Leave space for input
-						
-						egui::ScrollArea::vertical()
-							.max_height(output_height)
-							.show(ui, |ui| {
-								// Show output from this pane
-								for line in &pane.output_buffer {
-									ui.label(egui::RichText::new(&line.content)
-										.color(line.color)
-										.text_style(egui::TextStyle::Monospace));
-								}
-							});
-						
-						// Input area at bottom of pane
-						ui.horizontal(|ui| {
-							// Terminal prompt
-							let prompt = format!("sare@user:{} $ ", pane.working_directory);
-							ui.label(egui::RichText::new(prompt)
-								.color(egui::Color32::from_rgb(0, 255, 0))
-								.text_style(egui::TextStyle::Monospace));
+					// Push unique ID for this pane to prevent ID clashes
+					ui.push_id(format!("pane_{}", pane_index), |ui| {
+						// Vertical layout for this pane
+						ui.vertical(|ui| {
+							// Output area (most of the pane)
+							let output_height = pane_height - 30.0; // Leave space for input
 							
-							// Input text with cursor (only for focused pane)
-							if pane_index == self.focused_pane {
-								let input_text = format!("{}{}", 
-									&pane.current_input[..pane.cursor_pos],
-									&pane.current_input[pane.cursor_pos..]
-								);
-								
-								ui.label(egui::RichText::new(input_text)
-									.color(egui::Color32::from_rgb(255, 255, 255))
+							egui::ScrollArea::vertical()
+								.max_height(output_height)
+								.show(ui, |ui| {
+									// Show output from this pane
+									for line in &pane.output_buffer {
+										ui.label(egui::RichText::new(&line.content)
+											.color(line.color)
+											.text_style(egui::TextStyle::Monospace));
+									}
+								});
+							
+							// Input area at bottom of pane
+							ui.horizontal(|ui| {
+								// Terminal prompt
+								let prompt = format!("sare@user:{} $ ", pane.working_directory);
+								ui.label(egui::RichText::new(prompt)
+									.color(egui::Color32::from_rgb(0, 255, 0))
 									.text_style(egui::TextStyle::Monospace));
 								
-								// Blinking cursor (only for focused pane)
-								if (ctx.input(|i| i.time) * 2.0).sin() > 0.0 {
-									ui.label(egui::RichText::new("█")
+								// Input text with cursor (only for focused pane)
+								if pane_index == self.focused_pane {
+									let input_text = format!("{}{}", 
+										&pane.current_input[..pane.cursor_pos],
+										&pane.current_input[pane.cursor_pos..]
+									);
+									
+									ui.label(egui::RichText::new(input_text)
 										.color(egui::Color32::from_rgb(255, 255, 255))
 										.text_style(egui::TextStyle::Monospace));
+									
+									// Blinking cursor (only for focused pane)
+									if (ctx.input(|i| i.time) * 2.0).sin() > 0.0 {
+										ui.label(egui::RichText::new("█")
+											.color(egui::Color32::from_rgb(255, 255, 255))
+											.text_style(egui::TextStyle::Monospace));
+									}
 								}
-							}
+							});
 						});
 					});
 				});
