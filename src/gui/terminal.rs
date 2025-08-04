@@ -16,6 +16,8 @@ use std::process::Command;
 
 use super::pane::{TerminalPane, SplitDirection, TerminalMode, TerminalLine};
 use crate::history::{HistoryManager, TabCompleter};
+use super::multiline::{MultilineState, MultilineProcessor};
+use super::heredoc::{HeredocState, HeredocProcessor};
 
 /**
  * Main terminal interface
@@ -54,19 +56,9 @@ pub struct SareTerminal {
 	/// Original input before history navigation
 	pub original_input: String,
 	/// Multiline input state
-	pub multiline_mode: bool,
-	/// Multiline continuation character
-	pub continuation_char: Option<char>,
-	/// Multiline prompt prefix
-	pub multiline_prompt: String,
+	pub multiline_state: MultilineState,
 	/// Heredoc state
-	pub heredoc_mode: bool,
-	/// Heredoc delimiter
-	pub heredoc_delimiter: String,
-	/// Heredoc content being collected
-	pub heredoc_content: String,
-	/// Whether heredoc content should expand variables
-	pub heredoc_expand_vars: bool,
+	pub heredoc_state: HeredocState,
 	/// Command substitution state
 	pub substitution_mode: bool,
 	/// Current substitution depth
@@ -122,13 +114,8 @@ impl Default for SareTerminal {
 			history_search_mode: false,
 			history_search_query: String::new(),
 			original_input: String::new(),
-			multiline_mode: false,
-			continuation_char: None,
-			multiline_prompt: String::new(),
-			heredoc_mode: false,
-			heredoc_delimiter: String::new(),
-			heredoc_content: String::new(),
-			heredoc_expand_vars: false,
+			multiline_state: MultilineState::default(),
+			heredoc_state: HeredocState::default(),
 			substitution_mode: false,
 			substitution_depth: 0,
 			substitution_buffer: String::new(),
@@ -370,17 +357,17 @@ impl SareTerminal {
 								if let Some(pane) = self.panes.get(self.focused_pane) {
 									let command = pane.current_input.clone();
 									
-									if self.multiline_mode {
+									if self.multiline_state.is_multiline() {
 										// In multiline mode, add newline and continue
 										let mut new_input = command.clone();
 										new_input.push('\n');
 										
 										// Check if this is a heredoc delimiter before mutable borrow
-										let is_heredoc_delimiter = self.heredoc_mode && self.is_heredoc_delimiter(&command);
+										let is_heredoc_delimiter = self.heredoc_state.is_heredoc() && HeredocProcessor::is_heredoc_delimiter(&self.heredoc_state, &command);
 										
 										if is_heredoc_delimiter {
 											// End of heredoc, execute the command
-											let full_command = format!("{}\n{}", new_input, self.heredoc_content);
+											let full_command = format!("{}\n{}", new_input, self.heredoc_state.get_heredoc_content());
 											self.execute_command(&full_command);
 											
 											// Clear the input and reset states
@@ -391,13 +378,8 @@ impl SareTerminal {
 											
 											self.history_index = None;
 											self.original_input.clear();
-											self.multiline_mode = false;
-											self.continuation_char = None;
-											self.multiline_prompt.clear();
-											self.heredoc_mode = false;
-											self.heredoc_delimiter.clear();
-											self.heredoc_content.clear();
-											self.heredoc_expand_vars = false;
+											self.multiline_state = MultilineState::default();
+											self.heredoc_state = HeredocState::default();
 										} else {
 											// Continue collecting input
 											if let Some(pane) = self.panes.get_mut(self.focused_pane) {
@@ -406,18 +388,17 @@ impl SareTerminal {
 											}
 											
 											// If in heredoc mode, add to heredoc content
-											if self.heredoc_mode {
-												let line_content = if self.heredoc_expand_vars {
-													self.expand_heredoc_variables(&command)
+											if self.heredoc_state.is_heredoc() {
+												let line_content = if self.heredoc_state.should_expand_vars() {
+													HeredocProcessor::expand_heredoc_variables(&command)
 												} else {
 													command.clone()
 												};
-												self.heredoc_content.push_str(&line_content);
-												self.heredoc_content.push('\n');
+												self.heredoc_state.add_heredoc_content(line_content);
 											}
 											
 											// Update multiline state
-											self.update_multiline_state(&new_input);
+											self.multiline_state.update(&new_input);
 										}
 									} else if !command.trim().is_empty() {
 										// Execute the command
@@ -431,9 +412,7 @@ impl SareTerminal {
 										
 										self.history_index = None;
 										self.original_input.clear();
-										self.multiline_mode = false;
-										self.continuation_char = None;
-										self.multiline_prompt.clear();
+										self.multiline_state = MultilineState::default();
 									}
 								}
 							}
@@ -453,7 +432,7 @@ impl SareTerminal {
 											let updated_input = pane.current_input.clone();
 											
 											// Update multiline state after character input
-											self.update_multiline_state(&updated_input);
+											self.multiline_state.update(&updated_input);
 										}
 									}
 								}
@@ -712,251 +691,7 @@ impl SareTerminal {
 		}
 	}
 	
-	/**
-	 * Checks if input needs multiline continuation
-	 * 
-	 * @param input - Input text to check
-	 * @return (bool, Option<char>) - (Needs continuation, continuation character)
-	 */
-	pub fn check_multiline_continuation(&self, input: &str) -> (bool, Option<char>) {
-		/**
-		 * マルチライン継続チェックの複雑な処理です (｡◕‿◕｡)
-		 * 
-		 * この関数は複雑な構文解析を行います。
-		 * 継続文字とクォート処理が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
-		 */
-		
-		let trimmed = input.trim();
-		
-		// Check for backslash continuation
-		if trimmed.ends_with('\\') {
-			return (true, Some('\\'));
-		}
-		
-		// Check for pipe continuation
-		if trimmed.ends_with('|') {
-			return (true, Some('|'));
-		}
-		
-		// Check for unclosed quotes
-		let mut in_single_quotes = false;
-		let mut in_double_quotes = false;
-		let mut escaped = false;
-		
-		for ch in input.chars() {
-			if escaped {
-				escaped = false;
-				continue;
-			}
-			
-			match ch {
-				'\\' => escaped = true,
-				'\'' if !in_double_quotes => in_single_quotes = !in_single_quotes,
-				'"' if !in_single_quotes => in_double_quotes = !in_double_quotes,
-				_ => {}
-			}
-		}
-		
-		if in_single_quotes {
-			return (true, Some('\''));
-		}
-		
-		if in_double_quotes {
-			return (true, Some('"'));
-		}
-		
-		// Check for unclosed parentheses
-		let mut paren_count = 0;
-		let mut brace_count = 0;
-		let mut bracket_count = 0;
-		
-		for ch in input.chars() {
-			match ch {
-				'(' => paren_count += 1,
-				')' => paren_count -= 1,
-				'{' => brace_count += 1,
-				'}' => brace_count -= 1,
-				'[' => bracket_count += 1,
-				']' => bracket_count -= 1,
-				_ => {}
-			}
-		}
-		
-		if paren_count > 0 {
-			return (true, Some('('));
-		}
-		
-		if brace_count > 0 {
-			return (true, Some('{'));
-		}
-		
-		if bracket_count > 0 {
-			return (true, Some('['));
-		}
-		
-		// No continuation needed
-		(false, None)
-	}
-	
-	/**
-	 * Updates multiline state based on input
-	 * 
-	 * @param input - Input text to check
-	 */
-	pub fn update_multiline_state(&mut self, input: &str) {
-		// Check for heredoc first
-		if let Some((delimiter, expand_vars)) = self.detect_heredoc(input) {
-			self.heredoc_mode = true;
-			self.heredoc_delimiter = delimiter;
-			self.heredoc_expand_vars = expand_vars;
-			self.multiline_mode = true;
-			self.multiline_prompt = format!("heredoc> ");
-			return;
-		}
-		
-		// Check for regular multiline continuation
-		let (needs_continuation, continuation_char) = self.check_multiline_continuation(input);
-		
-		self.multiline_mode = needs_continuation;
-		self.continuation_char = continuation_char;
-		
-		// Reset heredoc state if not in heredoc mode
-		if !self.heredoc_mode {
-			self.heredoc_delimiter.clear();
-			self.heredoc_content.clear();
-			self.heredoc_expand_vars = false;
-		}
-		
-		// Set appropriate prompt
-		if needs_continuation {
-			match continuation_char {
-				Some('\\') => self.multiline_prompt = "> ".to_string(),
-				Some('|') => self.multiline_prompt = "| ".to_string(),
-				Some('\'') => self.multiline_prompt = "'> ".to_string(),
-				Some('"') => self.multiline_prompt = "\"> ".to_string(),
-				Some('(') => self.multiline_prompt = "(> ".to_string(),
-				Some('{') => self.multiline_prompt = "{> ".to_string(),
-				Some('[') => self.multiline_prompt = "[> ".to_string(),
-				_ => self.multiline_prompt = "> ".to_string(),
-			}
-		} else {
-			self.multiline_prompt.clear();
-		}
-	}
-	
-	/**
-	 * Checks if input contains heredoc syntax
-	 * 
-	 * @param input - Input text to check
-	 * @return Option<(String, bool)> - (Delimiter, expand variables) if heredoc found
-	 */
-	pub fn detect_heredoc(&self, input: &str) -> Option<(String, bool)> {
-		/**
-		 * ヒアドキュメント検出の複雑な処理です (｡◕‿◕｡)
-		 * 
-		 * この関数は複雑な構文解析を行います。
-		 * ヒアドキュメント構文の検出が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
-		 */
-		
-		let words: Vec<&str> = input.split_whitespace().collect();
-		
-		for (i, word) in words.iter().enumerate() {
-			if word.starts_with("<<") {
-				// Check for quoted delimiter (no variable expansion)
-				if word.starts_with("<<'") || word.starts_with("<<\"") {
-					let quote_char = word.chars().nth(2).unwrap();
-					let delimiter = word[3..].to_string();
-					return Some((delimiter, false));
-				}
-				
-				// Regular heredoc (with variable expansion)
-				if word.len() > 2 {
-					let delimiter = word[2..].to_string();
-					return Some((delimiter, true));
-				}
-			}
-		}
-		
-		None
-	}
-	
-	/**
-	 * Checks if current line matches heredoc delimiter
-	 * 
-	 * @param line - Current line to check
-	 * @return bool - True if line matches delimiter
-	 */
-	pub fn is_heredoc_delimiter(&self, line: &str) -> bool {
-		if !self.heredoc_mode {
-			return false;
-		}
-		
-		let trimmed = line.trim();
-		trimmed == self.heredoc_delimiter
-	}
-	
-	/**
-	 * Expands variables in heredoc content
-	 * 
-	 * @param content - Content to expand
-	 * @return String - Content with variables expanded
-	 */
-	pub fn expand_heredoc_variables(&self, content: &str) -> String {
-		/**
-		 * ヒアドキュメント変数展開の複雑な処理です (◕‿◕)
-		 * 
-		 * この関数は複雑な変数展開を行います。
-		 * 環境変数の置換が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
-		 */
-		
-		let mut result = String::new();
-		let mut i = 0;
-		
-		while i < content.len() {
-			if content[i..].starts_with('$') {
-				// Found variable reference
-				let var_start = i + 1;
-				let mut var_end = var_start;
-				
-				// Find variable name
-				while var_end < content.len() {
-					let ch = content.chars().nth(var_end).unwrap();
-					if ch.is_alphanumeric() || ch == '_' {
-						var_end += 1;
-					} else {
-						break;
-					}
-				}
-				
-				if var_end > var_start {
-					let var_name = &content[var_start..var_end];
-					
-					// Get environment variable
-					if let Ok(var_value) = std::env::var(var_name) {
-						result.push_str(&var_value);
-					} else {
-						// Variable not found, keep original
-						result.push_str(&content[i..var_end]);
-					}
-					
-					i = var_end;
-				} else {
-					// Just a $, keep it
-					result.push('$');
-					i += 1;
-				}
-			} else {
-				// Regular character
-				result.push(content.chars().nth(i).unwrap());
-				i += 1;
-			}
-		}
-		
-		result
-	}
+
 	
 	/**
 	 * Detects command substitution in input

@@ -13,6 +13,8 @@
 pub mod terminal;
 pub mod pane;
 pub mod renderer;
+pub mod multiline;
+pub mod heredoc;
 
 pub use terminal::SareTerminal;
 pub use pane::{TerminalPane, SplitDirection};

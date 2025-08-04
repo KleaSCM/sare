@@ -103,8 +103,8 @@ impl TerminalRenderer {
 						}
 						
 						// Render prompt for this pane
-						let prompt_text = if terminal.multiline_mode && pane_index == terminal.focused_pane {
-							format!("sare@user:{} {} ", pane.working_directory, terminal.multiline_prompt)
+						let prompt_text = if terminal.multiline_state.is_multiline() && pane_index == terminal.focused_pane {
+							format!("sare@user:{} {} ", pane.working_directory, terminal.multiline_state.multiline_prompt)
 						} else {
 							format!("sare@user:{} $ ", pane.working_directory)
 						};
