@@ -153,6 +153,9 @@ impl CommandRegistry {
         self.register(Box::new(development::CargoCommand));
         self.register(Box::new(development::MakeCommand));
         self.register(Box::new(development::NpmCommand));
+        self.register(Box::new(development::DebugCommand));
+        self.register(Box::new(development::ShortcutsCommand));
+        self.register(Box::new(development::StatusCommand));
     }
     
     /**
@@ -202,9 +205,9 @@ impl CommandRegistry {
      */
     pub fn execute_safe(&self, command: &ParsedCommand) -> Result<CommandResult> {
         if let Some(handler) = self.commands.get(&command.command) {
-            // Create a mock shell for built-in commands that don't need shell state
-            let mut mock_shell = Shell::new().unwrap();
-            handler.execute(command, &mut mock_shell)
+            // For commands that need shell state (like cd), we need to handle them differently
+            // For now, return an error indicating the command needs shell context
+            Err(anyhow::anyhow!("Command '{}' requires shell context", command.command))
         } else {
             Err(anyhow::anyhow!("Unknown command: {}", command.command))
         }

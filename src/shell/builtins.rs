@@ -65,9 +65,26 @@ impl BuiltinCommands {
      * @return Result<Option<String>> - Success message or error
      */
     fn cmd_cd(command: &ParsedCommand, shell: &mut Shell) -> Result<Option<String>> {
+        /**
+         * CDコマンドの複雑な処理です (｡◕‿◕｡)
+         * 
+         * この関数は複雑なディレクトリ変更を行います。
+         * パス解析とエラーハンドリングが難しい部分なので、
+         * 適切なエラーハンドリングで実装しています (◕‿◕)
+         */
+        
         let path = command.args.first().unwrap_or(&"~".to_string()).clone();
-        shell.change_directory(&path)?;
-        Ok(Some(format!("Changed directory to: {}", shell.current_path().display())))
+        
+        // Clean the path to remove any potential corruption
+        let clean_path = path.trim();
+        
+        match shell.change_directory(clean_path) {
+            Ok(_) => Ok(Some(format!("Changed directory to: {}", shell.current_path().display()))),
+            Err(e) => {
+                let error_msg = format!("cd: {}: {}", clean_path, e);
+                Err(anyhow::anyhow!(error_msg))
+            }
+        }
     }
     
     /**

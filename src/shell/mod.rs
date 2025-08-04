@@ -365,17 +365,34 @@ impl Shell {
      * @return Result<()> - Success or error status
      */
     pub fn change_directory(&mut self, path: &str) -> Result<()> {
-        let new_path = if path == "~" {
+        /**
+         * ディレクトリ変更の複雑な処理です (◕‿◕)
+         * 
+         * この関数は複雑なパス解析を行います。
+         * 相対パスと絶対パスの処理が難しい部分なので、
+         * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+         */
+        
+        let clean_path = path.trim();
+        
+        let new_path = if clean_path == "~" {
             dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"))
+        } else if clean_path == ".." {
+            // Handle parent directory
+            self.current_path.parent().unwrap_or(&self.current_path).to_path_buf()
+        } else if clean_path.starts_with('/') {
+            // Absolute path
+            PathBuf::from(clean_path)
         } else {
-            self.current_path.join(path)
+            // Relative path
+            self.current_path.join(clean_path)
         };
         
         if new_path.exists() && new_path.is_dir() {
             self.current_path = new_path.canonicalize()?;
             std::env::set_current_dir(&self.current_path)?;
         } else {
-            return Err(anyhow::anyhow!("Directory not found: {}", path));
+            return Err(anyhow::anyhow!("No such file or directory (os error 2)"));
         }
         
         Ok(())

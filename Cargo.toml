@@ -7,42 +7,46 @@ description = "A POSIX-compatible Rust shell with TUI interface"
 license = "MIT"
 
 [dependencies]
-# TUI framework
-ratatui = "0.26.0"
-crossterm = "0.27.0"
+# GUI Framework
+egui = "0.26"
+eframe = "0.26"
 
-# GPU acceleration and graphics
-skia-safe = "0.70.0"
-wgpu = "0.17.0"
-winit = "0.29.0"
-raw-window-handle = "0.6.0"
+# Terminal and TUI (for fallback)
+ratatui = "0.26"
+crossterm = "0.27"
 
-# Command execution and process management
+# GPU Acceleration
+skia-safe = "0.70"
+wgpu = "0.19"
+
+# Async and Concurrency
 tokio = { version = "1.0", features = ["full"] }
-
-# Parsing and command handling
-clap = { version = "4.0", features = ["derive"] }
-regex = "1.0"
-
-# File system operations
-dirs = "5.0"
-walkdir = "2.4"
-
-# Error handling
 anyhow = "1.0"
 thiserror = "1.0"
 
-# Serialization for config and history
+# Serialization and Configuration
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
 # Utilities
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4"] }
-whoami = "1.0"
+whoami = "1.4"
+dirs = "5.0"
+walkdir = "2.4"
 
-# System calls and process management
+# System and Process Management
 libc = "0.2"
+
+# Command Line Parsing
+clap = { version = "4.0", features = ["derive"] }
+
+# Text Processing
+regex = "1.0"
+
+# Development
+env_logger = "0.10"
+log = "0.4"
 
 [dev-dependencies]
 criterion = "0.5" 
