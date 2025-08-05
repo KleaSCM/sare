@@ -378,14 +378,14 @@
 - ✅ **Window Management** - Multiple windows, window splitting
 - ✅ **Session Sharing** - Share sessions between users, collaborative sessions
 
-### Advanced Terminal Features
-- [ ] **Image Support** - Sixel, Kitty protocol, iTerm2 images, image rendering
-- [ ] **Hyperlink Support** - Clickable links, URL detection and handling
-- [ ] **Semantic Highlighting** - Syntax highlighting for output, language detection
-- [ ] **Search Functionality** - Find in scrollback, search highlighting
-- [ ] **Selection/Copy** - Text selection, copy to clipboard, selection modes
-- [ ] **Paste Protection** - Secure paste handling, paste bracketing
-- [ ] **Input Method Support** - IME integration, input method handling
+### Advanced Terminal Features ✅ **COMPLETED!**
+- ✅ **Image Support** - Sixel, Kitty protocol, iTerm2 images, image rendering
+- ✅ **Hyperlink Support** - Clickable links, URL detection and handling
+- ✅ **Semantic Highlighting** - Syntax highlighting for output, language detection
+- ✅ **Search Functionality** - Find in scrollback, search highlighting
+- ✅ **Selection/Copy** - Text selection, copy to clipboard, selection modes
+- ✅ **Paste Protection** - Secure paste handling, paste bracketing
+- ✅ **Input Method Support** - IME integration, input method handling
 
 ### Performance & Optimization
 - [ ] **Threading** - Multi-threaded rendering, I/O threads, render threads
