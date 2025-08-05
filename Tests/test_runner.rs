@@ -15,6 +15,8 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
 
+mod test_ansi_protocol;
+
 /**
  * Test result information
  * 
@@ -617,6 +619,134 @@ impl TestRunner {
 	}
 	
 	/**
+	 * Runs all ANSI protocol tests
+	 * 
+	 * @return Vec<TestResult> - ANSI protocol test results
+	 */
+	fn run_ansi_protocol_tests(&self) -> Vec<TestResult> {
+		/**
+		 * ANSIプロトコルテストを実行する関数です
+		 * 
+		 * ANSIエスケープシーケンスパーサーとターミナルレンダラーの
+		 * 各コンポーネントをテストし、VT100/VT220/VT320プロトコルが
+		 * 正しく処理されることを検証します。
+		 * 
+		 * パーサー、レンダラー、色、カーソル制御、画面クリアの
+		 * 各機能を個別にテストして結果を返します
+		 */
+		
+		let mut results = Vec::new();
+		
+		// Test ANSI parser creation
+		results.push(self.run_single_test(
+			|| {
+				use sare_terminal::terminal::protocol::AnsiParser;
+				
+				let parser = AnsiParser::new();
+				if parser.state != sare_terminal::terminal::protocol::ParserState::Normal {
+					return Err("New ANSI parser should be in Normal state".into());
+				}
+				Ok(())
+			},
+			"test_ansi_parser_creation",
+			"ansi_protocol",
+			"Tests ANSI parser initialization"
+		));
+		
+		// Test basic text printing
+		results.push(self.run_single_test(
+			|| {
+				use sare_terminal::terminal::protocol::AnsiParser;
+				
+				let mut parser = AnsiParser::new();
+				let input = b"Hello, World!";
+				let commands = parser.process_input(input)?;
+				
+				if commands.len() != 13 {
+					return Err("Should parse 13 characters".into());
+				}
+				Ok(())
+			},
+			"test_basic_text_printing",
+			"ansi_protocol",
+			"Tests basic text printing"
+		));
+		
+		// Test cursor movement
+		results.push(self.run_single_test(
+			|| {
+				use sare_terminal::terminal::protocol::AnsiParser;
+				
+				let mut parser = AnsiParser::new();
+				let input = b"\x1b[5A";
+				let commands = parser.process_input(input)?;
+				
+				if commands.len() != 1 {
+					return Err("Should parse one cursor command".into());
+				}
+				Ok(())
+			},
+			"test_cursor_movement",
+			"ansi_protocol",
+			"Tests cursor movement commands"
+		));
+		
+		// Test renderer creation
+		results.push(self.run_single_test(
+			|| {
+				use sare_terminal::terminal::renderer::{TerminalRenderer, RendererConfig};
+				
+				let config = RendererConfig::default();
+				let renderer = TerminalRenderer::new(config);
+				
+				if renderer.state().cursor_pos != (0, 0) {
+					return Err("Renderer should start at cursor position (0,0)".into());
+				}
+				Ok(())
+			},
+			"test_renderer_creation",
+			"ansi_protocol",
+			"Tests terminal renderer initialization"
+		));
+		
+		// Test renderer text processing
+		results.push(self.run_single_test(
+			|| {
+				use sare_terminal::terminal::renderer::{TerminalRenderer, RendererConfig};
+				
+				let config = RendererConfig::default();
+				let mut renderer = TerminalRenderer::new(config);
+				let input = b"Hello";
+				renderer.process_input(input)?;
+				
+				let content = renderer.screen_content();
+				if content.is_empty() || content[0].is_empty() {
+					return Err("Renderer should have content".into());
+				}
+				Ok(())
+			},
+			"test_renderer_text_processing",
+			"ansi_protocol",
+			"Tests renderer text processing"
+		));
+		
+		// Use the comprehensive test suite from the separate module
+		let ansi_results = test_ansi_protocol::run_ansi_protocol_tests();
+		for (name, success) in ansi_results {
+			results.push(TestResult {
+				name: name.to_string(),
+				category: "ansi_protocol".to_string(),
+				success,
+				execution_time: 0,
+				error_message: if success { None } else { Some("Test failed".to_string()) },
+				description: format!("ANSI protocol test: {}", name),
+			});
+		}
+		
+		results
+	}
+	
+	/**
 	 * Runs all tests and generates comprehensive report
 	 * 
 	 * @return TestSuiteSummary - Complete test suite summary
@@ -667,6 +797,11 @@ impl TestRunner {
 		println!("\n📋 Running Multiline Tests...");
 		let multiline_results = self.run_multiline_tests();
 		all_results.extend(multiline_results);
+		
+		// Run ANSI protocol tests
+		println!("\n🎨 Running ANSI Protocol Tests...");
+		let ansi_protocol_results = self.run_ansi_protocol_tests();
+		all_results.extend(ansi_protocol_results);
 		
 		let total_time = start_time.elapsed();
 		

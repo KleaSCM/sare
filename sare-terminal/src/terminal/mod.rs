@@ -17,10 +17,15 @@ pub mod pty;
 pub mod shell;
 pub mod process;
 pub mod io;
+pub mod protocol;
+pub mod renderer;
 
 use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+
+use protocol::AnsiParser;
+use renderer::{TerminalRenderer, RendererConfig};
 
 /**
  * Terminal emulator configuration
@@ -73,6 +78,10 @@ pub struct TerminalEmulator {
 	processes: Arc<RwLock<Vec<ProcessInfo>>>,
 	/// Terminal state
 	state: TerminalState,
+	/// ANSI parser for escape sequence processing
+	ansi_parser: AnsiParser,
+	/// Terminal renderer for content display
+	renderer: TerminalRenderer,
 }
 
 /**
@@ -210,6 +219,16 @@ impl TerminalEmulator {
 		 * PTYセッションは後でstart_session()で作成されます。
 		 */
 		
+		// Create renderer configuration
+		let renderer_config = RendererConfig {
+			size: config.size,
+			max_scrollback: 1000,
+			color_support: config.color_support,
+			mouse_support: config.mouse_support,
+			default_fg_color: renderer::Color::default(),
+			default_bg_color: renderer::Color { r: 0, g: 0, b: 0, color_type: renderer::ColorType::Default },
+		};
+		
 		Ok(Self {
 			config: config.clone(),
 			pty_session: None,
@@ -222,6 +241,8 @@ impl TerminalEmulator {
 				selection_end: None,
 				mode_flags: TerminalMode::default(),
 			},
+			ansi_parser: AnsiParser::new(),
+			renderer: TerminalRenderer::new(renderer_config),
 		})
 	}
 	
@@ -290,6 +311,9 @@ impl TerminalEmulator {
 	pub async fn resize(&mut self, columns: u16, rows: u16) -> Result<()> {
 		self.state.size = (columns, rows);
 		
+		// Resize renderer
+		self.renderer.resize(columns, rows);
+		
 		if let Some(pty_session) = &self.pty_session {
 			// Update PTY session size
 			use crate::terminal::pty::PtyManager;
@@ -310,7 +334,10 @@ impl TerminalEmulator {
 	 * @param input - Input data to send
 	 * @return Result<()> - Success or error status
 	 */
-	pub async fn send_input(&self, input: &[u8]) -> Result<()> {
+	pub async fn send_input(&mut self, input: &[u8]) -> Result<()> {
+		// Process input through ANSI parser
+		self.renderer.process_input(input)?;
+		
 		if let Some(pty_session) = &self.pty_session {
 			// Write input to PTY master
 			use crate::terminal::pty::PtyManager;
@@ -330,7 +357,7 @@ impl TerminalEmulator {
 	 * 
 	 * @return Result<Vec<u8>> - Output data or error
 	 */
-	pub async fn read_output(&self) -> Result<Vec<u8>> {
+	pub async fn read_output(&mut self) -> Result<Vec<u8>> {
 		if let Some(pty_session) = &self.pty_session {
 			// Read output from PTY master
 			use crate::terminal::pty::PtyManager;
@@ -339,7 +366,11 @@ impl TerminalEmulator {
 			let mut buffer = vec![0u8; 4096]; // 4KB buffer
 			let bytes_read = pty_manager.read_from_pty(&mut buffer).await?;
 			
-			return Ok(buffer[..bytes_read].to_vec());
+			// Process output through ANSI parser and renderer
+			let output_data = buffer[..bytes_read].to_vec();
+			self.renderer.process_input(&output_data)?;
+			
+			return Ok(output_data);
 		}
 		
 		Ok(Vec::new())
@@ -361,6 +392,24 @@ impl TerminalEmulator {
 	 */
 	pub fn config(&self) -> &TerminalConfig {
 		&self.config
+	}
+	
+	/**
+	 * Gets the terminal renderer
+	 * 
+	 * @return &TerminalRenderer - Terminal renderer
+	 */
+	pub fn renderer(&self) -> &TerminalRenderer {
+		&self.renderer
+	}
+	
+	/**
+	 * Gets the terminal renderer (mutable)
+	 * 
+	 * @return &mut TerminalRenderer - Terminal renderer
+	 */
+	pub fn renderer_mut(&mut self) -> &mut TerminalRenderer {
+		&mut self.renderer
 	}
 	
 	/**
