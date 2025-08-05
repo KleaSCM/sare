@@ -20,6 +20,7 @@ pub mod renderer;
 pub mod text;
 pub mod fonts;
 pub mod advanced_renderer;
+pub mod memory_optimizer;
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -541,7 +542,7 @@ impl GpuRenderer {
 		}
 		
 		// Try to get from GPU memory to estimate texture size
-		let gpu_memory = detect_gpu_memory();
+		let gpu_memory = Self::detect_gpu_memory();
 		if gpu_memory >= 8 * 1024 * 1024 * 1024 { // 8GB+
 			return 16384; // High-end GPU
 		} else if gpu_memory >= 4 * 1024 * 1024 * 1024 { // 4GB+

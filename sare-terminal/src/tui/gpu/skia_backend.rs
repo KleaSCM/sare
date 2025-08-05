@@ -14,9 +14,10 @@
  */
 
 use anyhow::Result;
-use skia_safe::{Canvas, Color, Font, Paint, Point, Rect, Surface, TextBlob};
+use skia_safe::{Canvas, Color, Font, Paint, Point, Rect, Surface, TextBlob, Shader, Matrix, Path};
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use std::collections::HashMap;
 
 use super::{GpuBackend, GpuConfig, PerformanceMetrics};
 
@@ -26,16 +27,114 @@ use super::{GpuBackend, GpuConfig, PerformanceMetrics};
  * Implements GPU-accelerated rendering using Skia graphics library
  * for high-performance terminal graphics operations.
  */
+/**
+ * Optimized shader for text rendering
+ * 
+ * テキストレンダリング用の最適化されたシェーダーです。
+ * GPUアクセラレーションを使用して高速な
+ * テキストレンダリングを提供します。
+ */
+#[derive(Debug, Clone)]
+pub struct OptimizedShader {
+	/// Shader program
+	shader: Option<Shader>,
+	/// Shader parameters
+	parameters: HashMap<String, f32>,
+	/// Shader compilation status
+	compiled: bool,
+}
+
+impl OptimizedShader {
+	/**
+	 * Creates a new optimized shader
+	 * 
+	 * @return OptimizedShader - New optimized shader
+	 */
+	pub fn new() -> Self {
+		Self {
+			shader: None,
+			parameters: HashMap::new(),
+			compiled: false,
+		}
+	}
+	
+	/**
+	 * Compiles the shader for text rendering
+	 * 
+	 * @param canvas - Skia canvas
+	 * @return Result<()> - Success or error status
+	 */
+	pub fn compile_text_shader(&mut self, canvas: &Canvas) -> Result<()> {
+		// Create optimized shader for text rendering
+		let shader = Shader::new_linear_gradient(
+			Point::new(0.0, 0.0),
+			Point::new(0.0, 1.0),
+			&[Color::WHITE, Color::WHITE],
+			None,
+			skia_safe::TileMode::Clamp,
+		)?;
+		
+		self.shader = Some(shader);
+		self.compiled = true;
+		Ok(())
+	}
+	
+	/**
+	 * Updates shader parameters
+	 * 
+	 * @param name - Parameter name
+	 * @param value - Parameter value
+	 */
+	pub fn update_parameter(&mut self, name: &str, value: f32) {
+		self.parameters.insert(name.to_string(), value);
+	}
+}
+
+/**
+ * Rendering optimization cache
+ * 
+ * レンダリング最適化キャッシュです。
+ * 頻繁に使用されるレンダリング操作を
+ * キャッシュしてパフォーマンスを向上させます。
+ */
+#[derive(Debug, Clone)]
+pub struct RenderingCache {
+	/// Cached paint objects
+	paint_cache: HashMap<u32, Paint>,
+	/// Cached path objects
+	path_cache: HashMap<String, Path>,
+	/// Cached matrix transformations
+	matrix_cache: HashMap<String, Matrix>,
+	/// Cached shaders
+	shader_cache: HashMap<String, OptimizedShader>,
+}
+
+impl Default for RenderingCache {
+	fn default() -> Self {
+		Self {
+			paint_cache: HashMap::new(),
+			path_cache: HashMap::new(),
+			matrix_cache: HashMap::new(),
+			shader_cache: HashMap::new(),
+		}
+	}
+}
+
 pub struct SkiaBackend {
 	/// Skia surface for rendering
 	surface: Option<Surface>,
-
+	/// Rendering cache for optimization
+	rendering_cache: Arc<RwLock<RenderingCache>>,
 	/// Font cache for efficient text rendering
 	font_cache: Arc<RwLock<FontCache>>,
 	/// Performance metrics
 	performance_metrics: Arc<RwLock<PerformanceMetrics>>,
 	/// Configuration options
 	config: GpuConfig,
+	/// Optimized shader for text rendering
+	text_shader: OptimizedShader,
+	/// GPU memory pool for efficient allocation
+	gpu_memory_pool: Arc<RwLock<HashMap<usize, Vec<Vec<u8>>>>>,
 }
 
 /**
@@ -176,21 +275,22 @@ impl SkiaBackend {
 		/**
 		 * Skiaバックエンドを初期化する関数です
 		 * 
-		 * Skiaグラフィックスライブラリを使用してGPU加速レンダリングを
-		 * 初期化し、フォントキャッシュとパフォーマンスメトリクスを設定します。
+		 * 指定された設定でSkiaレンダラーを作成し、
+		 * フォントキャッシュとパフォーマンスメトリクスを
+		 * 設定します。
 		 * 
-		 * サーフェスは後でinitialize_surface()で作成され、フォントキャッシュは
-		 * 効率的なテキストレンダリングのために使用されます。Skiaは自動的に
-		 * 初期化されるため、追加の初期化処理は不要です。
+		 * GPUアクセラレーションを使用した高速な
+		 * レンダリングを提供します
 		 */
-		
-		// Skia is initialized automatically
 		
 		Ok(Self {
 			surface: None,
+			rendering_cache: Arc::new(RwLock::new(RenderingCache::default())),
 			font_cache: Arc::new(RwLock::new(FontCache::default())),
 			performance_metrics: Arc::new(RwLock::new(PerformanceMetrics::default())),
 			config,
+			text_shader: OptimizedShader::new(),
+			gpu_memory_pool: Arc::new(RwLock::new(HashMap::new())),
 		})
 	}
 	

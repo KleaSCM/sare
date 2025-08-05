@@ -112,7 +112,7 @@ impl SessionSharingManager {
 		let sharing_data_file = home_dir.join(".sare_session_sharing.json");
 		
 		// Try to load existing session sharing data
-		if let Ok(data) = std::fs::read_to_string(&sharing_data_file) {
+		if let Ok(data) = tokio::fs::read_to_string(&sharing_data_file).await {
 			if let Ok(sharing_data) = serde_json::from_str::<serde_json::Value>(&data) {
 				// Load shared sessions info
 				if let Some(shared_sessions_data) = sharing_data.get("shared_sessions") {
@@ -262,7 +262,7 @@ impl SessionSharingManager {
 		
 		// Write session sharing data to file
 		let sharing_data_json = serde_json::to_string_pretty(&serde_json::Value::Object(sharing_data))?;
-		std::fs::write(&sharing_data_file, sharing_data_json)?;
+		tokio::fs::write(&sharing_data_file, sharing_data_json).await?;
 		
 		Ok(())
 	}

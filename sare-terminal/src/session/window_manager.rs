@@ -111,7 +111,7 @@ impl WindowManager {
 		let window_data_file = home_dir.join(".sare_windows.json");
 		
 		// Try to load existing window data
-		if let Ok(data) = std::fs::read_to_string(&window_data_file) {
+		if let Ok(data) = tokio::fs::read_to_string(&window_data_file).await {
 			if let Ok(window_data) = serde_json::from_str::<serde_json::Value>(&data) {
 				// Load windows metadata
 				if let Some(windows_data) = window_data.get("windows") {
@@ -256,7 +256,7 @@ impl WindowManager {
 		
 		// Write window data to file
 		let window_data_json = serde_json::to_string_pretty(&serde_json::Value::Object(window_data))?;
-		std::fs::write(&window_data_file, window_data_json)?;
+		tokio::fs::write(&window_data_file, window_data_json).await?;
 		
 		Ok(())
 	}

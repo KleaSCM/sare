@@ -16,6 +16,9 @@
 use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
+use std::collections::VecDeque;
 
 use super::{GpuBackend, GpuConfig, PerformanceMetrics};
 use super::skia_backend;
@@ -105,6 +108,37 @@ pub trait GpuRendererTrait {
  * Provides a unified interface for GPU rendering operations,
  * automatically selecting and managing the appropriate backend.
  */
+/**
+ * Rendering command for multi-threaded rendering
+ */
+#[derive(Debug, Clone)]
+pub enum RenderCommand {
+	/// Render text command
+	RenderText {
+		text: String,
+		x: f32,
+		y: f32,
+		color: u32,
+		font_size: f32,
+	},
+	/// Render rectangle command
+	RenderRectangle {
+		x: f32,
+		y: f32,
+		width: f32,
+		height: f32,
+		color: u32,
+	},
+	/// Clear surface command
+	ClearSurface {
+		background_color: u32,
+	},
+	/// Flush surface command
+	FlushSurface,
+	/// Shutdown render thread
+	Shutdown,
+}
+
 pub struct UnifiedGpuRenderer {
 	/// Current active backend
 	backend: Option<Box<dyn GpuRendererTrait + Send + Sync>>,
@@ -112,6 +146,16 @@ pub struct UnifiedGpuRenderer {
 	performance_metrics: Arc<RwLock<PerformanceMetrics>>,
 	/// Configuration
 	config: GpuConfig,
+	/// Render thread sender
+	render_sender: Option<mpsc::Sender<RenderCommand>>,
+	/// Render thread handle
+	render_handle: Option<JoinHandle<()>>,
+	/// I/O thread sender
+	io_sender: Option<mpsc::Sender<RenderCommand>>,
+	/// I/O thread handle
+	io_handle: Option<JoinHandle<()>>,
+	/// Command queue for batching
+	command_queue: Arc<RwLock<VecDeque<RenderCommand>>>,
 }
 
 impl UnifiedGpuRenderer {
@@ -136,6 +180,11 @@ impl UnifiedGpuRenderer {
 			backend: None,
 			performance_metrics: Arc::new(RwLock::new(PerformanceMetrics::default())),
 			config,
+			render_sender: None,
+			render_handle: None,
+			io_sender: None,
+			io_handle: None,
+			command_queue: Arc::new(RwLock::new(VecDeque::new())),
 		})
 	}
 	
@@ -157,6 +206,10 @@ impl UnifiedGpuRenderer {
 				Ok(backend) => {
 					self.backend = Some(backend);
 					println!("Initialized GPU backend: {:?}", backend_type);
+					
+					// Initialize multi-threaded rendering
+					self.initialize_threading().await?;
+					
 					return Ok(());
 				}
 				Err(e) => {
@@ -179,8 +232,18 @@ impl UnifiedGpuRenderer {
 	 * @param font_size - Font size
 	 * @return Result<()> - Success or error status
 	 */
-	pub fn render_text(&self, text: &str, x: f32, y: f32, color: u32, font_size: f32) -> Result<()> {
-		if let Some(backend) = &self.backend {
+	pub async fn render_text(&self, text: &str, x: f32, y: f32, color: u32, font_size: f32) -> Result<()> {
+		if let Some(sender) = &self.render_sender {
+			// Send to render thread
+			let command = RenderCommand::RenderText {
+				text: text.to_string(),
+				x,
+				y,
+				color,
+				font_size,
+			};
+			sender.send(command).await.map_err(|e| anyhow::anyhow!("Render thread error: {}", e))?;
+		} else if let Some(backend) = &self.backend {
 			backend.render_text(text, x, y, color, font_size)
 		} else {
 			// Fallback to CPU rendering
@@ -198,8 +261,18 @@ impl UnifiedGpuRenderer {
 	 * @param color - Fill color
 	 * @return Result<()> - Success or error status
 	 */
-	pub fn render_rectangle(&self, x: f32, y: f32, width: f32, height: f32, color: u32) -> Result<()> {
-		if let Some(backend) = &self.backend {
+	pub async fn render_rectangle(&self, x: f32, y: f32, width: f32, height: f32, color: u32) -> Result<()> {
+		if let Some(sender) = &self.render_sender {
+			// Send to render thread
+			let command = RenderCommand::RenderRectangle {
+				x,
+				y,
+				width,
+				height,
+				color,
+			};
+			sender.send(command).await.map_err(|e| anyhow::anyhow!("Render thread error: {}", e))?;
+		} else if let Some(backend) = &self.backend {
 			backend.render_rectangle(x, y, width, height, color)
 		} else {
 			// Fallback to CPU rendering
@@ -213,8 +286,14 @@ impl UnifiedGpuRenderer {
 	 * @param background_color - Background color
 	 * @return Result<()> - Success or error status
 	 */
-	pub fn clear_surface(&self, background_color: u32) -> Result<()> {
-		if let Some(backend) = &self.backend {
+	pub async fn clear_surface(&self, background_color: u32) -> Result<()> {
+		if let Some(sender) = &self.render_sender {
+			// Send to render thread
+			let command = RenderCommand::ClearSurface {
+				background_color,
+			};
+			sender.send(command).await.map_err(|e| anyhow::anyhow!("Render thread error: {}", e))?;
+		} else if let Some(backend) = &self.backend {
 			backend.clear_surface(background_color)
 		} else {
 			// Fallback to CPU rendering
@@ -227,8 +306,12 @@ impl UnifiedGpuRenderer {
 	 * 
 	 * @return Result<()> - Success or error status
 	 */
-	pub fn flush_surface(&self) -> Result<()> {
-		if let Some(backend) = &self.backend {
+	pub async fn flush_surface(&self) -> Result<()> {
+		if let Some(sender) = &self.render_sender {
+			// Send to render thread
+			let command = RenderCommand::FlushSurface;
+			sender.send(command).await.map_err(|e| anyhow::anyhow!("Render thread error: {}", e))?;
+		} else if let Some(backend) = &self.backend {
 			backend.flush_surface()
 		} else {
 			// Fallback to CPU rendering
@@ -388,9 +471,144 @@ impl UnifiedGpuRenderer {
 			} else {
 				// Ultimate fallback: simple console output
 				println!("RENDER_TEXT: '{}' at ({}, {}) color={:x}", text, x, y, color);
-				Ok(())
-			}
+							Ok(())
 		}
+		
+		/**
+		 * Initializes multi-threaded rendering
+		 * 
+		 * @return Result<()> - Success or error status
+		 */
+		async fn initialize_threading(&mut self) -> Result<()> {
+			/**
+			 * マルチスレッドレンダリングを初期化する関数です
+			 * 
+			 * レンダリングスレッドとI/Oスレッドを作成し、
+			 * コマンドキューを設定します。
+			 * 
+			 * パフォーマンスを向上させるために並列処理を
+			 * 実現します
+			 */
+			
+			// Create render thread channel
+			let (render_sender, mut render_receiver) = mpsc::channel::<RenderCommand>(1000);
+			let backend = self.backend.clone();
+			let performance_metrics = self.performance_metrics.clone();
+			
+			// Spawn render thread
+			let render_handle = tokio::spawn(async move {
+				while let Some(command) = render_receiver.recv().await {
+					match command {
+						RenderCommand::RenderText { text, x, y, color, font_size } => {
+							if let Some(backend) = &backend {
+								if let Err(e) = backend.render_text(&text, x, y, color, font_size) {
+									eprintln!("Render thread error: {}", e);
+								}
+							}
+						}
+						RenderCommand::RenderRectangle { x, y, width, height, color } => {
+							if let Some(backend) = &backend {
+								if let Err(e) = backend.render_rectangle(x, y, width, height, color) {
+									eprintln!("Render thread error: {}", e);
+								}
+							}
+						}
+						RenderCommand::ClearSurface { background_color } => {
+							if let Some(backend) = &backend {
+								if let Err(e) = backend.clear_surface(background_color) {
+									eprintln!("Render thread error: {}", e);
+								}
+							}
+						}
+						RenderCommand::FlushSurface => {
+							if let Some(backend) = &backend {
+								if let Err(e) = backend.flush_surface() {
+									eprintln!("Render thread error: {}", e);
+								}
+							}
+						}
+						RenderCommand::Shutdown => {
+							break;
+						}
+					}
+				}
+			});
+			
+			// Create I/O thread channel
+			let (io_sender, mut io_receiver) = mpsc::channel::<RenderCommand>(1000);
+			let command_queue = self.command_queue.clone();
+			
+			// Spawn I/O thread for command batching
+			let io_handle = tokio::spawn(async move {
+				while let Some(command) = io_receiver.recv().await {
+					let mut queue = command_queue.write().await;
+					queue.push_back(command);
+					
+					// Batch commands for efficiency
+					if queue.len() >= 10 {
+						// Process batch
+						while let Some(cmd) = queue.pop_front() {
+							// Forward to render thread
+							if let Err(e) = render_sender.send(cmd).await {
+								eprintln!("I/O thread error: {}", e);
+								break;
+							}
+						}
+					}
+				}
+			});
+			
+			self.render_sender = Some(render_sender);
+			self.render_handle = Some(render_handle);
+			self.io_sender = Some(io_sender);
+			self.io_handle = Some(io_handle);
+			
+			Ok(())
+		}
+		
+		/**
+		 * Shuts down the multi-threaded rendering
+		 * 
+		 * @return Result<()> - Success or error status
+		 */
+		pub async fn shutdown(&mut self) -> Result<()> {
+			/**
+			 * マルチスレッドレンダリングをシャットダウンする関数です
+			 * 
+			 * レンダリングスレッドとI/Oスレッドを適切に
+			 * 終了し、リソースをクリーンアップします。
+			 * 
+			 * アプリケーション終了時に呼び出されます
+			 */
+			
+			// Send shutdown command to render thread
+			if let Some(sender) = &self.render_sender {
+				if let Err(e) = sender.send(RenderCommand::Shutdown).await {
+					eprintln!("Failed to send shutdown command: {}", e);
+				}
+			}
+			
+			// Wait for render thread to finish
+			if let Some(handle) = self.render_handle.take() {
+				if let Err(e) = handle.await {
+					eprintln!("Render thread error: {}", e);
+				}
+			}
+			
+			// Wait for I/O thread to finish
+			if let Some(handle) = self.io_handle.take() {
+				if let Err(e) = handle.await {
+					eprintln!("I/O thread error: {}", e);
+				}
+			}
+			
+			// Clear senders
+			self.render_sender = None;
+			self.io_sender = None;
+			
+			Ok(())
+		}
+	}
 		
 		/**
 		 * Fallback CPU rectangle rendering

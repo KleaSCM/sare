@@ -84,13 +84,13 @@ impl CpuRenderer {
 	 * @param height - Surface height
 	 * @return Result<()> - Success or error status
 	 */
-	pub fn initialize_surface(&mut self, width: u32, height: u32) -> Result<()> {
+	pub async fn initialize_surface(&mut self, width: u32, height: u32) -> Result<()> {
 		self.width = width;
 		self.height = height;
 		self.surface = Some(vec![0; (width * height) as usize]);
 		
-		// Initialize font cache
-		self.load_font_data()?;
+		// Initialize font cache asynchronously
+		self.load_font_data().await?;
 		
 		Ok(())
 	}
@@ -100,7 +100,7 @@ impl CpuRenderer {
 	 * 
 	 * @return Result<()> - Success or error status
 	 */
-	fn load_font_data(&mut self) -> Result<()> {
+	async fn load_font_data(&mut self) -> Result<()> {
 		let font_paths = vec![
 			"/usr/share/fonts",
 			"/usr/local/share/fonts",
@@ -110,16 +110,14 @@ impl CpuRenderer {
 		];
 		
 		for font_path in &font_paths {
-			if let Ok(entries) = std::fs::read_dir(font_path) {
-				for entry in entries {
-					if let Ok(entry) = entry {
-						if let Ok(file_name) = entry.file_name().into_string() {
-							if file_name.to_lowercase().contains(&self.current_font_family.to_lowercase()) {
-								if file_name.ends_with(".ttf") || file_name.ends_with(".otf") {
-									if let Ok(font_data) = std::fs::read(entry.path()) {
-										self.font_cache.insert(self.current_font_family.clone(), font_data);
-										return Ok(());
-									}
+			if let Ok(mut entries) = tokio::fs::read_dir(font_path).await {
+				while let Ok(Some(entry)) = entries.next_entry().await {
+					if let Ok(file_name) = entry.file_name().into_string() {
+						if file_name.to_lowercase().contains(&self.current_font_family.to_lowercase()) {
+							if file_name.ends_with(".ttf") || file_name.ends_with(".otf") {
+								if let Ok(font_data) = tokio::fs::read(entry.path()).await {
+									self.font_cache.insert(self.current_font_family.clone(), font_data);
+									return Ok(());
 								}
 							}
 						}

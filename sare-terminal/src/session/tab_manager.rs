@@ -112,7 +112,7 @@ impl TabManager {
 		let tab_data_file = home_dir.join(".sare_tabs.json");
 		
 		// Try to load existing tab data
-		if let Ok(data) = std::fs::read_to_string(&tab_data_file) {
+		if let Ok(data) = tokio::fs::read_to_string(&tab_data_file).await {
 			if let Ok(tab_data) = serde_json::from_str::<serde_json::Value>(&data) {
 				// Load tabs metadata
 				if let Some(tabs_data) = tab_data.get("tabs") {
@@ -257,7 +257,7 @@ impl TabManager {
 		
 		// Write tab data to file
 		let tab_data_json = serde_json::to_string_pretty(&serde_json::Value::Object(tab_data))?;
-		std::fs::write(&tab_data_file, tab_data_json)?;
+		tokio::fs::write(&tab_data_file, tab_data_json).await?;
 		
 		Ok(())
 	}
