@@ -37,43 +37,94 @@ impl Default for HeredocState {
 }
 
 impl HeredocState {
+	/**
+	 * Checks if heredoc mode is currently active
+	 * 
+	 * @return bool - True if heredoc mode is enabled
+	 */
 	pub fn is_heredoc(&self) -> bool {
 		self.heredoc_mode
 	}
 	
+	/**
+	 * Sets the heredoc mode state
+	 * 
+	 * @param mode - Whether to enable or disable heredoc mode
+	 */
 	pub fn set_heredoc(&mut self, mode: bool) {
 		self.heredoc_mode = mode;
 	}
 	
+	/**
+	 * Sets the heredoc delimiter string
+	 * 
+	 * @param delimiter - New delimiter string
+	 */
 	pub fn set_delimiter(&mut self, delimiter: String) {
 		self.heredoc_delimiter = delimiter;
 	}
 	
+	/**
+	 * Gets the current heredoc delimiter
+	 * 
+	 * @return String - Current delimiter string
+	 */
 	pub fn get_delimiter(&self) -> String {
 		self.heredoc_delimiter.clone()
 	}
 	
+	/**
+	 * Sets the heredoc content buffer
+	 * 
+	 * @param content - New heredoc content
+	 */
 	pub fn set_heredoc_content(&mut self, content: String) {
 		self.heredoc_content = content;
 	}
 	
+	/**
+	 * Gets the current heredoc content
+	 * 
+	 * @return String - Current heredoc content
+	 */
 	pub fn get_heredoc_content(&self) -> String {
 		self.heredoc_content.clone()
 	}
 	
+	/**
+	 * Sets whether variables should be expanded in heredoc content
+	 * 
+	 * @param expand - Whether to enable variable expansion
+	 */
 	pub fn set_expand_vars(&mut self, expand: bool) {
 		self.heredoc_expand_vars = expand;
 	}
 	
+	/**
+	 * Checks if variables should be expanded in heredoc content
+	 * 
+	 * @return bool - True if variable expansion is enabled
+	 */
 	pub fn should_expand_vars(&self) -> bool {
 		self.heredoc_expand_vars
 	}
 	
+	/**
+	 * Adds content to the heredoc buffer with a newline
+	 * 
+	 * @param content - Content to add to heredoc buffer
+	 */
 	pub fn add_heredoc_content(&mut self, content: String) {
 		self.heredoc_content.push_str(&content);
 		self.heredoc_content.push('\n');
 	}
 	
+	/**
+	 * Detects heredoc patterns in input using current state
+	 * 
+	 * @param input - Input string to check
+	 * @return Option<(String, bool)> - Delimiter and expansion flag if found
+	 */
 	pub fn detect_heredoc(&self, input: &str) -> Option<(String, bool)> {
 		HeredocProcessor::detect_heredoc(input)
 	}
@@ -84,12 +135,12 @@ pub struct HeredocProcessor;
 impl HeredocProcessor {
 	pub fn detect_heredoc(input: &str) -> Option<(String, bool)> {
 		/**
-		 * ヒアドキュメント検出の複雑な処理です (｡◕‿◕｡)
+		 * ヒアドキュメントパターンを検出する関数です
 		 * 
-		 * この関数は複雑な構文解析を行います。引用符付きデリミタの
-		 * 処理が難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * <<delimiter、<<'delimiter、<<"delimiter 形式のヒアドキュメントを検出して、
+		 * デリミタ文字列と変数展開フラグを返します。
 		 * 
-		 * 複数の引用符形式と変数展開制御の複雑なロジックです
+		 * 引用符付きデリミタは変数展開を無効にし、引用符なしは変数展開を有効にします
 		 */
 		
 		let words: Vec<&str> = input.split_whitespace().collect();
@@ -123,12 +174,12 @@ impl HeredocProcessor {
 	
 	pub fn expand_heredoc_variables(content: &str) -> String {
 		/**
-		 * ヒアドキュメント変数展開の複雑な処理です 
+		 * ヒアドキュメント内の変数を展開する関数です
 		 * 
-		 * この関数は複雑な変数展開を行います。環境変数の検索と
-		 * 文字列処理が難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * $VARIABLE 形式の環境変数を検出して、対応する環境変数の値に置き換えます。
 		 * 
-		 * 環境変数検索と文字列置換の複雑なロジックです
+		 * 環境変数が見つからない場合は元の文字列を保持し、$記号のみの場合は
+		 * そのまま出力します
 		 */
 		
 		let mut result = String::new();

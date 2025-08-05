@@ -163,13 +163,13 @@ impl ExpansionProcessor {
 	
 	fn expand_comma_list(pattern: &str) -> Option<Vec<String>> {
 		/**
-		 * カンマリストを展開する関数です (｡◕‿◕｡)
+		 * カンマリストを展開する関数です
 		 * 
 		 * {a,b,c} 形式のカンマ区切りリストを解析して、
 		 * 各要素を個別の文字列として展開します。
 		 * 
 		 * ネストしたブレース内のカンマは無視して、トップレベルの
-		 * カンマのみで分割するため、深さを追跡します 
+		 * カンマのみで分割するため、深さを追跡します
 		 */
 		
 		if !pattern.contains(',') {
@@ -220,13 +220,13 @@ impl ExpansionProcessor {
 	
 	pub fn expand_glob_pattern(pattern: &str, working_directory: &Path) -> Vec<String> {
 		/**
-		 * グロブパターンを展開する関数です (｡◕‿◕｡)
+		 * グロブパターンを展開する関数です
 		 * 
 		 * ワイルドカード (*, ?, **) や文字クラス ([abc]) を含む
 		 * ファイルパターンを解析して、マッチするファイル名を返します。
 		 * 
 		 * 現在のディレクトリ内のファイルを検索して、パターンに
-		 * 一致するファイル名のリストを生成します (◕‿◕)
+		 * 一致するファイル名のリストを生成します
 		 */
 		
 		let mut results = Vec::new();

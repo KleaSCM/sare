@@ -49,11 +49,13 @@ impl WgpuBackend {
 	 */
 	pub async fn new(config: GpuConfig) -> Result<Self> {
 		/**
-		 * WGPU初期化の複雑な処理です (｡◕‿◕｡)
+		 * WGPUバックエンドを初期化する関数です
 		 * 
-		 * この関数は複雑なグラフィックス初期化を行います。
-		 * WGPUデバイスの作成が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 * WGPUグラフィックスAPIを使用してGPU加速レンダリングを
+		 * 初期化し、デバイスとキューを設定します。
+		 * 
+		 * 高性能アダプターを選択し、必要な機能と制限を設定して
+		 * レンダリングデバイスを作成します
 		 */
 		
 		// Implement WGPU initialization with actual GPU setup

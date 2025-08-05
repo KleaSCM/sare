@@ -40,12 +40,13 @@ pub struct SubstitutionProcessor;
 impl SubstitutionProcessor {
 	pub fn detect_command_substitutions(input: &str) -> Vec<(usize, usize, String)> {
 		/**
-		 * コマンド置換検出の複雑な処理です (｡◕‿◕｡)
+		 * コマンド置換パターンを検出する関数です
 		 * 
-		 * この関数は複雑な構文解析を行います。ネストした括弧処理が
-		 * 難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * $(command) と `command` 形式のコマンド置換を見つけて、
+		 * 開始位置、終了位置、コマンド内容を返します。
 		 * 
-		 * 複数の置換構文とネストした括弧の深さ追跡の複雑なロジックです (◕‿◕)
+		 * ネストした括弧も正しく処理して、深さを追跡しながら
+		 * 各置換パターンの位置を正確に特定します
 		 */
 		
 		let mut substitutions = Vec::new();
@@ -100,12 +101,13 @@ impl SubstitutionProcessor {
 	
 	pub fn execute_substitution_command(command: &str) -> Result<String> {
 		/**
-		 * コマンド実行の複雑な処理です (｡◕‿◕｡)
+		 * コマンドを実行して結果を返す関数です
 		 * 
-		 * この関数は複雑なコマンド実行を行います。プロセス生成と
-		 * 出力処理が難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 指定されたコマンドを外部プロセスとして実行し、
+		 * 標準出力と標準エラー出力を取得して返します。
 		 * 
-		 * 外部プロセス実行とストリーム処理の複雑なロジックです
+		 * コマンドの引数を適切に分割して、プロセスを生成し
+		 * 実行結果を文字列として返します
 		 */
 		
 		let parts: Vec<&str> = command.split_whitespace().collect();
@@ -130,12 +132,13 @@ impl SubstitutionProcessor {
 	
 	pub fn process_command_substitutions(input: &str) -> Result<String> {
 		/**
-		 * コマンド置換処理の複雑な処理です (｡◕‿◕｡)
+		 * コマンド置換を処理する関数です
 		 * 
-		 * この関数は複雑な置換処理を行います。逆順処理による
-		 * インデックス維持が難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 入力文字列内の $(command) と `command` 形式の置換を検出して、
+		 * 各コマンドを実行して結果に置き換えます。
 		 * 
-		 * 逆順処理によるインデックス維持とエラーハンドリングの複雑なロジックです
+		 * 逆順で置換を処理することで文字列のインデックスを維持し、
+		 * 最終的に置換された文字列を返します
 		 */
 		
 		let mut result = input.to_string();
@@ -157,30 +160,66 @@ impl SubstitutionProcessor {
 }
 
 impl SubstitutionState {
+	/**
+	 * Checks if substitution mode is currently active
+	 * 
+	 * @return bool - True if substitution mode is enabled
+	 */
 	pub fn is_substitution_mode(&self) -> bool {
 		self.substitution_mode
 	}
 	
+	/**
+	 * Sets the substitution mode state
+	 * 
+	 * @param mode - Whether to enable or disable substitution mode
+	 */
 	pub fn set_substitution_mode(&mut self, mode: bool) {
 		self.substitution_mode = mode;
 	}
 	
+	/**
+	 * Gets the current substitution depth for nested commands
+	 * 
+	 * @return usize - Current substitution depth
+	 */
 	pub fn get_depth(&self) -> usize {
 		self.substitution_depth
 	}
 	
+	/**
+	 * Sets the substitution depth for nested command processing
+	 * 
+	 * @param depth - New substitution depth value
+	 */
 	pub fn set_depth(&mut self, depth: usize) {
 		self.substitution_depth = depth;
 	}
 	
+	/**
+	 * Gets the substitution buffer for nested commands
+	 * 
+	 * @return String - Current substitution buffer
+	 */
 	pub fn get_buffer(&self) -> String {
 		self.substitution_buffer.clone()
 	}
 	
+	/**
+	 * Sets the substitution buffer for nested command processing
+	 * 
+	 * @param buffer - New substitution buffer
+	 */
 	pub fn set_buffer(&mut self, buffer: String) {
 		self.substitution_buffer = buffer;
 	}
 	
+	/**
+	 * Processes command substitutions using current state
+	 * 
+	 * @param input - Input string to process
+	 * @return Result<String> - Processed string or error
+	 */
 	pub fn process_substitutions(&self, input: &str) -> Result<String> {
 		SubstitutionProcessor::process_command_substitutions(input)
 	}

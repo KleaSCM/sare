@@ -35,26 +35,56 @@ impl Default for MultilineState {
 }
 
 impl MultilineState {
+	/**
+	 * Checks if multiline mode is currently active
+	 * 
+	 * @return bool - True if multiline mode is enabled
+	 */
 	pub fn is_multiline(&self) -> bool {
 		self.multiline_mode
 	}
 	
+	/**
+	 * Sets the multiline mode state
+	 * 
+	 * @param mode - Whether to enable or disable multiline mode
+	 */
 	pub fn set_multiline(&mut self, mode: bool) {
 		self.multiline_mode = mode;
 	}
 	
+	/**
+	 * Sets the continuation character that triggered multiline mode
+	 * 
+	 * @param char - Continuation character (\, |, ', ", (, {, [)
+	 */
 	pub fn set_continuation_char(&mut self, char: Option<char>) {
 		self.continuation_char = char;
 	}
 	
+	/**
+	 * Gets the current continuation character
+	 * 
+	 * @return Option<char> - Current continuation character
+	 */
 	pub fn get_continuation_char(&self) -> Option<char> {
 		self.continuation_char
 	}
 	
+	/**
+	 * Sets the multiline prompt prefix
+	 * 
+	 * @param prompt - New multiline prompt string
+	 */
 	pub fn set_prompt(&mut self, prompt: String) {
 		self.multiline_prompt = prompt;
 	}
 	
+	/**
+	 * Updates the multiline state based on input
+	 * 
+	 * @param input - Input string to analyze for continuation
+	 */
 	pub fn update(&mut self, input: &str) {
 		*self = MultilineProcessor::update_multiline_state(self.clone(), input);
 	}
@@ -65,12 +95,13 @@ pub struct MultilineProcessor;
 impl MultilineProcessor {
 	pub fn check_multiline_continuation(input: &str) -> (bool, Option<char>) {
 		/**
-		 * マルチライン継続検出の複雑な処理です (｡◕‿◕｡)
+		 * マルチライン継続を検出する関数です
 		 * 
-		 * この関数は複雑な構文解析を行います。引用符と括弧の
-		 * バランス検証が難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * バックスラッシュ (\)、パイプ (|)、引用符、括弧のバランスを
+		 * 解析して、コマンドが継続が必要かどうかを判定します。
 		 * 
-		 * 複数の構文要素とエスケープ処理の複雑なロジックです (◕‿◕)
+		 * 引用符内の文字は無視し、エスケープ文字を適切に処理して、
+		 * 括弧の開閉バランスを追跡します
 		 */
 		
 		let trimmed = input.trim();
