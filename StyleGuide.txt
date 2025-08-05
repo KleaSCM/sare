@@ -58,29 +58,83 @@ All functions must return errors as part of the return type (e.g., Result, std::
 3.3 - Handle All Errors Explicitly
 
 Never suppress or discard errors. No .unwrap(), .expect(), or _ = err patterns unless explicitly tested.
+
+
 4. Comments and Documentation
-4.1 - Comments Are Only for Documentation
+4.1 – Comments Are Only for Documentation
 
-Comments must explain why, never what or how. Do not describe syntax.
-4.2 - Write the documentation in Japanese for Complex Logic
+All comments must explain why code exists — never what it does or how it works.
 
-All complex, sensitive, or non-obvious logic must be explained in Japanese, using a soft, feminine tone (e.g., あたし, ね〜, よね).
+| ❌ Forbidden               | ✅ Allowed              |
+| ------------------------- | ---------------------- |
+| Syntax explanations       | Purpose clarifications |
+| Control flow restatements | Behavior reasoning     |
+| Variable summaries        | Design decisions       |
 
-    Kaomoji may be used, but are not required.
 
-    Never use harsh, dry, or academic tone in Japanese comments.
 
-    Complexity includes:
+✅ Good:
 
-        Multiple branches or interactions
+// We retry here only if the initial handshake failed — removing this breaks sync flow.
 
-        Algorithmic behavior (e.g., recursion, optimization)
+❌ Bad:
 
-        Side effects or unexpected outcomes
+// Create array and push item
+const arr = []; arr.push(x);
 
-        Code that may be misunderstood or misused
 
-// あたし、これSetにしたの〜配列だと抜けちゃう時あるかもって…ね。
+
+4.2 – Language Rules for Comments
+
+| Code Scope      | Language | Tone                         |
+| --------------- | -------- | ---------------------------- |
+| Public API      | English  | Clear, professional, neutral |
+| Internal Logic  | Japanese | Soft, feminine, expressive   |
+| Private Methods | Japanese | Casual, warm, girlish        |
+| Tests           | Japanese | Honest, emotionally aware    |
+
+
+4.3 – Japanese Comment Guidelines
+
+Japanese comments must:
+
+    Use あたし — never 私, 僕, or 俺
+
+    Always maintain a soft, feminine, emotionally gentle tone
+
+    Use casual particles (〜, よね, ね〜, etc.)
+
+    Allow kaomoji ((๑˃̵ᴗ˂̵), （ ; ; ）, （╹◡╹）♡, etc.)
+
+    Use English only for APIs, identifiers, or types (Set, Map, Vec, etc.)
+
+    Never include formal, stiff, or technical Japanese
+
+✅ Example:
+
+// あたしね、このSetにしたの…Arrayだと抜けちゃって。
+// ちっちゃいバグだけど…悔しくて悔しくて…（ ; ; ）
+
+4.4 – Prohibited Comment Types
+
+    ❌ No syntax explanations (// if x == y then...)
+
+    ❌ No emotional Japanese mixed with dry English
+
+    ❌ No “what” or “how” explanations
+
+    ❌ No reflective or overly intimate tone
+
+    ❌ No business-style or academic Japanese
+
+
+4.5 – Tone Summary
+
+    ✨ Japanese: Soft, expressive, readable — never reflective or intimate
+
+    ✨ English: Neutral, precise, professional
+
+    ✨ All: Feminine and emotional clarity is required — this is not optional
 
 
 4.3 - Tests Must Follow the Same Rules
