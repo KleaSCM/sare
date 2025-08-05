@@ -1,0 +1,563 @@
+/**
+ * Window manager for Sare terminal
+ * 
+ * This module provides window management capabilities including multiple windows,
+ * window splitting, and window management for the Sare terminal.
+ * 
+ * Author: KleaSCM
+ * Email: KleaSCM@gmail.com
+ * File: window_manager.rs
+ * Description: Window manager for multiple windows and window splitting
+ */
+
+use anyhow::Result;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use uuid::Uuid;
+use chrono::{DateTime, Utc};
+
+use super::{
+	WindowMetadata, WindowType, WindowGeometry, SessionMetadata,
+};
+
+/**
+ * Window manager
+ * 
+ * ウィンドウ管理の中心的なコンポーネントです。
+ * 複数のウィンドウの作成、分割、管理を担当します。
+ * 
+ * ウィンドウの作成、削除、分割、リサイズの各機能を提供し、
+ * セッションごとのウィンドウ管理を実現します
+ */
+pub struct WindowManager {
+	/// ウィンドウのメタデータ
+	windows: Arc<RwLock<HashMap<Uuid, WindowMetadata>>>,
+	/// セッションごとのウィンドウリスト
+	session_windows: Arc<RwLock<HashMap<Uuid, Vec<Uuid>>>>,
+	/// アクティブなウィンドウ
+	active_windows: Arc<RwLock<HashMap<Uuid, Uuid>>>, // session_id -> window_id
+	/// ウィンドウの階層構造
+	window_hierarchy: Arc<RwLock<HashMap<Uuid, Vec<Uuid>>>>, // parent_window_id -> child_window_ids
+}
+
+impl WindowManager {
+	/**
+	 * Creates a new window manager
+	 * 
+	 * @return Result<WindowManager> - New window manager instance
+	 */
+	pub fn new() -> Result<Self> {
+		/**
+		 * 新しいウィンドウマネージャーを作成する関数です
+		 * 
+		 * ウィンドウのメタデータ、セッションごとのウィンドウリスト、
+		 * アクティブなウィンドウ、ウィンドウの階層構造を初期化します。
+		 * 
+		 * 各セッションに対してウィンドウ管理を提供します
+		 */
+		
+		Ok(Self {
+			windows: Arc::new(RwLock::new(HashMap::new())),
+			session_windows: Arc::new(RwLock::new(HashMap::new())),
+			active_windows: Arc::new(RwLock::new(HashMap::new())),
+			window_hierarchy: Arc::new(RwLock::new(HashMap::new())),
+		})
+	}
+	
+	/**
+	 * Initializes the window manager
+	 * 
+	 * @return Result<()> - Success or error
+	 */
+	pub async fn initialize(&self) -> Result<()> {
+		/**
+		 * ウィンドウマネージャーを初期化する関数です
+		 * 
+		 * 既存のウィンドウデータを読み込み、ウィンドウマネージャーを
+		 * 準備状態にします。
+		 * 
+		 * アプリケーション起動時に呼び出され、ウィンドウの
+		 * 復旧準備を行います
+		 */
+		
+		// 初期化処理（将来的に永続化されたウィンドウデータを読み込む）
+		Ok(())
+	}
+	
+	/**
+	 * Creates a new window
+	 * 
+	 * @param name - Window name
+	 * @param window_type - Window type
+	 * @param session_id - Parent session ID
+	 * @param tab_id - Parent tab ID (optional)
+	 * @param geometry - Window geometry
+	 * @return Result<WindowMetadata> - Created window metadata
+	 */
+	pub async fn create_window(
+		&self,
+		name: String,
+		window_type: WindowType,
+		session_id: Uuid,
+		tab_id: Option<Uuid>,
+		geometry: WindowGeometry,
+	) -> Result<WindowMetadata> {
+		/**
+		 * 新しいウィンドウを作成する関数です
+		 * 
+		 * 指定された名前、タイプ、親セッションID、タブID、ジオメトリで
+		 * ウィンドウを作成し、セッションのウィンドウリストに追加します。
+		 * 
+		 * ウィンドウIDは自動生成され、作成日時と更新日時が
+		 * 自動的に設定されます
+		 */
+		
+		let window_id = Uuid::new_v4();
+		let now = Utc::now();
+		
+		let metadata = WindowMetadata {
+			id: window_id,
+			name: name.clone(),
+			window_type,
+			session_id,
+			tab_id,
+			geometry,
+			created_at: now,
+			updated_at: now,
+		};
+		
+		// ウィンドウメタデータに追加
+		{
+			let mut windows = self.windows.write().await;
+			windows.insert(window_id, metadata.clone());
+		}
+		
+		// セッションのウィンドウリストに追加
+		{
+			let mut session_windows = self.session_windows.write().await;
+			let windows = session_windows.entry(session_id).or_insert_with(Vec::new);
+			windows.push(window_id);
+		}
+		
+		// 最初のウィンドウの場合はアクティブに設定
+		{
+			let mut active_windows = self.active_windows.write().await;
+			if !active_windows.contains_key(&session_id) {
+				active_windows.insert(session_id, window_id);
+			}
+		}
+		
+		Ok(metadata)
+	}
+	
+	/**
+	 * Gets window by ID
+	 * 
+	 * @param window_id - Window ID
+	 * @return Result<Option<WindowMetadata>> - Window metadata if found
+	 */
+	pub async fn get_window(&self, window_id: Uuid) -> Result<Option<WindowMetadata>> {
+		let windows = self.windows.read().await;
+		Ok(windows.get(&window_id).cloned())
+	}
+	
+	/**
+	 * Gets windows for a session
+	 * 
+	 * @param session_id - Session ID
+	 * @return Result<Vec<WindowMetadata>> - List of windows for the session
+	 */
+	pub async fn get_session_windows(&self, session_id: Uuid) -> Result<Vec<WindowMetadata>> {
+		/**
+		 * セッションのウィンドウを取得する関数です
+		 * 
+		 * 指定されたセッションに属するすべてのウィンドウを
+		 * 作成順で返します。
+		 * 
+		 * ウィンドウは作成日時の順でソートされます
+		 */
+		
+		let session_windows = self.session_windows.read().await;
+		if let Some(window_ids) = session_windows.get(&session_id) {
+			let windows = self.windows.read().await;
+			let mut window_metadata: Vec<WindowMetadata> = window_ids
+				.iter()
+				.filter_map(|id| windows.get(id).cloned())
+				.collect();
+			
+			// 作成日時でソート
+			window_metadata.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+			
+			return Ok(window_metadata);
+		}
+		
+		Ok(Vec::new())
+	}
+	
+	/**
+	 * Gets active window for a session
+	 * 
+	 * @param session_id - Session ID
+	 * @return Result<Option<WindowMetadata>> - Active window metadata if found
+	 */
+	pub async fn get_active_window(&self, session_id: Uuid) -> Result<Option<WindowMetadata>> {
+		/**
+		 * セッションのアクティブなウィンドウを取得する関数です
+		 * 
+		 * 指定されたセッションで現在アクティブなウィンドウの
+		 * メタデータを返します。
+		 * 
+		 * アクティブなウィンドウがない場合は None を返します
+		 */
+		
+		let active_windows = self.active_windows.read().await;
+		if let Some(window_id) = active_windows.get(&session_id) {
+			self.get_window(*window_id).await
+		} else {
+			Ok(None)
+		}
+	}
+	
+	/**
+	 * Sets active window for a session
+	 * 
+	 * @param session_id - Session ID
+	 * @param window_id - Window ID to activate
+	 * @return Result<()> - Success or error
+	 */
+	pub async fn set_active_window(&self, session_id: Uuid, window_id: Uuid) -> Result<()> {
+		/**
+		 * セッションのアクティブなウィンドウを設定する関数です
+		 * 
+		 * 指定されたセッションで指定されたウィンドウを
+		 * アクティブにします。
+		 * 
+		 * ウィンドウが存在し、セッションに属していることを
+		 * 確認してから設定します
+		 */
+		
+		// ウィンドウが存在することを確認
+		{
+			let windows = self.windows.read().await;
+			if !windows.contains_key(&window_id) {
+				return Err(anyhow::anyhow!("Window not found"));
+			}
+		}
+		
+		// セッションにウィンドウが属していることを確認
+		{
+			let session_windows = self.session_windows.read().await;
+			if let Some(window_ids) = session_windows.get(&session_id) {
+				if !window_ids.contains(&window_id) {
+					return Err(anyhow::anyhow!("Window does not belong to session"));
+				}
+			} else {
+				return Err(anyhow::anyhow!("Session not found"));
+			}
+		}
+		
+		// アクティブウィンドウを設定
+		{
+			let mut active_windows = self.active_windows.write().await;
+			active_windows.insert(session_id, window_id);
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Splits a window
+	 * 
+	 * @param parent_window_id - Parent window ID
+	 * @param split_type - Split type (horizontal or vertical)
+	 * @param new_window_name - Name for the new window
+	 * @return Result<WindowMetadata> - Created window metadata
+	 */
+	pub async fn split_window(
+		&self,
+		parent_window_id: Uuid,
+		split_type: SplitType,
+		new_window_name: String,
+	) -> Result<WindowMetadata> {
+		/**
+		 * ウィンドウを分割する関数です
+		 * 
+		 * 指定された親ウィンドウを分割し、新しいウィンドウを
+		 * 作成します。
+		 * 
+		 * 水平分割または垂直分割を選択でき、親ウィンドウの
+		 * ジオメトリを調整します
+		 */
+		
+		// 親ウィンドウを取得
+		let parent_metadata = {
+			let windows = self.windows.read().await;
+			if let Some(metadata) = windows.get(&parent_window_id) {
+				metadata.clone()
+			} else {
+				return Err(anyhow::anyhow!("Parent window not found"));
+			}
+		};
+		
+		// 新しいウィンドウのジオメトリを計算
+		let new_geometry = self.calculate_split_geometry(&parent_metadata.geometry, split_type);
+		
+		// 親ウィンドウのジオメトリを調整
+		{
+			let mut windows = self.windows.write().await;
+			if let Some(metadata) = windows.get_mut(&parent_window_id) {
+				metadata.geometry = self.adjust_parent_geometry(&parent_metadata.geometry, split_type);
+				metadata.updated_at = Utc::now();
+			}
+		}
+		
+		// 新しいウィンドウを作成
+		let new_window = self.create_window(
+			new_window_name,
+			WindowType::Split,
+			parent_metadata.session_id,
+			parent_metadata.tab_id,
+			new_geometry,
+		).await?;
+		
+		// 階層構造に追加
+		{
+			let mut hierarchy = self.window_hierarchy.write().await;
+			let children = hierarchy.entry(parent_window_id).or_insert_with(Vec::new);
+			children.push(new_window.id);
+		}
+		
+		Ok(new_window)
+	}
+	
+	/**
+	 * Resizes a window
+	 * 
+	 * @param window_id - Window ID to resize
+	 * @param new_geometry - New window geometry
+	 * @return Result<()> - Success or error
+	 */
+	pub async fn resize_window(&self, window_id: Uuid, new_geometry: WindowGeometry) -> Result<()> {
+		/**
+		 * ウィンドウのサイズを変更する関数です
+		 * 
+		 * 指定されたウィンドウのジオメトリを新しい値に
+		 * 変更し、更新日時を更新します。
+		 * 
+		 * ウィンドウが存在することを確認してからサイズを変更します
+		 */
+		
+		let mut windows = self.windows.write().await;
+		if let Some(metadata) = windows.get_mut(&window_id) {
+			metadata.geometry = new_geometry;
+			metadata.updated_at = Utc::now();
+		} else {
+			return Err(anyhow::anyhow!("Window not found"));
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Deletes a window
+	 * 
+	 * @param window_id - Window ID to delete
+	 * @return Result<()> - Success or error
+	 */
+	pub async fn delete_window(&self, window_id: Uuid) -> Result<()> {
+		/**
+		 * ウィンドウを削除する関数です
+		 * 
+		 * 指定されたウィンドウを削除し、セッションのウィンドウリストと
+		 * 階層構造からも削除します。
+		 * 
+		 * 削除されたウィンドウがアクティブだった場合は、次のウィンドウを
+		 * アクティブにします
+		 */
+		
+		// ウィンドウのメタデータを取得
+		let session_id = {
+			let windows = self.windows.read().await;
+			if let Some(metadata) = windows.get(&window_id) {
+				metadata.session_id
+			} else {
+				return Err(anyhow::anyhow!("Window not found"));
+			}
+		};
+		
+		// 子ウィンドウも削除
+		{
+			let hierarchy = self.window_hierarchy.read().await;
+			if let Some(children) = hierarchy.get(&window_id) {
+				for &child_id in children {
+					self.delete_window(child_id).await?;
+				}
+			}
+		}
+		
+		// ウィンドウメタデータから削除
+		{
+			let mut windows = self.windows.write().await;
+			windows.remove(&window_id);
+		}
+		
+		// セッションのウィンドウリストから削除
+		{
+			let mut session_windows = self.session_windows.write().await;
+			if let Some(windows) = session_windows.get_mut(&session_id) {
+				windows.retain(|&id| id != window_id);
+			}
+		}
+		
+		// 階層構造から削除
+		{
+			let mut hierarchy = self.window_hierarchy.write().await;
+			hierarchy.remove(&window_id);
+			// 親からも削除
+			for (parent_id, children) in hierarchy.iter_mut() {
+				children.retain(|&id| id != window_id);
+			}
+		}
+		
+		// 削除されたウィンドウがアクティブだった場合、次のウィンドウをアクティブに
+		{
+			let active_windows = self.active_windows.read().await;
+			if let Some(&active_window_id) = active_windows.get(&session_id) {
+				if active_window_id == window_id {
+					// 次のウィンドウをアクティブに設定
+					let session_windows = self.session_windows.read().await;
+					if let Some(window_ids) = session_windows.get(&session_id) {
+						if let Some(&next_window_id) = window_ids.first() {
+							let mut active_windows = self.active_windows.write().await;
+							active_windows.insert(session_id, next_window_id);
+						}
+					}
+				}
+			}
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Gets window count for a session
+	 * 
+	 * @param session_id - Session ID
+	 * @return Result<usize> - Number of windows
+	 */
+	pub async fn get_session_window_count(&self, session_id: Uuid) -> Result<usize> {
+		let session_windows = self.session_windows.read().await;
+		Ok(session_windows.get(&session_id).map(|windows| windows.len()).unwrap_or(0))
+	}
+	
+	/**
+	 * Gets total window count
+	 * 
+	 * @return Result<usize> - Total number of windows
+	 */
+	pub async fn get_window_count(&self) -> Result<usize> {
+		let windows = self.windows.read().await;
+		Ok(windows.len())
+	}
+	
+	/**
+	 * Shuts down the window manager
+	 * 
+	 * @return Result<()> - Success or error
+	 */
+	pub async fn shutdown(&self) -> Result<()> {
+		/**
+		 * ウィンドウマネージャーをシャットダウンする関数です
+		 * 
+		 * すべてのウィンドウデータをクリアし、リソースを解放します。
+		 * 
+		 * アプリケーション終了時に呼び出され、クリーンアップを
+		 * 実行します
+		 */
+		
+		// すべてのデータをクリア
+		{
+			let mut windows = self.windows.write().await;
+			windows.clear();
+		}
+		
+		{
+			let mut session_windows = self.session_windows.write().await;
+			session_windows.clear();
+		}
+		
+		{
+			let mut active_windows = self.active_windows.write().await;
+			active_windows.clear();
+		}
+		
+		{
+			let mut window_hierarchy = self.window_hierarchy.write().await;
+			window_hierarchy.clear();
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Calculates split geometry
+	 * 
+	 * @param parent_geometry - Parent window geometry
+	 * @param split_type - Split type
+	 * @return WindowGeometry - Calculated geometry
+	 */
+	fn calculate_split_geometry(&self, parent_geometry: &WindowGeometry, split_type: SplitType) -> WindowGeometry {
+		match split_type {
+			SplitType::Horizontal => WindowGeometry {
+				x: parent_geometry.x,
+				y: parent_geometry.y + (parent_geometry.height as i32 / 2),
+				width: parent_geometry.width,
+				height: parent_geometry.height / 2,
+			},
+			SplitType::Vertical => WindowGeometry {
+				x: parent_geometry.x + (parent_geometry.width as i32 / 2),
+				y: parent_geometry.y,
+				width: parent_geometry.width / 2,
+				height: parent_geometry.height,
+			},
+		}
+	}
+	
+	/**
+	 * Adjusts parent geometry after split
+	 * 
+	 * @param parent_geometry - Parent window geometry
+	 * @param split_type - Split type
+	 * @return WindowGeometry - Adjusted geometry
+	 */
+	fn adjust_parent_geometry(&self, parent_geometry: &WindowGeometry, split_type: SplitType) -> WindowGeometry {
+		match split_type {
+			SplitType::Horizontal => WindowGeometry {
+				x: parent_geometry.x,
+				y: parent_geometry.y,
+				width: parent_geometry.width,
+				height: parent_geometry.height / 2,
+			},
+			SplitType::Vertical => WindowGeometry {
+				x: parent_geometry.x,
+				y: parent_geometry.y,
+				width: parent_geometry.width / 2,
+				height: parent_geometry.height,
+			},
+		}
+	}
+}
+
+/**
+ * Split type
+ * 
+ * ウィンドウ分割の種類を定義します
+ */
+#[derive(Debug, Clone, PartialEq)]
+pub enum SplitType {
+	/// 水平分割
+	Horizontal,
+	/// 垂直分割
+	Vertical,
+} 

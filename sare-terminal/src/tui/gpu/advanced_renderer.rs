@@ -321,24 +321,20 @@ impl AdvancedRenderer {
 		font_family: Option<&str>,
 		font_size: Option<f32>,
 	) -> Result<Vec<GlyphPosition>> {
-		// Normalize Unicode text
 		let normalized_text = if self.config.unicode_support {
 			text.nfc().collect::<String>()
 		} else {
 			text.to_string()
 		};
 		
-		// Process bidirectional text
 		let bidi_info = if self.config.bidirectional_text {
 			Some(BidiInfo::new(&normalized_text, None))
 		} else {
 			None
 		};
 		
-		// Split into grapheme clusters
 		let graphemes = self.split_graphemes(&normalized_text);
 		
-		// Render each grapheme
 		let mut glyph_positions = Vec::new();
 		let mut current_x = x;
 		
@@ -356,7 +352,6 @@ impl AdvancedRenderer {
 			current_x += glyph_pos.bounds.advance;
 		}
 		
-		// Apply bidirectional layout if needed
 		if let Some(bidi) = bidi_info {
 			self.apply_bidirectional_layout(&mut glyph_positions, &bidi);
 		}
@@ -383,20 +378,14 @@ impl AdvancedRenderer {
 		let mut lines = Vec::new();
 		let mut current_line = String::new();
 		let mut current_width = 0.0;
-		
-		// Split text into words
 		let words = text.split_whitespace();
-		
 		for word in words {
 			let word_width = self.measure_text_width(word, font_family, font_size).await?;
-			
 			if current_width + word_width > max_width && !current_line.is_empty() {
-				// Start new line
 				lines.push(current_line.trim().to_string());
 				current_line = word.to_string();
 				current_width = word_width;
 			} else {
-				// Add to current line
 				if !current_line.is_empty() {
 					current_line.push(' ');
 				}
@@ -404,9 +393,7 @@ impl AdvancedRenderer {
 				current_width += word_width;
 			}
 		}
-		
-		// Add final line
-		if !current_line.is_empty() {
+				if !current_line.is_empty() {
 			lines.push(current_line.trim().to_string());
 		}
 		
@@ -441,7 +428,6 @@ impl AdvancedRenderer {
 			if let Some(glyph) = self.get_cached_glyph(&glyph_key).await? {
 				total_width += glyph.bounds.advance;
 			} else {
-				// Estimate width for unknown characters
 				total_width += font_size.unwrap_or(14.0) * 0.6;
 			}
 		}
@@ -469,7 +455,6 @@ impl AdvancedRenderer {
 		font_family: Option<&str>,
 		font_size: Option<f32>,
 	) -> Result<GlyphPosition> {
-		// Get the first character of the grapheme
 		let ch = grapheme.chars().next().unwrap_or(' ');
 		
 		let glyph_key = GlyphKey {
@@ -480,10 +465,7 @@ impl AdvancedRenderer {
 			font_style: FontStyle::Normal,
 		};
 		
-		// Get or create cached glyph
 		let glyph = self.get_or_create_glyph(&glyph_key).await?;
-		
-		// Get atlas position
 		let atlas_position = if self.config.texture_atlasing {
 			self.get_atlas_position(&glyph_key).await?
 		} else {
@@ -529,11 +511,9 @@ impl AdvancedRenderer {
 			return;
 		}
 		
-		// Apply bidirectional algorithm
 		for (i, glyph) in glyph_positions.iter_mut().enumerate() {
 			if let Some(level) = bidi_info.levels.get(i) {
 				if level.is_rtl() {
-					// Adjust position for RTL text
 					glyph.x = glyph.x - glyph.bounds.advance;
 				}
 			}
@@ -586,7 +566,6 @@ impl AdvancedRenderer {
 			glyph_key.font_style,
 		).await?;
 		
-		// Create glyph bounds (simplified)
 		let width = glyph_key.font_size * 0.6;
 		let height = glyph_key.font_size;
 		let advance = width;
@@ -672,7 +651,6 @@ impl TextureAtlas {
 			return Ok(Some(position.clone()));
 		}
 		
-		// Try to allocate space for new glyph
 		if let Some(region) = self.allocate_region(32, 32) {
 			let position = AtlasPosition {
 				x: region.x,
@@ -707,7 +685,6 @@ impl TextureAtlas {
 					height,
 				};
 				
-				// Update free regions
 				if region.width > width {
 					self.free_regions.push(AtlasRegion {
 						x: region.x + width,
@@ -767,7 +744,6 @@ impl MemoryPool {
 			return None;
 		}
 		
-		// Find suitable block
 		for i in 0..self.available_blocks.len() {
 			let block = &self.available_blocks[i];
 			if block.size >= size {
@@ -777,7 +753,6 @@ impl MemoryPool {
 					block_type: block_type.clone(),
 				};
 				
-				// Update available blocks
 				if block.size > size {
 					self.available_blocks[i] = MemoryBlock {
 						start: block.start + size,
@@ -808,7 +783,6 @@ impl MemoryPool {
 			self.used_blocks.remove(index);
 			self.total_allocated -= block.size;
 			
-			// Add back to available blocks
 			self.available_blocks.push(block);
 		}
 	}

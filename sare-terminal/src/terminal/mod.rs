@@ -19,6 +19,7 @@ pub mod process;
 pub mod io;
 pub mod protocol;
 pub mod renderer;
+pub mod session;
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -26,6 +27,7 @@ use tokio::sync::RwLock;
 
 use protocol::AnsiParser;
 use renderer::{TerminalRenderer, RendererConfig};
+use session::SessionSystem;
 
 /**
  * Terminal emulator configuration
@@ -82,6 +84,8 @@ pub struct TerminalEmulator {
 	ansi_parser: AnsiParser,
 	/// Terminal renderer for content display
 	renderer: TerminalRenderer,
+	/// Session management system
+	session_system: SessionSystem,
 }
 
 /**
@@ -229,6 +233,9 @@ impl TerminalEmulator {
 			default_bg_color: renderer::Color { r: 0, g: 0, b: 0, color_type: renderer::ColorType::Default },
 		};
 		
+		// Initialize session system
+		let session_system = SessionSystem::new()?;
+		
 		Ok(Self {
 			config: config.clone(),
 			pty_session: None,
@@ -243,6 +250,7 @@ impl TerminalEmulator {
 			},
 			ansi_parser: AnsiParser::new(),
 			renderer: TerminalRenderer::new(renderer_config),
+			session_system,
 		})
 	}
 	

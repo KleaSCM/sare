@@ -324,16 +324,11 @@ impl TerminalRenderer {
 			cell.attributes = self.state.attributes.clone();
 			cell.dirty = true;
 			
-			// Mark region as dirty
 			self.mark_dirty_region(col, row, col + 1, row + 1);
-			
-			// Move cursor forward
 			if self.state.auto_wrap && col + 1 >= self.size.0 {
-				// Auto-wrap to next line
 				if row + 1 < self.size.1 {
 					self.state.cursor_pos = (0, row + 1);
 				} else {
-					// Scroll up
 					self.scroll_up();
 					self.state.cursor_pos = (0, self.size.1 - 1);
 				}
@@ -432,14 +427,12 @@ impl TerminalRenderer {
 		let col = (col as u16).saturating_sub(1);
 		
 		if self.state.origin_mode {
-			// Relative to scroll region
 			if let Some((top, bottom)) = self.state.scroll_region {
 				self.state.cursor_pos.1 = (top + row).min(bottom);
 			} else {
 				self.state.cursor_pos.1 = row.min(self.size.1 - 1);
 			}
 		} else {
-			// Absolute positioning
 			self.state.cursor_pos.1 = row.min(self.size.1 - 1);
 		}
 		
@@ -473,7 +466,6 @@ impl TerminalRenderer {
 		
 		match mode {
 			0 => {
-				// From cursor to end of display
 				for r in row..self.size.1 {
 					let start_col = if r == row { col } else { 0 };
 					for c in start_col..self.size.0 {
@@ -486,7 +478,6 @@ impl TerminalRenderer {
 				}
 			}
 			1 => {
-				// From beginning to cursor
 				for r in 0..=row {
 					let end_col = if r == row { col + 1 } else { self.size.0 };
 					for c in 0..end_col {
@@ -499,7 +490,6 @@ impl TerminalRenderer {
 				}
 			}
 			2 => {
-				// Entire display
 				for r in 0..self.size.1 {
 					for c in 0..self.size.0 {
 						if r < buffer.content.len() as u16 && c < buffer.content[r as usize].len() as u16 {
@@ -513,7 +503,6 @@ impl TerminalRenderer {
 			_ => {}
 		}
 		
-		// Mark entire screen as dirty
 		self.mark_dirty_region(0, 0, self.size.0, self.size.1);
 	}
 	
@@ -529,7 +518,6 @@ impl TerminalRenderer {
 		if row < buffer.content.len() as u16 {
 			match mode {
 				0 => {
-					// From cursor to end of line
 					for c in col..self.size.0 {
 						if c < buffer.content[row as usize].len() as u16 {
 							let cell = &mut buffer.content[row as usize][c as usize];
@@ -539,7 +527,6 @@ impl TerminalRenderer {
 					}
 				}
 				1 => {
-					// From beginning to cursor
 					for c in 0..=col {
 						if c < buffer.content[row as usize].len() as u16 {
 							let cell = &mut buffer.content[row as usize][c as usize];
@@ -549,7 +536,6 @@ impl TerminalRenderer {
 					}
 				}
 				2 => {
-					// Entire line
 					for c in 0..self.size.0 {
 						if c < buffer.content[row as usize].len() as u16 {
 							let cell = &mut buffer.content[row as usize][c as usize];
@@ -561,7 +547,6 @@ impl TerminalRenderer {
 				_ => {}
 			}
 			
-			// Mark line as dirty
 			self.mark_dirty_region(0, row, self.size.0, row + 1);
 		}
 	}
@@ -965,20 +950,14 @@ impl TerminalRenderer {
 	pub fn resize(&mut self, cols: u16, rows: u16) {
 		self.size = (cols, rows);
 		self.state.size = (cols, rows);
-		
-		// Resize screen buffers
 		self.screen_buffers.primary.resize(cols, rows);
 		self.screen_buffers.alternate.resize(cols, rows);
-		
-		// Adjust cursor position
 		if self.state.cursor_pos.0 >= cols {
 			self.state.cursor_pos.0 = cols - 1;
 		}
 		if self.state.cursor_pos.1 >= rows {
 			self.state.cursor_pos.1 = rows - 1;
-		}
-		
-		// Mark entire screen as dirty
+		}		
 		self.mark_dirty_region(0, 0, cols, rows);
 	}
 } 
