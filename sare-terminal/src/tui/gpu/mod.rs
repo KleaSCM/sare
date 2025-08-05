@@ -15,6 +15,7 @@
 
 pub mod skia_backend;
 pub mod wgpu_backend;
+pub mod cpu_backend;
 pub mod renderer;
 pub mod text;
 pub mod fonts;

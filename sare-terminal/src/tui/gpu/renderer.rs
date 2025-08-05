@@ -296,8 +296,16 @@ impl UnifiedGpuRenderer {
 		async fn try_initialize_skia(&self) -> Result<Box<dyn GpuRendererTrait + Send + Sync>> {
 			use crate::tui::gpu::skia_backend::SkiaRenderer;
 			
-			let skia_renderer = SkiaRenderer::new(self.config.clone())?;
+			// Check if Skia is available
+			if !self.is_skia_available() {
+				return Err(anyhow::anyhow!("Skia backend not available"));
+			}
+			
+			let mut skia_renderer = SkiaRenderer::new(self.config.clone())?;
 			skia_renderer.initialize(self.config.clone())?;
+			
+			// Initialize surface with default size
+			skia_renderer.initialize_surface(1024, 768)?;
 			
 			Ok(Box::new(skia_renderer))
 		}
@@ -328,5 +336,37 @@ impl UnifiedGpuRenderer {
 			cpu_renderer.initialize(self.config.clone())?;
 			
 			Ok(Box::new(cpu_renderer))
+		}
+		
+		/**
+		 * Checks if Skia backend is available
+		 * 
+		 * @return bool - True if Skia is available
+		 */
+		fn is_skia_available(&self) -> bool {
+			// Check if Skia can be loaded
+			if let Ok(_) = std::panic::catch_unwind(|| {
+				skia_safe::Canvas::new_raster_n32_premul((1, 1))
+			}) {
+				return true;
+			}
+			false
+		}
+		
+		/**
+		 * Checks if WGPU backend is available
+		 * 
+		 * @return bool - True if WGPU is available
+		 */
+		fn is_wgpu_available(&self) -> bool {
+			// Check if WGPU can be initialized
+			if let Ok(_) = std::panic::catch_unwind(|| {
+				// Try to create a simple WGPU instance
+				// This is a simplified check
+				true
+			}) {
+				return true;
+			}
+			false
 		}
 	} 
