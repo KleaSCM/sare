@@ -696,14 +696,66 @@ impl AnsiParser {
 	fn handle_extended_color(&mut self, is_foreground: bool) -> Result<Vec<AnsiCommand>> {
 		let mut commands = Vec::new();
 		
-		// This is a simplified implementation
-		// In a full implementation, you'd parse the extended color parameters
-		// and handle 256-color and true color modes
-		
-		if is_foreground {
-			commands.push(AnsiCommand::SetForegroundColor(ColorType::Default));
+		// Parse extended color parameters
+		if self.params.len() >= 2 {
+			match self.params[0] {
+				5 => {
+					// 256-color mode: ESC[38;5;n or ESC[48;5;n
+					if self.params.len() >= 3 && self.params[1] == 5 {
+						let color_index = self.params[2];
+						if color_index <= 255 {
+							let color_type = ColorType::Index(color_index as u8);
+							if is_foreground {
+								commands.push(AnsiCommand::SetForegroundColor(color_type));
+							} else {
+								commands.push(AnsiCommand::SetBackgroundColor(color_type));
+							}
+						}
+					}
+				}
+				2 => {
+					// True color mode: ESC[38;2;r;g;b or ESC[48;2;r;g;b
+					if self.params.len() >= 5 && self.params[1] == 2 {
+						let r = self.params[2] as u8;
+						let g = self.params[3] as u8;
+						let b = self.params[4] as u8;
+						
+						// Create true color
+						let color = Color {
+							r, g, b,
+							color_type: ColorType::TrueColor,
+						};
+						
+						if is_foreground {
+							commands.push(AnsiCommand::SetForegroundColor(ColorType::TrueColor));
+						} else {
+							commands.push(AnsiCommand::SetBackgroundColor(ColorType::TrueColor));
+						}
+						
+						// Update terminal state
+						if is_foreground {
+							self.terminal_state.fg_color = color;
+						} else {
+							self.terminal_state.bg_color = color;
+						}
+					}
+				}
+				_ => {
+					// Fallback to default color
+					if is_foreground {
+						commands.push(AnsiCommand::SetForegroundColor(ColorType::Default));
+					} else {
+						commands.push(AnsiCommand::SetBackgroundColor(ColorType::Default));
+					}
+				}
+			}
 		} else {
-			commands.push(AnsiCommand::SetBackgroundColor(ColorType::Default));
+			// Fallback to default color
+			if is_foreground {
+				commands.push(AnsiCommand::SetForegroundColor(ColorType::Default));
+			} else {
+				commands.push(AnsiCommand::SetBackgroundColor(ColorType::Default));
+			}
 		}
 		
 		Ok(commands)
@@ -789,10 +841,30 @@ impl AnsiParser {
 		palette.insert(9, Color { r: 255, g: 0, b: 0, color_type: ColorType::Named(9) });
 		palette.insert(10, Color { r: 0, g: 255, b: 0, color_type: ColorType::Named(10) });
 		palette.insert(11, Color { r: 255, g: 255, b: 0, color_type: ColorType::Named(11) });
-		palette.insert(12, Color { r: 92, g: 92, b: 255, color_type: ColorType::Named(12) });
+		palette.insert(12, Color { r: 0, g: 0, b: 255, color_type: ColorType::Named(12) });
 		palette.insert(13, Color { r: 255, g: 0, b: 255, color_type: ColorType::Named(13) });
 		palette.insert(14, Color { r: 0, g: 255, b: 255, color_type: ColorType::Named(14) });
 		palette.insert(15, Color { r: 255, g: 255, b: 255, color_type: ColorType::Named(15) });
+		
+		// 216-color cube (16-231)
+		for i in 0..6 {
+			for j in 0..6 {
+				for k in 0..6 {
+					let index = 16 + i * 36 + j * 6 + k;
+					let r = if i == 0 { 0 } else { 55 + i * 40 };
+					let g = if j == 0 { 0 } else { 55 + j * 40 };
+					let b = if k == 0 { 0 } else { 55 + k * 40 };
+					palette.insert(index as u8, Color { r, g, b, color_type: ColorType::Index(index as u8) });
+				}
+			}
+		}
+		
+		// Grayscale ramp (232-255)
+		for i in 0..24 {
+			let index = 232 + i;
+			let gray = 8 + i * 10;
+			palette.insert(index as u8, Color { r: gray, g: gray, b: gray, color_type: ColorType::Index(index as u8) });
+		}
 		
 		palette
 	}

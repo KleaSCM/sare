@@ -144,11 +144,29 @@ impl UnifiedGpuRenderer {
 	 * 
 	 * @return Result<()> - Success or error status
 	 */
-		pub async fn initialize(&mut self) -> Result<()> {
-		// Simplified initialization for now
-		// GPU backends will be properly integrated later
+	pub async fn initialize(&mut self) -> Result<()> {
+		// Try to initialize backends in order of preference
+		let backends = vec![
+			(GpuBackend::Skia, self.try_initialize_skia()),
+			(GpuBackend::WGPU, self.try_initialize_wgpu()),
+			(GpuBackend::CPU, self.try_initialize_cpu()),
+		];
 		
-		Ok(())
+		for (backend_type, init_result) in backends {
+			match init_result.await {
+				Ok(backend) => {
+					self.backend = Some(backend);
+					println!("Initialized GPU backend: {:?}", backend_type);
+					return Ok(());
+				}
+				Err(e) => {
+					println!("Failed to initialize {:?} backend: {}", backend_type, e);
+					continue;
+				}
+			}
+		}
+		
+		Err(anyhow::anyhow!("No GPU backend could be initialized"))
 	}
 	
 	/**
@@ -266,7 +284,49 @@ impl UnifiedGpuRenderer {
 	 * 
 	 * @return &GpuConfig - Current GPU configuration
 	 */
-	pub fn config(&self) -> &GpuConfig {
-		&self.config
-	}
-} 
+			pub fn config(&self) -> &GpuConfig {
+			&self.config
+		}
+		
+		/**
+		 * Attempts to initialize Skia backend
+		 * 
+		 * @return Result<Box<dyn GpuRendererTrait + Send + Sync>> - Skia backend or error
+		 */
+		async fn try_initialize_skia(&self) -> Result<Box<dyn GpuRendererTrait + Send + Sync>> {
+			use crate::tui::gpu::skia_backend::SkiaRenderer;
+			
+			let skia_renderer = SkiaRenderer::new(self.config.clone())?;
+			skia_renderer.initialize(self.config.clone())?;
+			
+			Ok(Box::new(skia_renderer))
+		}
+		
+		/**
+		 * Attempts to initialize WGPU backend
+		 * 
+		 * @return Result<Box<dyn GpuRendererTrait + Send + Sync>> - WGPU backend or error
+		 */
+		async fn try_initialize_wgpu(&self) -> Result<Box<dyn GpuRendererTrait + Send + Sync>> {
+			use crate::tui::gpu::wgpu_backend::WgpuRenderer;
+			
+			let wgpu_renderer = WgpuRenderer::new(self.config.clone())?;
+			wgpu_renderer.initialize(self.config.clone())?;
+			
+			Ok(Box::new(wgpu_renderer))
+		}
+		
+		/**
+		 * Attempts to initialize CPU backend
+		 * 
+		 * @return Result<Box<dyn GpuRendererTrait + Send + Sync>> - CPU backend or error
+		 */
+		async fn try_initialize_cpu(&self) -> Result<Box<dyn GpuRendererTrait + Send + Sync>> {
+			use crate::tui::gpu::cpu_backend::CpuRenderer;
+			
+			let cpu_renderer = CpuRenderer::new(self.config.clone())?;
+			cpu_renderer.initialize(self.config.clone())?;
+			
+			Ok(Box::new(cpu_renderer))
+		}
+	} 

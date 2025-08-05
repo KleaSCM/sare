@@ -25,4 +25,6 @@ unicode-normalization = "0.1"
 unicode-width = "0.1"
 regex = "1.0"
 async-trait = "0.1"
-fontdue = "0.7" 
+fontdue = "0.7"
+x11 = { version = "2.21", features = ["xlib"] }
+x11rb = "0.12" 

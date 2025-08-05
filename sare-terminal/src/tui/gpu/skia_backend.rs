@@ -65,6 +65,101 @@ impl Default for FontCache {
 			default_font_size: 14.0,
 		}
 	}
+	
+	/**
+	 * Loads font typeface from system font files
+	 * 
+	 * @param font_family - Font family name
+	 * @return Result<skia_safe::Typeface> - Loaded typeface or error
+	 */
+	fn load_font_typeface(&self, font_family: &str) -> Result<skia_safe::Typeface> {
+		// Try to load font from system font directories
+		let font_paths = vec![
+			"/usr/share/fonts",
+			"/usr/local/share/fonts",
+			"/System/Library/Fonts", // macOS
+			"/Library/Fonts", // macOS
+			format!("{}/.fonts", dirs::home_dir().unwrap_or_default().display()),
+			format!("{}/.local/share/fonts", dirs::home_dir().unwrap_or_default().display()),
+		];
+		
+		// Common font file extensions
+		let extensions = vec!["ttf", "otf", "woff", "woff2"];
+		
+		// Try to find font file in system directories
+		for font_path in &font_paths {
+			if let Ok(entries) = std::fs::read_dir(font_path) {
+				for entry in entries {
+					if let Ok(entry) = entry {
+						if let Ok(file_name) = entry.file_name().into_string() {
+							// Check if file matches font family and has valid extension
+							if file_name.to_lowercase().contains(&font_family.to_lowercase()) {
+								for ext in &extensions {
+									if file_name.to_lowercase().ends_with(ext) {
+										// Try to load font from file
+										if let Ok(font_data) = std::fs::read(entry.path()) {
+											if let Some(typeface) = skia_safe::Typeface::from_data(
+												skia_safe::Data::new_copy(&font_data),
+												None
+											) {
+												return Ok(typeface);
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		// Try to load from fontconfig if available
+		if let Ok(output) = std::process::Command::new("fc-match")
+			.args(&["-f", "%{file}", font_family])
+			.output() {
+			if let Ok(font_file) = String::from_utf8(output.stdout) {
+				let font_file = font_file.trim();
+				if !font_file.is_empty() && font_file != "DejaVuSans.ttf" {
+					if let Ok(font_data) = std::fs::read(font_file) {
+						if let Some(typeface) = skia_safe::Typeface::from_data(
+							skia_safe::Data::new_copy(&font_data),
+							None
+						) {
+							return Ok(typeface);
+						}
+					}
+				}
+			}
+		}
+		
+		// Try to load from specific font files for common fonts
+		let common_fonts = vec![
+			("Monaco", "/System/Library/Fonts/Monaco.ttf"),
+			("Menlo", "/System/Library/Fonts/Menlo.ttc"),
+			("Consolas", "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"),
+			("DejaVu Sans Mono", "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"),
+			("Ubuntu Mono", "/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf"),
+			("Source Code Pro", "/usr/share/fonts/truetype/source-code-pro/SourceCodePro-Regular.ttf"),
+		];
+		
+		for (name, path) in common_fonts {
+			if font_family.to_lowercase().contains(&name.to_lowercase()) {
+				if let Ok(font_data) = std::fs::read(path) {
+					if let Some(typeface) = skia_safe::Typeface::from_data(
+						skia_safe::Data::new_copy(&font_data),
+						None
+					) {
+						return Ok(typeface);
+					}
+				}
+			}
+		}
+		
+		// Fallback to system font loading
+		skia_safe::Typeface::from_name(font_family, skia_safe::FontStyle::normal())
+			.ok_or_else(|| anyhow::anyhow!("Failed to load font: {}", font_family))
+	}
 }
 
 impl SkiaBackend {
@@ -290,9 +385,8 @@ impl SkiaBackend {
 			return Ok(font.clone());
 		}
 		
-		// Create new font
-		let typeface = skia_safe::Typeface::from_name(&font_cache.default_font_family, skia_safe::FontStyle::normal())
-			.ok_or_else(|| anyhow::anyhow!("Failed to load font: {}", font_cache.default_font_family))?;
+		// Create new font with proper font loading
+		let typeface = self.load_font_typeface(&font_cache.default_font_family)?;
 		
 		let font = Font::from_typeface(typeface, font_size);
 		
@@ -329,9 +423,9 @@ impl SkiaBackend {
 			// Get actual GPU memory usage if available
 			if let Some(surface) = &self.surface {
 				// Try to get GPU memory info from surface
-				unsafe {
-					// This would require Skia-specific GPU memory queries
-					// For now, we use the provided gpu_memory parameter
+				let actual_gpu_memory = self.query_skia_gpu_memory(surface);
+				if actual_gpu_memory > 0 {
+					metrics.gpu_memory_usage = actual_gpu_memory;
 				}
 			}
 		}
@@ -360,7 +454,83 @@ impl SkiaBackend {
 	 * 
 	 * @return &GpuConfig - Current GPU configuration
 	 */
-	pub fn config(&self) -> &GpuConfig {
-		&self.config
-	}
-} 
+			pub fn config(&self) -> &GpuConfig {
+			&self.config
+		}
+		
+		/**
+		 * Queries actual GPU memory usage from Skia surface
+		 * 
+		 * @param surface - Skia surface to query
+		 * @return u64 - GPU memory usage in bytes
+		 */
+		fn query_skia_gpu_memory(&self, surface: &Surface) -> u64 {
+			// Try to get GPU memory info from Skia surface
+			unsafe {
+				// Get surface properties that might indicate GPU memory usage
+				let image_info = surface.image_info();
+				let width = image_info.width();
+				let height = image_info.height();
+				
+				// Estimate GPU memory based on surface size and format
+				let bytes_per_pixel = match image_info.color_type() {
+					skia_safe::ColorType::RGBA8888 => 4,
+					skia_safe::ColorType::BGRA8888 => 4,
+					skia_safe::ColorType::RGB888 => 3,
+					skia_safe::ColorType::Gray8 => 1,
+					_ => 4, // Default to 4 bytes per pixel
+				};
+				
+				let estimated_memory = (width * height * bytes_per_pixel) as u64;
+				
+				// Try to get actual GPU memory from system
+				if let Ok(output) = std::process::Command::new("nvidia-smi")
+					.args(&["--query-gpu=memory.used", "--format=csv,noheader,nounits"])
+					.output() {
+					if let Ok(memory_str) = String::from_utf8(output.stdout) {
+						if let Ok(memory_mb) = memory_str.trim().parse::<u64>() {
+							return memory_mb * 1024 * 1024; // Convert MB to bytes
+						}
+					}
+				}
+				
+				// Try to get from AMD tools
+				if let Ok(output) = std::process::Command::new("rocm-smi")
+					.args(&["--showmeminfo", "vram"])
+					.output() {
+					if let Ok(output_str) = String::from_utf8(output.stdout) {
+						for line in output_str.lines() {
+							if line.contains("Used Memory") {
+								if let Some(memory_str) = line.split(':').nth(1) {
+									if let Ok(memory_mb) = memory_str.trim().replace("MB", "").parse::<u64>() {
+										return memory_mb * 1024 * 1024;
+									}
+								}
+							}
+						}
+					}
+				}
+				
+				// Try to get from Linux GPU info files
+				if let Ok(entries) = std::fs::read_dir("/sys/class/drm") {
+					for entry in entries {
+						if let Ok(entry) = entry {
+							if let Ok(device_name) = entry.file_name().into_string() {
+								if device_name.starts_with("card") {
+									// Try to read GPU memory info
+									if let Ok(content) = std::fs::read_to_string(format!("/sys/class/drm/{}/device/mem_info_vram_used", device_name)) {
+										if let Ok(memory_bytes) = content.trim().parse::<u64>() {
+											return memory_bytes;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				
+				// Fallback to estimated memory
+				estimated_memory
+			}
+		}
+	} 

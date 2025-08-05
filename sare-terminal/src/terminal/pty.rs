@@ -211,8 +211,92 @@ impl PtyManager {
 			}
 			
 			// Send SIGWINCH to notify the process of size change
-			// Note: This would require process management integration
-			// For now, we just update the size
+			self.send_sigwinch_to_process(&session).await?;
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Sends SIGWINCH signal to the process group
+	 * 
+	 * @param session - PTY session
+	 * @return Result<()> - Success or error status
+	 */
+	async fn send_sigwinch_to_process(&self, session: &PtySession) -> Result<()> {
+		use std::process::Command;
+		use std::os::unix::process::CommandExt;
+		
+		// Get the process group ID from the session
+		let pgid = unsafe {
+			use libc::{tcgetpgrp, getpgid};
+			let pgid = tcgetpgrp(session.master_fd);
+			if pgid < 0 {
+				// Fallback to getting PGID from master FD
+				getpgid(session.master_fd)
+			} else {
+				pgid
+			}
+		};
+		
+		if pgid > 0 {
+			// Send SIGWINCH to the process group
+			unsafe {
+				use libc::{kill, SIGWINCH};
+				if kill(-pgid, SIGWINCH) < 0 {
+					// If sending to process group fails, try sending to individual processes
+					self.send_sigwinch_to_individual_processes(session).await?;
+				}
+			}
+		} else {
+			// Fallback: send SIGWINCH to individual processes
+			self.send_sigwinch_to_individual_processes(session).await?;
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Sends SIGWINCH to individual processes in the session
+	 * 
+	 * @param session - PTY session
+	 * @return Result<()> - Success or error status
+	 */
+	async fn send_sigwinch_to_individual_processes(&self, session: &PtySession) -> Result<()> {
+		use std::process::Command;
+		
+		// Get list of processes using this PTY
+		if let Ok(output) = Command::new("lsof")
+			.args(&["-t", &format!("+D{}", session.pty_path)])
+			.output() {
+			if let Ok(process_list) = String::from_utf8(output.stdout) {
+				for pid_str in process_list.lines() {
+					if let Ok(pid) = pid_str.trim().parse::<i32>() {
+						// Send SIGWINCH to each process
+						unsafe {
+							use libc::{kill, SIGWINCH};
+							kill(pid, SIGWINCH);
+						}
+					}
+				}
+			}
+		}
+		
+		// Alternative: use ps to find processes
+		if let Ok(output) = Command::new("ps")
+			.args(&["-o", "pid", "-t", &session.pty_path])
+			.output() {
+			if let Ok(process_list) = String::from_utf8(output.stdout) {
+				for line in process_list.lines().skip(1) { // Skip header
+					if let Ok(pid) = line.trim().parse::<i32>() {
+						// Send SIGWINCH to each process
+						unsafe {
+							use libc::{kill, SIGWINCH};
+							kill(pid, SIGWINCH);
+						}
+					}
+				}
+			}
 		}
 		
 		Ok(())

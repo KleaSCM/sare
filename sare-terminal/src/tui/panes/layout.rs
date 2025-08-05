@@ -257,14 +257,57 @@ impl LayoutManager {
 	 */
 	fn calculate_manual_layout(&self, pane_ids: &[String], total_size: (u16, u16)) -> Result<HashMap<String, LayoutResult>> {
 		let mut results = HashMap::new();
+		let (total_width, total_height) = total_size;
 		
-		// For manual layout, we preserve existing positions
-		// This is a placeholder for manual positioning logic
-		for pane_id in pane_ids {
+		// Get existing pane positions from layout tree
+		for (i, pane_id) in pane_ids.iter().enumerate() {
+			let position = if let Some(node) = self.layout_tree.get(pane_id) {
+				// Use existing position if available
+				node.position
+			} else {
+				// Calculate default position based on pane index
+				let cols = (pane_ids.len() as f32).sqrt().ceil() as u16;
+				let rows = ((pane_ids.len() as f32) / cols as f32).ceil() as u16;
+				
+				let pane_width = total_width / cols;
+				let pane_height = total_height / rows;
+				
+				let col = (i as u16) % cols;
+				let row = (i as u16) / cols;
+				
+				(col * pane_width, row * pane_height)
+			};
+			
+			let size = if let Some(node) = self.layout_tree.get(pane_id) {
+				// Use existing size if available
+				node.size
+			} else {
+				// Calculate default size
+				let cols = (pane_ids.len() as f32).sqrt().ceil() as u16;
+				let rows = ((pane_ids.len() as f32) / cols as f32).ceil() as u16;
+				
+				let pane_width = total_width / cols;
+				let pane_height = total_height / rows;
+				
+				(pane_width, pane_height)
+			};
+			
+			// Apply constraints to size
+			let constrained_size = self.apply_constraints(size);
+			
+			// Ensure position is within bounds
+			let constrained_position = (
+				position.0.min(total_width.saturating_sub(constrained_size.0)),
+				position.1.min(total_height.saturating_sub(constrained_size.1))
+			);
+			
+			// Check if constraints are met
+			let constraints_met = self.check_constraints(constrained_size);
+			
 			results.insert(pane_id.clone(), LayoutResult {
-				position: (0, 0),
-				size: (80, 24),
-				constraints_met: true,
+				position: constrained_position,
+				size: constrained_size,
+				constraints_met,
 				algorithm: LayoutAlgorithm::Manual,
 			});
 		}
