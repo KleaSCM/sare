@@ -17,6 +17,7 @@ pub mod tui;
 pub mod gui;
 pub mod history;
 pub mod features;
+pub mod config;
 
 pub use terminal::TerminalEmulator;
 pub use tui::TuiManager;
