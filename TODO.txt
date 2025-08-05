@@ -407,8 +407,8 @@
 - ✅ **Implement proper texture size parsing** - GPU info parsing is simplified, needs proper parsing logic
 - ✅ **Implement proper memory estimation** - Memory estimation uses 2x multiplier, needs proper calculation
 - ✅ **Implement persistent tab data loading** - Tab manager initialization needs persistent tab data loading (Japanese comment indicates future implementation)
-- [ ] **Implement persistent session sharing data loading** - Session sharing initialization needs persistent session sharing data loading (Japanese comment indicates future implementation)
-- [ ] **Implement persistent window data loading** - Window manager initialization needs persistent window data loading (Japanese comment indicates future implementation)
+- ✅ **Implement persistent session sharing data loading** - Session sharing initialization needs persistent session sharing data loading (Japanese comment indicates future implementation)
+- ✅ **Implement persistent window data loading** - Window manager initialization needs persistent window data loading (Japanese comment indicates future implementation)
 
 
 ### Performance & Optimization

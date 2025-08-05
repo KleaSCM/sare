@@ -89,6 +89,185 @@ impl SessionSharingManager {
 	}
 	
 	/**
+	 * Loads persistent session sharing data from storage
+	 * 
+	 * @return Result<()> - Success or error
+	 */
+	async fn load_persistent_session_sharing_data(&self) -> Result<()> {
+		/**
+		 * 永続化されたセッション共有データをストレージから読み込む関数です
+		 * 
+		 * 共有セッションの情報、ユーザーごとの共有セッション、
+		 * セッション参加者、イベント履歴を復元します。
+		 * 
+		 * アプリケーション起動時に既存の共有セッション状態を
+		 * 復旧するために使用されます
+		 */
+		
+		// Get user's home directory for session sharing data storage
+		let home_dir = dirs::home_dir().ok_or_else(|| {
+			anyhow::anyhow!("Could not determine home directory")
+		})?;
+		
+		let sharing_data_file = home_dir.join(".sare_session_sharing.json");
+		
+		// Try to load existing session sharing data
+		if let Ok(data) = std::fs::read_to_string(&sharing_data_file) {
+			if let Ok(sharing_data) = serde_json::from_str::<serde_json::Value>(&data) {
+				// Load shared sessions info
+				if let Some(shared_sessions_data) = sharing_data.get("shared_sessions") {
+					if let Some(shared_sessions_object) = shared_sessions_data.as_object() {
+						let mut shared_sessions = self.shared_sessions.write().await;
+						for (session_id_str, session_info) in shared_sessions_object {
+							if let Ok(session_id) = Uuid::parse_str(session_id_str) {
+								if let Ok(info) = serde_json::from_value::<SharedSessionInfo>(session_info.clone()) {
+									shared_sessions.insert(session_id, info);
+								}
+							}
+						}
+					}
+				}
+				
+				// Load user shared sessions mapping
+				if let Some(user_shared_sessions_data) = sharing_data.get("user_shared_sessions") {
+					if let Some(user_shared_sessions_object) = user_shared_sessions_data.as_object() {
+						let mut user_shared_sessions = self.user_shared_sessions.write().await;
+						for (user_str, session_ids_array) in user_shared_sessions_object {
+							if let Some(session_ids) = session_ids_array.as_array() {
+								let mut session_ids_vec = Vec::new();
+								for session_id_value in session_ids {
+									if let Some(session_id_str) = session_id_value.as_str() {
+										if let Ok(session_id) = Uuid::parse_str(session_id_str) {
+											session_ids_vec.push(session_id);
+										}
+									}
+								}
+								user_shared_sessions.insert(user_str.clone(), session_ids_vec);
+							}
+						}
+					}
+				}
+				
+				// Load session participants mapping
+				if let Some(session_participants_data) = sharing_data.get("session_participants") {
+					if let Some(session_participants_object) = session_participants_data.as_object() {
+						let mut session_participants = self.session_participants.write().await;
+						for (session_id_str, participants_array) in session_participants_object {
+							if let Ok(session_id) = Uuid::parse_str(session_id_str) {
+								if let Some(participants) = participants_array.as_array() {
+									let mut participants_vec = Vec::new();
+									for participant_value in participants {
+										if let Ok(participant) = serde_json::from_value::<ParticipantInfo>(participant_value.clone()) {
+											participants_vec.push(participant);
+										}
+									}
+									session_participants.insert(session_id, participants_vec);
+								}
+							}
+						}
+					}
+				}
+				
+				// Load session events mapping
+				if let Some(session_events_data) = sharing_data.get("session_events") {
+					if let Some(session_events_object) = session_events_data.as_object() {
+						let mut session_events = self.session_events.write().await;
+						for (session_id_str, events_array) in session_events_object {
+							if let Ok(session_id) = Uuid::parse_str(session_id_str) {
+								if let Some(events) = events_array.as_array() {
+									let mut events_vec = Vec::new();
+									for event_value in events {
+										if let Ok(event) = serde_json::from_value::<SharingEvent>(event_value.clone()) {
+											events_vec.push(event);
+										}
+									}
+									session_events.insert(session_id, events_vec);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Saves persistent session sharing data to storage
+	 * 
+	 * @return Result<()> - Success or error
+	 */
+	async fn save_persistent_session_sharing_data(&self) -> Result<()> {
+		/**
+		 * セッション共有データを永続化ストレージに保存する関数です
+		 * 
+		 * 共有セッションの情報、ユーザーごとの共有セッション、
+		 * セッション参加者、イベント履歴を保存します。
+		 * 
+		 * アプリケーション終了時に共有セッション状態を
+		 * 永続化するために使用されます
+		 */
+		
+		// Get user's home directory for session sharing data storage
+		let home_dir = dirs::home_dir().ok_or_else(|| {
+			anyhow::anyhow!("Could not determine home directory")
+		})?;
+		
+		let sharing_data_file = home_dir.join(".sare_session_sharing.json");
+		
+		// Prepare session sharing data for serialization
+		let mut sharing_data = serde_json::Map::new();
+		
+		// Serialize shared sessions info
+		let shared_sessions = self.shared_sessions.read().await;
+		let mut shared_sessions_object = serde_json::Map::new();
+		for (session_id, session_info) in shared_sessions.iter() {
+			shared_sessions_object.insert(session_id.to_string(), serde_json::to_value(session_info)?);
+		}
+		sharing_data.insert("shared_sessions".to_string(), serde_json::Value::Object(shared_sessions_object));
+		
+		// Serialize user shared sessions mapping
+		let user_shared_sessions = self.user_shared_sessions.read().await;
+		let mut user_shared_sessions_object = serde_json::Map::new();
+		for (user, session_ids) in user_shared_sessions.iter() {
+			let session_ids_array: Vec<serde_json::Value> = session_ids.iter()
+				.map(|id| serde_json::Value::String(id.to_string()))
+				.collect();
+			user_shared_sessions_object.insert(user.clone(), serde_json::Value::Array(session_ids_array));
+		}
+		sharing_data.insert("user_shared_sessions".to_string(), serde_json::Value::Object(user_shared_sessions_object));
+		
+		// Serialize session participants mapping
+		let session_participants = self.session_participants.read().await;
+		let mut session_participants_object = serde_json::Map::new();
+		for (session_id, participants) in session_participants.iter() {
+			let participants_array: Vec<serde_json::Value> = participants.iter()
+				.map(|participant| serde_json::to_value(participant).unwrap_or_default())
+				.collect();
+			session_participants_object.insert(session_id.to_string(), serde_json::Value::Array(participants_array));
+		}
+		sharing_data.insert("session_participants".to_string(), serde_json::Value::Object(session_participants_object));
+		
+		// Serialize session events mapping
+		let session_events = self.session_events.read().await;
+		let mut session_events_object = serde_json::Map::new();
+		for (session_id, events) in session_events.iter() {
+			let events_array: Vec<serde_json::Value> = events.iter()
+				.map(|event| serde_json::to_value(event).unwrap_or_default())
+				.collect();
+			session_events_object.insert(session_id.to_string(), serde_json::Value::Array(events_array));
+		}
+		sharing_data.insert("session_events".to_string(), serde_json::Value::Object(session_events_object));
+		
+		// Write session sharing data to file
+		let sharing_data_json = serde_json::to_string_pretty(&serde_json::Value::Object(sharing_data))?;
+		std::fs::write(&sharing_data_file, sharing_data_json)?;
+		
+		Ok(())
+	}
+	
+	/**
 	 * Shares a session
 	 * 
 	 * @param session_id - Session ID to share
@@ -475,6 +654,9 @@ impl SessionSharingManager {
 		 * アプリケーション終了時に呼び出され、クリーンアップを
 		 * 実行します
 		 */
+		
+		// Save persistent session sharing data before clearing
+		self.save_persistent_session_sharing_data().await?;
 		
 		// すべてのデータをクリア
 		{
