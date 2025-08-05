@@ -1,4 +1,16 @@
 
+/**
+ * Multiline module for Sare terminal
+ * 
+ * This module provides multiline functionality including
+ * continuation character detection, quote handling, and bracket matching.
+ * 
+ * Author: KleaSCM
+ * Email: KleaSCM@gmail.com
+ * File: multiline.rs
+ * Description: Multiline processing and state management
+ */
+
 use anyhow::Result;
 
 #[derive(Debug, Clone)]
@@ -51,20 +63,25 @@ pub struct MultilineProcessor;
 
 impl MultilineProcessor {
 	pub fn check_multiline_continuation(input: &str) -> (bool, Option<char>) {
+		/**
+		 * マルチライン継続検出の複雑な処理です (｡◕‿◕｡)
+		 * 
+		 * この関数は複雑な構文解析を行います。引用符と括弧の
+		 * バランス検証が難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 
+		 * 複数の構文要素とエスケープ処理の複雑なロジックです (◕‿◕)
+		 */
 		
 		let trimmed = input.trim();
 		
-		// Check for backslash continuation
 		if trimmed.ends_with('\\') {
 			return (true, Some('\\'));
 		}
 		
-		// Check for pipe continuation
 		if trimmed.ends_with('|') {
 			return (true, Some('|'));
 		}
 		
-		// Check for unclosed quotes
 		let mut in_single_quotes = false;
 		let mut in_double_quotes = false;
 		let mut escaped = false;
@@ -91,7 +108,6 @@ impl MultilineProcessor {
 			return (true, Some('"'));
 		}
 		
-		// Check for unclosed parentheses
 		let mut paren_count = 0;
 		let mut brace_count = 0;
 		let mut bracket_count = 0;
@@ -120,7 +136,6 @@ impl MultilineProcessor {
 			return (true, Some('['));
 		}
 		
-		// No continuation needed
 		(false, None)
 	}
 	
@@ -130,7 +145,6 @@ impl MultilineProcessor {
 		state.multiline_mode = needs_continuation;
 		state.continuation_char = continuation_char;
 		
-		// Set appropriate prompt
 		if needs_continuation {
 			match continuation_char {
 				Some('\\') => state.multiline_prompt = "> ".to_string(),

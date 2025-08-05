@@ -94,12 +94,10 @@ impl HistoryNavigator {
 		if current_index > 0 {
 			self.state.history_index = Some(current_index - 1);
 			
-			// Save original input if this is the first navigation
 			if self.state.original_input.is_empty() {
 				self.state.original_input = current_input.to_string();
 			}
 			
-			// Return command from history
 			if let Some(entry) = history.get(current_index - 1) {
 				return Some(entry.command.clone());
 			}
@@ -127,7 +125,6 @@ impl HistoryNavigator {
 				return Some(entry.command.clone());
 			}
 		} else {
-			// Reached the end, restore original input
 			self.state.history_index = None;
 			let original = self.state.original_input.clone();
 			self.state.original_input.clear();
@@ -165,7 +162,6 @@ impl HistoryNavigator {
 			return None;
 		}
 		
-		// Search backwards through history
 		for (i, entry) in history.iter().enumerate().rev() {
 			if entry.command.contains(search_query) {
 				self.state.history_index = Some(i);

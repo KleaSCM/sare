@@ -1,4 +1,16 @@
 
+/**
+ * Brace expansion and globbing module for Sare terminal
+ * 
+ * This module provides brace expansion functionality including
+ * numeric ranges, comma lists, and glob pattern matching.
+ * 
+ * Author: KleaSCM
+ * Email: KleaSCM@gmail.com
+ * File: expansion.rs
+ * Description: Brace expansion and glob pattern processing
+ */
+
 use anyhow::Result;
 use std::collections::HashMap;
 use std::fs;
@@ -45,7 +57,6 @@ impl ExpansionProcessor {
 		let mut i = 0;
 		
 		while i < input.len() {
-			// Check for {pattern} syntax
 			if input[i..].starts_with('{') {
 				let start = i;
 				let mut depth = 1;
@@ -75,21 +86,25 @@ impl ExpansionProcessor {
 	}
 	
 	pub fn expand_brace_pattern(pattern: &str) -> Vec<String> {
-
+		/**
+		 * ブレースパターン展開の複雑な処理です (｡◕‿◕｡)
+		 * 
+		 * この関数は複雑なパターン解析を行います。複数の展開タイプの
+		 * 処理が難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 
+		 * 数値範囲とカンマリスト展開の複雑なロジックです (◕‿◕)
+		 */
 		
 		let mut results = Vec::new();
 		
-		// Check for numeric range: {1..5} or {1..5..2}
 		if let Some(range_results) = Self::expand_numeric_range(pattern) {
 			return range_results;
 		}
 		
-		// Check for comma list: {a,b,c}
 		if let Some(comma_results) = Self::expand_comma_list(pattern) {
 			return comma_results;
 		}
 		
-		// Single item (no expansion needed)
 		results.push(pattern.to_string());
 		results
 	}
@@ -104,7 +119,6 @@ impl ExpansionProcessor {
 		 * 正負のステップ値と範囲検証の複雑なロジックです (◕‿◕)
 		 */
 		
-		// Check for range pattern: start..end or start..end..step
 		if !pattern.contains("..") {
 			return None;
 		}
@@ -114,11 +128,9 @@ impl ExpansionProcessor {
 			return None;
 		}
 		
-		// Parse start and end
 		let start = parts[0].parse::<i32>().ok()?;
 		let end = parts[1].parse::<i32>().ok()?;
 		
-		// Parse step (default to 1)
 		let step = if parts.len() == 3 {
 			parts[2].parse::<i32>().ok()?
 		} else {
@@ -129,7 +141,6 @@ impl ExpansionProcessor {
 			return None;
 		}
 		
-		// Generate range
 		let mut results = Vec::new();
 		let mut current = start;
 		
@@ -155,7 +166,7 @@ impl ExpansionProcessor {
 		 * この関数は複雑なリスト解析を行います。ネストしたカンマ処理が
 		 * 難しい部分なので、適切なエラーハンドリングで実装しています。
 		 * 
-		 * ブレース深度追跡によるネストしたカンマ処理の複雑なロジックです (◕‿◕)
+		 * ブレース深度追跡によるネストしたカンマ処理の複雑なロジックです
 		 */
 		
 		// Check if pattern contains commas
@@ -163,7 +174,6 @@ impl ExpansionProcessor {
 			return None;
 		}
 		
-		// Split by commas, but handle nested braces
 		let mut results = Vec::new();
 		let mut current = String::new();
 		let mut brace_depth = 0;
@@ -182,7 +192,6 @@ impl ExpansionProcessor {
 					current.push(ch);
 				}
 				',' if brace_depth == 0 => {
-					// Top-level comma, split here
 					if !current.is_empty() {
 						results.push(current.trim().to_string());
 					}
@@ -196,7 +205,6 @@ impl ExpansionProcessor {
 			i += 1;
 		}
 		
-		// Add the last part
 		if !current.is_empty() {
 			results.push(current.trim().to_string());
 		}
@@ -221,9 +229,7 @@ impl ExpansionProcessor {
 		
 		let mut results = Vec::new();
 		
-		// Handle special patterns
 		if pattern == "*" {
-			// Match all files in current directory
 			if let Ok(entries) = fs::read_dir(working_directory) {
 				for entry in entries {
 					if let Ok(entry) = entry {
@@ -239,7 +245,6 @@ impl ExpansionProcessor {
 		}
 		
 		if pattern == "**" {
-			// Match all files recursively
 			if let Ok(entries) = fs::read_dir(working_directory) {
 				for entry in entries {
 					if let Ok(entry) = entry {
@@ -248,7 +253,6 @@ impl ExpansionProcessor {
 								let file_name_clone = file_name.clone();
 								results.push(file_name);
 								
-								// Recursively add subdirectories
 								if let Ok(metadata) = entry.metadata() {
 									if metadata.is_dir() {
 										let sub_path = working_directory.join(&file_name_clone);
@@ -266,9 +270,7 @@ impl ExpansionProcessor {
 			return results;
 		}
 		
-		// Handle complex patterns
 		if pattern.contains('*') || pattern.contains('?') || pattern.contains('[') {
-			// Complex glob pattern
 			if let Ok(entries) = fs::read_dir(working_directory) {
 				for entry in entries {
 					if let Ok(entry) = entry {
@@ -281,7 +283,6 @@ impl ExpansionProcessor {
 				}
 			}
 		} else {
-			// Simple filename
 			let file_path = working_directory.join(pattern);
 			if file_path.exists() {
 				results.push(pattern.to_string());
@@ -296,13 +297,12 @@ impl ExpansionProcessor {
 		 * グロブパターンマッチングの複雑な処理です (｡◕‿◕｡)
 		 * 
 		 * この関数は複雑なパターンマッチングを行います。ワイルドカードと
-		 * 文字クラスの処理が難しい部分なので、適切なエラーハンドリングで
+		 * 文字クラス処理が難しい部分なので、適切なエラーハンドリングで
 		 * 実装しています。
 		 * 
 		 * 再帰的なパターンマッチングと文字クラス処理の複雑なロジックです (◕‿◕)
 		 */
 		
-		// Simple wildcard matching
 		if pattern == "*" {
 			return true;
 		}
@@ -311,13 +311,11 @@ impl ExpansionProcessor {
 			return filename.len() == 1;
 		}
 		
-		// Handle character classes [abc] or [a-z]
 		if pattern.starts_with('[') && pattern.contains(']') {
 			if let Some(end_bracket) = pattern.find(']') {
 				let class = &pattern[1..end_bracket];
 				let remaining = &pattern[end_bracket + 1..];
 				
-				// Check if first character matches the class
 				if let Some(first_char) = filename.chars().next() {
 					if Self::matches_character_class(first_char, class) {
 						return Self::matches_glob_pattern(&filename[1..], remaining);
@@ -327,15 +325,12 @@ impl ExpansionProcessor {
 			}
 		}
 		
-		// Handle wildcards
 		if pattern.starts_with('*') {
-			// * matches any sequence
 			let remaining = &pattern[1..];
 			if remaining.is_empty() {
 				return true;
 			}
 			
-			// Try matching at each position
 			for i in 0..=filename.len() {
 				if Self::matches_glob_pattern(&filename[i..], remaining) {
 					return true;
@@ -345,21 +340,18 @@ impl ExpansionProcessor {
 		}
 		
 		if pattern.starts_with('?') {
-			// ? matches any single character
 			if filename.is_empty() {
 				return false;
 			}
 			return Self::matches_glob_pattern(&filename[1..], &pattern[1..]);
 		}
 		
-		// Literal character match
 		if let (Some(pattern_char), Some(filename_char)) = (pattern.chars().next(), filename.chars().next()) {
 			if pattern_char == filename_char {
 				return Self::matches_glob_pattern(&filename[1..], &pattern[1..]);
 			}
 		}
 		
-		// No match
 		false
 	}
 	
@@ -376,7 +368,6 @@ impl ExpansionProcessor {
 		let mut i = 0;
 		let mut negated = false;
 		
-		// Check for negation
 		if class.starts_with('^') {
 			negated = true;
 			i = 1;
@@ -384,7 +375,6 @@ impl ExpansionProcessor {
 		
 		while i < class.len() {
 			if i + 2 < class.len() && class.chars().nth(i + 1) == Some('-') {
-				// Range: a-z
 				let start = class.chars().nth(i).unwrap();
 				let end = class.chars().nth(i + 2).unwrap();
 				
@@ -394,7 +384,6 @@ impl ExpansionProcessor {
 				
 				i += 3;
 			} else {
-				// Single character
 				let class_char = class.chars().nth(i).unwrap();
 				if ch == class_char {
 					return !negated;
@@ -420,32 +409,26 @@ impl ExpansionProcessor {
 		let mut result = input.to_string();
 		let expansions = Self::detect_brace_expansions(&result);
 		
-		// Process expansions in reverse order to maintain indices
 		for (start, end, pattern) in expansions.iter().rev() {
 			let expanded = Self::expand_brace_pattern(pattern);
 			
 			if expanded.len() == 1 {
-				// Single expansion, replace directly
 				result.replace_range(*start..*end, &expanded[0]);
 			} else {
-				// Multiple expansions, join with spaces
 				let joined = expanded.join(" ");
 				result.replace_range(*start..*end, &joined);
 			}
 		}
 		
-		// Process glob patterns
 		let words: Vec<&str> = result.split_whitespace().collect();
 		let mut processed_words = Vec::new();
 		
 		for word in words {
 			if word.contains('*') || word.contains('?') || word.contains('[') {
-				// This is a glob pattern
 				let matches = Self::expand_glob_pattern(word, working_directory);
 				if !matches.is_empty() {
 					processed_words.extend(matches);
 				} else {
-					// No matches, keep original
 					processed_words.push(word.to_string());
 				}
 			} else {

@@ -1,4 +1,16 @@
 
+/**
+ * Command substitution module for Sare terminal
+ * 
+ * This module provides command substitution functionality including
+ * $(command) and `command` syntax parsing and execution.
+ * 
+ * Author: KleaSCM
+ * Email: KleaSCM@gmail.com
+ * File: substitution.rs
+ * Description: Command substitution processing and execution
+ */
+
 use anyhow::Result;
 use std::process::Command;
 
@@ -26,12 +38,19 @@ pub struct SubstitutionProcessor;
 
 impl SubstitutionProcessor {
 	pub fn detect_command_substitutions(input: &str) -> Vec<(usize, usize, String)> {
+		/**
+		 * コマンド置換検出の複雑な処理です (｡◕‿◕｡)
+		 * 
+		 * この関数は複雑な構文解析を行います。ネストした括弧処理が
+		 * 難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 
+		 * 複数の置換構文とネストした括弧の深さ追跡の複雑なロジックです (◕‿◕)
+		 */
 		
 		let mut substitutions = Vec::new();
 		let mut i = 0;
 		
 		while i < input.len() {
-			// Check for $(command) syntax
 			if input[i..].starts_with("$(") {
 				let start = i;
 				let mut depth = 1;
@@ -53,7 +72,6 @@ impl SubstitutionProcessor {
 				
 				i = j;
 			}
-			// Check for `command` syntax
 			else if input[i..].starts_with('`') {
 				let start = i;
 				let mut j = i + 1;
@@ -80,23 +98,27 @@ impl SubstitutionProcessor {
 	}
 	
 	pub fn execute_substitution_command(command: &str) -> Result<String> {
+		/**
+		 * コマンド実行の複雑な処理です (｡◕‿◕｡)
+		 * 
+		 * この関数は複雑なコマンド実行を行います。プロセス生成と
+		 * 出力処理が難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 
+		 * 外部プロセス実行とストリーム処理の複雑なロジックです
+		 */
 		
-		// Split command into parts
 		let parts: Vec<&str> = command.split_whitespace().collect();
 		if parts.is_empty() {
 			return Ok(String::new());
 		}
 		
-		// Execute the command
 		let output = Command::new(parts[0])
 			.args(&parts[1..])
 			.output()?;
 		
-		// Convert output to string
 		let stdout = String::from_utf8(output.stdout)?;
 		let stderr = String::from_utf8(output.stderr)?;
 		
-		// Combine stdout and stderr, trim whitespace
 		let mut result = stdout;
 		if !stderr.is_empty() {
 			result.push_str(&stderr);
@@ -106,19 +128,24 @@ impl SubstitutionProcessor {
 	}
 	
 	pub fn process_command_substitutions(input: &str) -> Result<String> {
+		/**
+		 * コマンド置換処理の複雑な処理です (｡◕‿◕｡)
+		 * 
+		 * この関数は複雑な置換処理を行います。逆順処理による
+		 * インデックス維持が難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 
+		 * 逆順処理によるインデックス維持とエラーハンドリングの複雑なロジックです
+		 */
 		
 		let mut result = input.to_string();
 		let substitutions = Self::detect_command_substitutions(&result);
 		
-		// Process substitutions in reverse order to maintain indices
 		for (start, end, command) in substitutions.iter().rev() {
 			match Self::execute_substitution_command(command) {
 				Ok(output) => {
-					// Replace the substitution with the output
 					result.replace_range(*start..*end, &output);
 				}
 				Err(_) => {
-					// On error, replace with empty string
 					result.replace_range(*start..*end, "");
 				}
 			}

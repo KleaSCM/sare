@@ -83,7 +83,6 @@ impl HistoryManager {
             history_file,
         };
         
-        // Load existing history
         manager.load_history()?;
         
         Ok(manager)
@@ -127,7 +126,6 @@ impl HistoryManager {
             }
         }
         
-        // Keep only the most recent entries
         while self.history.len() > self.max_entries {
             self.history.pop_front();
         }
@@ -170,12 +168,10 @@ impl HistoryManager {
         
         self.history.push_back(entry);
         
-        // Keep only the most recent entries
         while self.history.len() > self.max_entries {
             self.history.pop_front();
         }
         
-        // Save to file
         if let Err(e) = self.save_history() {
             eprintln!("Failed to save history: {}", e);
         }

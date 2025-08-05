@@ -1,4 +1,16 @@
 
+/**
+ * Heredoc module for Sare terminal
+ * 
+ * This module provides heredoc functionality including
+ * << delimiter detection, content collection, and variable expansion.
+ * 
+ * Author: KleaSCM
+ * Email: KleaSCM@gmail.com
+ * File: heredoc.rs
+ * Description: Heredoc processing and state management
+ */
+
 use anyhow::Result;
 
 #[derive(Debug, Clone)]
@@ -71,19 +83,25 @@ pub struct HeredocProcessor;
 
 impl HeredocProcessor {
 	pub fn detect_heredoc(input: &str) -> Option<(String, bool)> {
+		/**
+		 * ヒアドキュメント検出の複雑な処理です (｡◕‿◕｡)
+		 * 
+		 * この関数は複雑な構文解析を行います。引用符付きデリミタの
+		 * 処理が難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 
+		 * 複数の引用符形式と変数展開制御の複雑なロジックです
+		 */
 		
 		let words: Vec<&str> = input.split_whitespace().collect();
 		
 		for (i, word) in words.iter().enumerate() {
 			if word.starts_with("<<") {
-				// Check for quoted delimiter (no variable expansion)
 				if word.starts_with("<<'") || word.starts_with("<<\"") {
 					let quote_char = word.chars().nth(2).unwrap();
 					let delimiter = word[3..].to_string();
 					return Some((delimiter, false));
 				}
 				
-				// Regular heredoc (with variable expansion)
 				if word.len() > 2 {
 					let delimiter = word[2..].to_string();
 					return Some((delimiter, true));
@@ -104,17 +122,23 @@ impl HeredocProcessor {
 	}
 	
 	pub fn expand_heredoc_variables(content: &str) -> String {
+		/**
+		 * ヒアドキュメント変数展開の複雑な処理です 
+		 * 
+		 * この関数は複雑な変数展開を行います。環境変数の検索と
+		 * 文字列処理が難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 
+		 * 環境変数検索と文字列置換の複雑なロジックです
+		 */
 		
 		let mut result = String::new();
 		let mut i = 0;
 		
 		while i < content.len() {
 			if content[i..].starts_with('$') {
-				// Found variable reference
 				let var_start = i + 1;
 				let mut var_end = var_start;
 				
-				// Find variable name
 				while var_end < content.len() {
 					let ch = content.chars().nth(var_end).unwrap();
 					if ch.is_alphanumeric() || ch == '_' {
@@ -127,22 +151,18 @@ impl HeredocProcessor {
 				if var_end > var_start {
 					let var_name = &content[var_start..var_end];
 					
-					// Get environment variable
 					if let Ok(var_value) = std::env::var(var_name) {
 						result.push_str(&var_value);
 					} else {
-						// Variable not found, keep original
 						result.push_str(&content[i..var_end]);
 					}
 					
 					i = var_end;
 				} else {
-					// Just a $, keep it
 					result.push('$');
 					i += 1;
 				}
 			} else {
-				// Regular character
 				result.push(content.chars().nth(i).unwrap());
 				i += 1;
 			}
@@ -152,7 +172,6 @@ impl HeredocProcessor {
 	}
 	
 	pub fn update_heredoc_state(mut state: HeredocState, input: &str) -> HeredocState {
-		// Check for heredoc syntax
 		if let Some((delimiter, expand_vars)) = Self::detect_heredoc(input) {
 			state.heredoc_mode = true;
 			state.heredoc_delimiter = delimiter;

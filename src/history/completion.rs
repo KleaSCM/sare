@@ -116,7 +116,6 @@ impl TabCompleter {
 		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
 		 */
 		
-		// Parse the input to determine context
 		let context = self.parse_context(input, cursor_pos)?;
 		
 		match context {
@@ -153,26 +152,22 @@ impl TabCompleter {
 			return Ok(CompletionContext::Command);
 		}
 		
-		// Check if we're at the start (command completion)
 		if before_cursor.trim().is_empty() || words.len() == 1 {
 			return Ok(CompletionContext::Command);
 		}
 		
-		// Check if we're completing a flag
 		if let Some(last_word) = words.last() {
 			if last_word.starts_with('-') {
 				return Ok(CompletionContext::Flag);
 			}
 		}
 		
-		// Check if we're completing a variable
 		if let Some(last_word) = words.last() {
 			if last_word.starts_with('$') {
 				return Ok(CompletionContext::Variable);
 			}
 		}
 		
-		// Default to file path completion
 		Ok(CompletionContext::FilePath)
 	}
 	
@@ -191,24 +186,20 @@ impl TabCompleter {
 			return Ok(None);
 		}
 		
-		// Find matching commands
 		let mut matches = Vec::new();
 		
-		// Check common commands
 		for cmd in &self.common_commands {
 			if cmd.starts_with(partial) {
 				matches.push(cmd.clone());
 			}
 		}
 		
-		// Check command history
 		for cmd in &self.command_history {
 			if cmd.starts_with(partial) && !matches.contains(cmd) {
 				matches.push(cmd.clone());
 			}
 		}
 		
-		// Check PATH for executables
 		if let Ok(path) = std::env::var("PATH") {
 			for path_dir in path.split(':') {
 				if let Ok(entries) = fs::read_dir(path_dir) {
@@ -225,14 +216,12 @@ impl TabCompleter {
 			}
 		}
 		
-		// Remove duplicates and sort
 		matches.sort();
 		matches.dedup();
 		
 		if matches.is_empty() {
 			Ok(None)
 		} else if matches.len() == 1 {
-			// Single match - complete it
 			Ok(Some(CompletionResult {
 				completed_text: matches[0].clone(),
 				is_partial: false,
@@ -240,7 +229,6 @@ impl TabCompleter {
 				context: CompletionContext::Command,
 			}))
 		} else {
-			// Multiple matches - find common prefix
 			let common_prefix = self.find_common_prefix(&matches);
 			Ok(Some(CompletionResult {
 				completed_text: common_prefix,
@@ -354,8 +342,6 @@ impl TabCompleter {
 	 * @return Result<Option<CompletionResult>> - Flag completion result
 	 */
 	fn complete_flag(&self, _input: &str, _cursor_pos: usize) -> Result<Option<CompletionResult>> {
-		// TODO: Implement flag completion
-		// This would require command-specific flag databases
 		Ok(None)
 	}
 	
@@ -449,15 +435,12 @@ impl TabCompleter {
 	 */
 	fn parse_quoted_path(&self, input: &str) -> (String, bool) {
 		if input.starts_with('"') && input.ends_with('"') {
-			// Double quoted path
 			let unquoted = &input[1..input.len()-1];
 			(unquoted.to_string(), true)
 		} else if input.starts_with('\'') && input.ends_with('\'') {
-			// Single quoted path
 			let unquoted = &input[1..input.len()-1];
 			(unquoted.to_string(), true)
 		} else {
-			// Unquoted path
 			(input.to_string(), false)
 		}
 	}
@@ -468,13 +451,10 @@ impl TabCompleter {
 	 * @param command - Command to add
 	 */
 	pub fn add_command(&mut self, command: String) {
-		// Remove from history if it exists
 		self.command_history.retain(|cmd| cmd != &command);
 		
-		// Add to front
 		self.command_history.push_front(command);
 		
-		// Keep only last 100 commands
 		while self.command_history.len() > 100 {
 			self.command_history.pop_back();
 		}

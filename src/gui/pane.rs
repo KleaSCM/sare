@@ -1,4 +1,16 @@
 
+/**
+ * Terminal pane module for Sare terminal
+ * 
+ * This module provides terminal pane functionality including
+ * output buffer management, input handling, and pane layout.
+ * 
+ * Author: KleaSCM
+ * Email: KleaSCM@gmail.com
+ * File: pane.rs
+ * Description: Terminal pane management and state
+ */
+
 use eframe::egui;
 
 #[derive(Debug, Clone)]

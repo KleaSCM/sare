@@ -1,0 +1,4 @@
+- remove all // comemnts from all files 
+- add documentation comments to all the files 
+- the more complex code parts doumentation should be in japanese 
+- use a soft feminine tone when writeing japanese documentation !
