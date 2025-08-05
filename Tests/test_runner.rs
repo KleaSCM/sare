@@ -17,6 +17,7 @@ use std::sync::{Arc, Mutex};
 
 mod test_ansi_protocol;
 mod test_advanced_rendering;
+mod test_features;
 
 /**
  * Test result information
@@ -784,6 +785,42 @@ impl TestRunner {
 	}
 	
 	/**
+	 * Runs all terminal features tests
+	 * 
+	 * @return Vec<TestResult> - Terminal features test results
+	 */
+	fn run_terminal_features_tests(&self) -> Vec<TestResult> {
+		/**
+		 * ターミナル機能テストを実行する関数です
+		 * 
+		 * ターミナル機能システムの各コンポーネントをテストし、
+		 * 画像サポート、ハイパーリンク、セマンティックハイライト、
+		 * 検索機能、選択/コピー、ペースト保護、入力メソッドが
+		 * 正しく動作することを検証します。
+		 * 
+		 * 各機能マネージャーの初期化、シャットダウン、ステータス取得を
+		 * 個別にテストして結果を返します
+		 */
+		
+		let mut results = Vec::new();
+		
+		// Use the comprehensive test suite from the separate module
+		let features_results = test_features::run_terminal_features_tests();
+		for (name, success) in features_results {
+			results.push(TestResult {
+				name: name.to_string(),
+				category: "terminal_features".to_string(),
+				success,
+				execution_time: 0,
+				error_message: if success { None } else { Some("Test failed".to_string()) },
+				description: format!("Terminal features test: {}", name),
+			});
+		}
+		
+		results
+	}
+	
+	/**
 	 * Runs all tests and generates comprehensive report
 	 * 
 	 * @return TestSuiteSummary - Complete test suite summary
@@ -844,6 +881,11 @@ impl TestRunner {
 		println!("\n🎨 Running Advanced Rendering Tests...");
 		let advanced_rendering_results = self.run_advanced_rendering_tests();
 		all_results.extend(advanced_rendering_results);
+		
+		// Run terminal features tests
+		println!("\n✨ Running Terminal Features Tests...");
+		let features_results = self.run_terminal_features_tests();
+		all_results.extend(features_results);
 		
 		let total_time = start_time.elapsed();
 		

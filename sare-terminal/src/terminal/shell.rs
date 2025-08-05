@@ -231,7 +231,6 @@ impl ShellManager {
 		let config = self.configurations.get(shell_type)
 			.ok_or_else(|| anyhow::anyhow!("Unknown shell type: {}", shell_type))?;
 		
-		// Create process info with actual process ID
 		use crate::terminal::process::{ProcessManager, ProcessOptions};
 		
 		let mut process_manager = ProcessManager::new();
@@ -252,7 +251,6 @@ impl ShellManager {
 			status: ProcessStatus::Running,
 		};
 		
-		// Create session
 		let session = ShellSession {
 			session_id: session_id.clone(),
 			shell_type: shell_type.to_string(),
@@ -261,7 +259,6 @@ impl ShellManager {
 			working_directory: working_directory.to_string(),
 		};
 		
-		// Add session to manager
 		let mut sessions = self.sessions.write().await;
 		sessions.insert(session_id.clone(), session);
 		
@@ -311,13 +308,11 @@ impl ShellManager {
 		if let Some(session) = sessions.get_mut(session_id) {
 			session.state = SessionState::ShuttingDown;
 			
-			// Terminate the process using ProcessManager
 			use crate::terminal::process::ProcessManager;
 			
 			let mut process_manager = ProcessManager::new();
 			process_manager.terminate_process(session.process.pid).await?;
 			
-			// Update session state
 			session.state = SessionState::Terminated(0);
 		}
 		

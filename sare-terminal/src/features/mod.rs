@@ -27,15 +27,15 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc};
 
 /**
- * Advanced terminal features system
+ * Terminal features system
  * 
- * 高度なターミナル機能のメインエントリーポイントです。
- * すべての高度な機能を統合し、統一されたインターフェースを提供します。
+ * ターミナル機能のメインエントリーポイントです。
+ * すべての機能を統合し、統一されたインターフェースを提供します。
  * 
  * 画像サポート、ハイパーリンク、セマンティックハイライト、検索機能、
  * 選択/コピー、ペースト保護、入力メソッドの各機能を管理します
  */
-pub struct AdvancedFeatures {
+pub struct TerminalFeatures {
 	/// 画像サポートマネージャー
 	image_manager: Arc<image_support::ImageManager>,
 	/// ハイパーリンクマネージャー
@@ -52,11 +52,11 @@ pub struct AdvancedFeatures {
 	input_method_manager: Arc<input_method::InputMethodManager>,
 }
 
-impl AdvancedFeatures {
+impl TerminalFeatures {
 	/**
-	 * Creates a new advanced features system
+	 * Creates a new terminal features system
 	 * 
-	 * @return AdvancedFeatures - New advanced features system instance
+	 * @return TerminalFeatures - New terminal features system instance
 	 */
 	pub fn new() -> Result<Self> {
 		let image_manager = Arc::new(image_support::ImageManager::new()?);
@@ -142,7 +142,7 @@ impl AdvancedFeatures {
 	}
 	
 	/**
-	 * Initializes the advanced features system
+	 * Initializes the terminal features system
 	 * 
 	 * @return Result<()> - Success or error
 	 */
@@ -172,7 +172,7 @@ impl AdvancedFeatures {
 	}
 	
 	/**
-	 * Shuts down the advanced features system
+	 * Shuts down the terminal features system
 	 * 
 	 * @return Result<()> - Success or error
 	 */
@@ -204,9 +204,9 @@ impl AdvancedFeatures {
 	/**
 	 * Gets system status
 	 * 
-	 * @return AdvancedFeaturesStatus - System status
+	 * @return TerminalFeaturesStatus - System status
 	 */
-	pub async fn get_status(&self) -> Result<AdvancedFeaturesStatus> {
+	pub async fn get_status(&self) -> Result<TerminalFeaturesStatus> {
 		let image_count = self.image_manager.get_image_count().await?;
 		let hyperlink_count = self.hyperlink_manager.get_hyperlink_count().await?;
 		let semantic_count = self.semantic_manager.get_highlight_count().await?;
@@ -215,7 +215,7 @@ impl AdvancedFeatures {
 		let paste_protection_count = self.paste_protection_manager.get_protection_count().await?;
 		let input_method_count = self.input_method_manager.get_method_count().await?;
 		
-		Ok(AdvancedFeaturesStatus {
+		Ok(TerminalFeaturesStatus {
 			image_count,
 			hyperlink_count,
 			semantic_count,
@@ -229,12 +229,12 @@ impl AdvancedFeatures {
 }
 
 /**
- * Advanced features system status
+ * Terminal features system status
  * 
- * 高度な機能システムの状態情報を格納します
+ * ターミナル機能システムの状態情報を格納します
  */
 #[derive(Debug, Clone)]
-pub struct AdvancedFeaturesStatus {
+pub struct TerminalFeaturesStatus {
 	/// 画像数
 	pub image_count: usize,
 	/// ハイパーリンク数

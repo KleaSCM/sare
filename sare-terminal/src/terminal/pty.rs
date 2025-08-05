@@ -103,7 +103,6 @@ impl PtyManager {
 		 * クローズしてエラーを返します。
 		 */
 		
-		// Implement actual PTY creation with posix_openpt()
 		let master_fd = unsafe {
 			use libc::{posix_openpt, O_RDWR, O_NOCTTY};
 			let flags = O_RDWR | O_NOCTTY;
@@ -114,7 +113,6 @@ impl PtyManager {
 			fd
 		};
 		
-		// Grant access to the slave terminal
 		unsafe {
 			use libc::grantpt;
 			if grantpt(master_fd) != 0 {
@@ -124,7 +122,6 @@ impl PtyManager {
 			}
 		}
 		
-		// Unlock the slave terminal
 		unsafe {
 			use libc::unlockpt;
 			if unlockpt(master_fd) != 0 {
@@ -134,7 +131,6 @@ impl PtyManager {
 			}
 		}
 		
-		// Get the slave terminal path
 		let pty_path = unsafe {
 			use libc::ptsname;
 			let path_ptr = ptsname(master_fd);
@@ -147,7 +143,6 @@ impl PtyManager {
 			path_str.to_string_lossy().to_string()
 		};
 		
-		// Open the slave terminal
 		let slave_fd = unsafe {
 			use libc::{open, O_RDWR, O_NOCTTY};
 			let path = std::ffi::CString::new(pty_path.as_str())?;
@@ -161,10 +156,8 @@ impl PtyManager {
 			fd
 		};
 		
-		// Set up the slave terminal
 		PtyUtils::setup_slave_terminal(slave_fd)?;
 		
-		// Create the session
 		let session = PtySession {
 			master_fd,
 			slave_fd,
@@ -390,10 +383,8 @@ impl PtyUtils {
 			// Configure output modes
 			termios.c_oflag &= !(OPOST); // Don't post-process output
 			
-			// Configure local modes
 			termios.c_lflag &= !(ECHO | ICANON | ISIG); // Raw mode
 			
-			// Set terminal attributes
 			if tcsetattr(slave_fd, TCSANOW, &termios) < 0 {
 				return Err(anyhow::anyhow!("Failed to set terminal attributes"));
 			}
@@ -415,14 +406,11 @@ impl PtyUtils {
 	pub fn create_environment(term_type: &str, size: (u16, u16)) -> Vec<(String, String)> {
 		let mut env = Vec::new();
 		
-		// Set terminal type
 		env.push(("TERM".to_string(), term_type.to_string()));
 		
-		// Set terminal size
 		env.push(("COLUMNS".to_string(), size.0.to_string()));
 		env.push(("LINES".to_string(), size.1.to_string()));
 		
-		// Set other common variables
 		env.push(("TERM_PROGRAM".to_string(), "sare".to_string()));
 		env.push(("TERM_PROGRAM_VERSION".to_string(), "0.1.0".to_string()));
 		
@@ -443,7 +431,6 @@ impl PtyUtils {
 			return shell;
 		}
 		
-		// Fallback to common shells
 		let common_shells = ["/bin/bash", "/bin/zsh", "/bin/fish", "/bin/sh"];
 		
 		for shell in &common_shells {
@@ -452,7 +439,6 @@ impl PtyUtils {
 			}
 		}
 		
-		// Final fallback
 		"/bin/sh".to_string()
 	}
 } 
