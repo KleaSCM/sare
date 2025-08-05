@@ -451,11 +451,9 @@ impl AnsiParser {
 							self.state = ParserState::OperatingSystem;
 						}
 						b'(' | b')' => {
-							// Character set selection
 							self.state = ParserState::Normal;
 						}
 						_ => {
-							// Unknown escape sequence
 							self.state = ParserState::Normal;
 						}
 					}
@@ -471,15 +469,12 @@ impl AnsiParser {
 							self.current_param.clear();
 						}
 						b'?' => {
-							// Private mode indicator
 						}
 						b'<' => {
-							// Mouse tracking
 							self.state = ParserState::Normal;
 							commands.push(AnsiCommand::MouseTracking(true));
 						}
 						_ => {
-							// Final character
 							if !self.current_param.is_empty() {
 								self.params.push(self.current_param.parse().unwrap_or(0));
 							}
@@ -498,7 +493,6 @@ impl AnsiParser {
 							self.current_param.clear();
 						}
 						_ => {
-							// Final character
 							if !self.current_param.is_empty() {
 								self.params.push(self.current_param.parse().unwrap_or(0));
 							}
@@ -508,13 +502,11 @@ impl AnsiParser {
 					}
 				}
 				ParserState::OperatingSystem => {
-					// Handle operating system commands
 					if byte == 0x07 {
 						self.state = ParserState::Normal;
 					}
 				}
 				ParserState::DeviceControl => {
-					// Handle device control strings
 					if byte == 0x07 {
 						self.state = ParserState::Normal;
 					}
@@ -625,7 +617,6 @@ impl AnsiParser {
 				commands.push(AnsiCommand::SetScrollRegion(top, bottom));
 			}
 			_ => {
-				// Unknown sequence
 			}
 		}
 		
@@ -641,7 +632,6 @@ impl AnsiParser {
 		let mut commands = Vec::new();
 		
 		if self.params.is_empty() {
-			// Reset all attributes
 			commands.push(AnsiCommand::ResetAttributes);
 			return Ok(commands);
 		}
@@ -690,7 +680,6 @@ impl AnsiParser {
 					commands.push(AnsiCommand::SetBackgroundColor(ColorType::Named(param - 100 + 8)));
 				}
 				_ => {
-					// Unknown graphics mode
 				}
 			}
 		}
@@ -743,7 +732,6 @@ impl AnsiParser {
 				1003 => commands.push(AnsiCommand::SetMouseTracking(MouseReportingMode::AnyEvent)),
 				2004 => commands.push(AnsiCommand::SetBracketedPaste(true)),
 				_ => {
-					// Unknown mode
 				}
 			}
 		}
@@ -771,7 +759,6 @@ impl AnsiParser {
 				1000..=1003 => commands.push(AnsiCommand::SetMouseTracking(MouseReportingMode::None)),
 				2004 => commands.push(AnsiCommand::SetBracketedPaste(false)),
 				_ => {
-					// Unknown mode
 				}
 			}
 		}

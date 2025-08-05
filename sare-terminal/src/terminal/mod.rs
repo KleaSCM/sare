@@ -223,7 +223,6 @@ impl TerminalEmulator {
 		 * PTYセッションは後でstart_session()で作成されます。
 		 */
 		
-		// Create renderer configuration
 		let renderer_config = RendererConfig {
 			size: config.size,
 			max_scrollback: 1000,
@@ -232,8 +231,6 @@ impl TerminalEmulator {
 			default_fg_color: renderer::Color::default(),
 			default_bg_color: renderer::Color { r: 0, g: 0, b: 0, color_type: renderer::ColorType::Default },
 		};
-		
-		// Initialize session system
 		let session_system = SessionSystem::new()?;
 		
 		Ok(Self {
@@ -278,9 +275,7 @@ impl TerminalEmulator {
 		 * シェルの起動を実装する予定です。
 		 */
 		
-		// Create PTY session using the pty module
 		use crate::terminal::pty::{PtyManager, PtyOptions};
-		
 		let mut pty_manager = PtyManager::new(self.config.clone());
 		let options = PtyOptions {
 			size: self.state.size,
@@ -290,11 +285,7 @@ impl TerminalEmulator {
 			command: command.map(|s| s.to_string()),
 		};
 		let session = pty_manager.create_session(options).await?;
-		
-		// Store the PTY session
 		self.pty_session = Some(Arc::new(RwLock::new(session)));
-		
-		// Launch the shell or command
 		if let Some(cmd) = command {
 			// Launch specific command
 			// TODO: Implement command launching
@@ -318,14 +309,9 @@ impl TerminalEmulator {
 	 */
 	pub async fn resize(&mut self, columns: u16, rows: u16) -> Result<()> {
 		self.state.size = (columns, rows);
-		
-		// Resize renderer
 		self.renderer.resize(columns, rows);
-		
 		if let Some(pty_session) = &self.pty_session {
-			// Update PTY session size
 			use crate::terminal::pty::PtyManager;
-			
 			let pty_manager = PtyManager::new(self.config.clone());
 			pty_manager.resize_session((columns, rows)).await?;
 		}
@@ -343,13 +329,9 @@ impl TerminalEmulator {
 	 * @return Result<()> - Success or error status
 	 */
 	pub async fn send_input(&mut self, input: &[u8]) -> Result<()> {
-		// Process input through ANSI parser
 		self.renderer.process_input(input)?;
-		
 		if let Some(pty_session) = &self.pty_session {
-			// Write input to PTY master
 			use crate::terminal::pty::PtyManager;
-			
 			let pty_manager = PtyManager::new(self.config.clone());
 			pty_manager.write_to_pty(input).await?;
 		}
@@ -439,7 +421,6 @@ impl TerminalEmulator {
 	 */
 	pub async fn stop_session(&mut self) -> Result<()> {
 		if let Some(pty_session) = &self.pty_session {
-			// Close PTY session
 			use crate::terminal::pty::PtyManager;
 			
 			let mut pty_manager = PtyManager::new(self.config.clone());

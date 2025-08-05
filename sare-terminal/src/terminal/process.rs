@@ -137,29 +137,23 @@ impl ProcessManager {
 		 * 作業ディレクトリを適切に設定します
 		 */
 		
-		// Implement actual process creation with fork() and exec()
 		let pid = unsafe {
 			use libc::{fork, execvp, setpgid, dup2, close, chdir};
 			
-			// Fork the process
 			let pid = fork();
 			if pid < 0 {
 				return Err(anyhow::anyhow!("Failed to fork process"));
 			}
 			
 			if pid == 0 {
-				// Child process
 				
-				// Set up process group if specified
 				if let Some(pgid) = options.pgid {
 					if setpgid(0, pgid as i32) < 0 {
-						// If setting PGID fails, create new group
 						if setpgid(0, 0) < 0 {
 							return Err(anyhow::anyhow!("Failed to set process group"));
 						}
 					}
 				} else {
-					// Create new process group
 					if setpgid(0, 0) < 0 {
 						return Err(anyhow::anyhow!("Failed to create process group"));
 					}
@@ -176,12 +170,10 @@ impl ProcessManager {
 					}
 				}
 				
-				// Set up environment variables
 				for (key, value) in &options.environment {
 					std::env::set_var(key, value);
 				}
 				
-				// Prepare command and arguments for execvp
 				let cmd_cstr = std::ffi::CString::new(options.command.as_str())?;
 				let mut args = vec![cmd_cstr.as_ptr()];
 				
@@ -191,18 +183,14 @@ impl ProcessManager {
 				}
 				args.push(std::ptr::null());
 				
-				// Execute the command
 				execvp(cmd_cstr.as_ptr(), args.as_ptr());
 				
-				// If we get here, exec failed
 				std::process::exit(1);
 			} else {
-				// Parent process - return the child PID
 				pid as u32
 			}
 		};
 		
-		// Create process info
 		let process_info = ProcessInfo {
 			pid,
 			name: options.command.clone(),
@@ -210,11 +198,9 @@ impl ProcessManager {
 			status: ProcessStatus::Running,
 		};
 		
-		// Add to process manager
 		let mut processes = self.processes.write().await;
 		processes.insert(pid, process_info);
 		
-		// Set as foreground if requested
 		if options.foreground {
 			self.foreground_pgid = Some(pid);
 		}
@@ -304,7 +290,6 @@ impl ProcessManager {
 		unsafe {
 			use libc::{waitpid, WNOHANG, WIFEXITED, WIFSIGNALED};
 			
-			// Wait for process to terminate with timeout
 			let mut status = 0;
 			let mut attempts = 0;
 			const MAX_ATTEMPTS: i32 = 10; // 10 seconds timeout
@@ -313,25 +298,20 @@ impl ProcessManager {
 				let result = waitpid(pid as i32, &mut status, WNOHANG);
 				
 				if result == pid as i32 {
-					// Process has terminated
 					if WIFEXITED(status) || WIFSIGNALED(status) {
 						break;
 					}
 				} else if result < 0 {
-					// Process not found or error
 					break;
 				}
 				
-				// Wait a bit before next attempt
 				std::thread::sleep(std::time::Duration::from_millis(100));
 				attempts += 1;
 			}
 			
-			// If process hasn't terminated, send SIGKILL
 			if attempts >= MAX_ATTEMPTS {
 				self.send_signal(pid, libc::SIGKILL).await?;
 				
-				// Wait a bit more for SIGKILL to take effect
 				std::thread::sleep(std::time::Duration::from_millis(500));
 				waitpid(pid as i32, &mut status, WNOHANG);
 			}
@@ -347,10 +327,8 @@ impl ProcessManager {
 	 * @return Result<()> - Success or error status
 	 */
 	pub async fn kill_process(&mut self, pid: u32) -> Result<()> {
-		// Send SIGKILL
 		self.send_signal(pid, libc::SIGKILL).await?;
 		
-		// Remove from process manager
 		let mut processes = self.processes.write().await;
 		processes.remove(&pid);
 		
@@ -364,10 +342,8 @@ impl ProcessManager {
 	 * @return Result<()> - Success or error status
 	 */
 	pub async fn suspend_process(&mut self, pid: u32) -> Result<()> {
-		// Send SIGTSTP
 		self.send_signal(pid, libc::SIGTSTP).await?;
 		
-		// Update process status
 		if let Some(process) = self.get_process(pid).await {
 			let mut processes = self.processes.write().await;
 			if let Some(process_info) = processes.get_mut(&pid) {
@@ -385,10 +361,8 @@ impl ProcessManager {
 	 * @return Result<()> - Success or error status
 	 */
 	pub async fn resume_process(&mut self, pid: u32) -> Result<()> {
-		// Send SIGCONT
 		self.send_signal(pid, libc::SIGCONT).await?;
 		
-		// Update process status
 		if let Some(process) = self.get_process(pid).await {
 			let mut processes = self.processes.write().await;
 			if let Some(process_info) = processes.get_mut(&pid) {
@@ -429,13 +403,11 @@ impl ProcessManager {
 		unsafe {
 			use libc::tcsetpgrp;
 			
-			// Set the foreground process group for the controlling terminal
 			if tcsetpgrp(0, pgid as i32) < 0 {
 				return Err(anyhow::anyhow!("Failed to set foreground process group"));
 			}
 		}
 		
-		// Update internal state
 		self.foreground_pgid = Some(pgid);
 		
 		Ok(())

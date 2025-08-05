@@ -566,13 +566,8 @@ impl SareTerminal {
 
 impl eframe::App for SareTerminal {
 	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-		// Handle key input
 		self.handle_key_input(ctx);
-		
-		// Render the terminal
-		super::renderer::TerminalRenderer::render_terminal(self, ctx);
-		
-		// Request continuous updates for smooth cursor blinking
+		super::renderer::TerminalRenderer::render_terminal(self, ctx);		
 		ctx.request_repaint();
 	}
 	
