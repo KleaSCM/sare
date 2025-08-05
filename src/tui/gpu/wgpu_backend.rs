@@ -54,8 +54,9 @@ impl WgpuBackend {
 		 * WGPUグラフィックスAPIを使用してGPU加速レンダリングを
 		 * 初期化し、デバイスとキューを設定します。
 		 * 
-		 * 高性能アダプターを選択し、必要な機能と制限を設定して
-		 * レンダリングデバイスを作成します
+		 * wgpu::Instanceを作成し、高性能アダプターを選択して
+		 * レンダリングデバイスとキューを作成します。必要な機能と
+		 * 制限を設定して、適切なGPUデバイスを初期化します。
 		 */
 		
 		// Implement WGPU initialization with actual GPU setup
