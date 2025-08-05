@@ -62,7 +62,7 @@ Never suppress or discard errors. No .unwrap(), .expect(), or _ = err patterns u
 4.1 - Comments Are Only for Documentation
 
 Comments must explain why, never what or how. Do not describe syntax.
-4.2 - Use Japanese for Complex Logic
+4.2 - Write the documentation in Japanese for Complex Logic
 
 All complex, sensitive, or non-obvious logic must be explained in Japanese, using a soft, feminine tone (e.g., あたし, ね〜, よね).
 

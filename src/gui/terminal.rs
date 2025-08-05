@@ -1,14 +1,3 @@
-/**
- * Main terminal interface for Sare GUI
- * 
- * This module contains the main SareTerminal struct and
- * its implementation for the GUI terminal interface.
- * 
- * Author: KleaSCM
- * Email: KleaSCM@gmail.com
- * File: terminal.rs
- * Description: Main terminal interface implementation
- */
 
 use anyhow::Result;
 use eframe::egui;
@@ -21,12 +10,6 @@ use super::heredoc::{HeredocState, HeredocProcessor};
 use super::substitution::{SubstitutionState, SubstitutionProcessor};
 use super::expansion::{ExpansionState, ExpansionProcessor};
 
-/**
- * Main terminal interface
- * 
- * Contains the main terminal state including panes,
- * command history, and terminal configuration.
- */
 #[derive(Debug)]
 pub struct SareTerminal {
 	/// Command history manager
@@ -69,13 +52,7 @@ pub struct SareTerminal {
 
 impl Default for SareTerminal {
 	fn default() -> Self {
-		/**
-		 * Sareターミナル初期化の複雑な処理です (｡◕‿◕｡)
-		 * 
-		 * この関数は複雑なターミナル初期化を行います。
-		 * デフォルト設定とパネ管理が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
-		 */
+
 		
 		let default_pane = TerminalPane::default();
 		let history_manager = HistoryManager::new().unwrap_or_else(|_| {
@@ -119,26 +96,12 @@ impl Default for SareTerminal {
 }
 
 impl SareTerminal {
-	/**
-	 * Creates a new terminal instance
-	 */
 	pub fn new() -> Result<Self> {
 		Ok(Self::default())
 	}
 	
-	/**
-	 * Executes a command with substitution processing
-	 * 
-	 * @param command - Command to execute
-	 */
 	pub fn execute_command(&mut self, command: &str) {
-		/**
-		 * コマンド実行の複雑な処理です (◕‿◕)
-		 * 
-		 * この関数は複雑なコマンド処理を行います。
-		 * 置換処理とコマンド実行が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
-		 */
+
 		
 		// Process command substitutions first
 		let processed_command = match self.substitution_mode.process_substitutions(command) {
@@ -170,9 +133,6 @@ impl SareTerminal {
 		}
 	}
 	
-	/**
-	 * Runs a command and returns the output
-	 */
 	pub fn run_command(&mut self, command: &str) -> String {
 		if command.trim().is_empty() {
 			return String::new();
@@ -230,9 +190,6 @@ impl SareTerminal {
 		}
 	}
 	
-	/**
-	 * Gets history display for history command
-	 */
 	fn get_history_display(&self) -> String {
 		let history = self.history_manager.get_history();
 		let mut display = String::new();
@@ -244,26 +201,14 @@ impl SareTerminal {
 		display
 	}
 	
-	/**
-	 * Adds an output line to the current pane
-	 */
 	pub fn add_output_line(&mut self, content: String, color: egui::Color32, is_prompt: bool) {
 		if let Some(pane) = self.panes.get_mut(self.focused_pane) {
 			pane.add_output_line(content, color, is_prompt);
 		}
 	}
 	
-	/**
-	 * Handles key input with advanced history navigation
-	 */
 	pub fn handle_key_input(&mut self, ctx: &egui::Context) {
-		/**
-		 * キー入力処理の複雑な処理です (｡◕‿◕｡)
-		 * 
-		 * この関数は複雑なキー入力処理を行います。
-		 * 履歴ナビゲーションとショートカット処理が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
-		 */
+
 		
 		ctx.input(|input| {
 			// Handle key presses
@@ -437,9 +382,6 @@ impl SareTerminal {
 		});
 	}
 	
-	/**
-	 * Converts a key to a character
-	 */
 	fn key_to_char(key: egui::Key) -> Option<char> {
 		match key {
 			egui::Key::A => Some('a'),
@@ -473,17 +415,8 @@ impl SareTerminal {
 		}
 	}
 	
-	/**
-	 * Navigates history up (older commands)
-	 */
 	pub fn navigate_history_up(&mut self) {
-		/**
-		 * 履歴ナビゲーション上移動の複雑な処理です (◕‿◕)
-		 * 
-		 * この関数は複雑な履歴ナビゲーションを行います。
-		 * 履歴インデックス管理が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
-		 */
+
 		
 		let history = self.history_manager.get_history();
 		if history.is_empty() {
@@ -510,9 +443,6 @@ impl SareTerminal {
 		}
 	}
 	
-	/**
-	 * Navigates history down (newer commands)
-	 */
 	pub fn navigate_history_down(&mut self) {
 		let history = self.history_manager.get_history();
 		if history.is_empty() {
@@ -538,9 +468,6 @@ impl SareTerminal {
 		}
 	}
 	
-	/**
-	 * Starts reverse incremental search (Ctrl+R)
-	 */
 	pub fn start_reverse_search(&mut self) {
 		self.history_search_mode = true;
 		self.history_search_query.clear();
@@ -552,9 +479,6 @@ impl SareTerminal {
 		}
 	}
 	
-	/**
-	 * Performs reverse incremental search
-	 */
 	pub fn perform_reverse_search(&mut self) {
 		let history = self.history_manager.get_history();
 		let query = &self.history_search_query;
@@ -575,9 +499,6 @@ impl SareTerminal {
 		}
 	}
 	
-	/**
-	 * Exits history search mode
-	 */
 	pub fn exit_history_search(&mut self) {
 		self.history_search_mode = false;
 		self.history_search_query.clear();
@@ -590,9 +511,6 @@ impl SareTerminal {
 		self.original_input.clear();
 	}
 	
-	/**
-	 * Splits the current pane
-	 */
 	pub fn split_pane(&mut self, direction: SplitDirection) {
 		// Extract necessary data before mutable borrow
 		let focused_pane_index = self.focused_pane;
@@ -646,16 +564,10 @@ impl SareTerminal {
 		}
 	}
 	
-	/**
-	 * Creates a new pane
-	 */
 	pub fn create_new_pane(&mut self) {
 		self.split_pane(SplitDirection::Vertical);
 	}
 	
-	/**
-	 * Closes the current pane
-	 */
 	pub fn close_current_pane(&mut self) {
 		if self.panes.len() > 1 {
 			self.panes.remove(self.focused_pane);
@@ -670,9 +582,6 @@ impl SareTerminal {
 		}
 	}
 	
-	/**
-	 * Switches to the next pane
-	 */
 	pub fn switch_to_next_pane(&mut self) {
 		if self.panes.len() > 1 {
 			self.focused_pane = (self.focused_pane + 1) % self.panes.len();

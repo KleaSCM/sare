@@ -1,26 +1,9 @@
-/**
- * Brace expansion and globbing for Sare terminal
- * 
- * This module provides comprehensive brace expansion and globbing
- * including numeric ranges, comma lists, glob patterns, and advanced matching.
- * 
- * Author: KleaSCM
- * Email: KleaSCM@gmail.com
- * File: expansion.rs
- * Description: Advanced brace expansion and globbing with full implementation
- */
 
 use anyhow::Result;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/**
- * Expansion state for brace expansion and globbing
- * 
- * Manages the state of expansion processing including
- * pattern caching and expansion mode tracking.
- */
 #[derive(Debug, Clone)]
 pub struct ExpansionState {
 	/// Whether in expansion mode
@@ -44,28 +27,18 @@ impl Default for ExpansionState {
 	}
 }
 
-/**
- * Expansion processor for brace expansion and globbing
- * 
- * Handles complex pattern matching, brace expansion,
- * and glob pattern resolution with caching.
- */
 pub struct ExpansionProcessor;
 
 impl ExpansionProcessor {
-	/**
-	 * Detects brace expansion patterns in input
-	 * 
-	 * @param input - Input text to check
-	 * @return Vec<(usize, usize, String)> - List of (start, end, pattern) expansions
-	 */
 	pub fn detect_brace_expansions(input: &str) -> Vec<(usize, usize, String)> {
 		/**
 		 * ブレース展開検出の複雑な処理です (｡◕‿◕｡)
 		 * 
-		 * この関数は複雑な構文解析を行います。
-		 * ネストしたブレース処理が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 * この関数は複雑な構文解析を行います。ネストしたブレース処理が
+		 * 難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 
+		 * ネストしたブレースの深さを追跡して、正しいパターン抽出を
+		 * 保証する複雑なロジックです (◕‿◕)
 		 */
 		
 		let mut expansions = Vec::new();
@@ -101,20 +74,8 @@ impl ExpansionProcessor {
 		expansions
 	}
 	
-	/**
-	 * Expands a brace pattern into multiple strings
-	 * 
-	 * @param pattern - Brace pattern to expand
-	 * @return Vec<String> - List of expanded strings
-	 */
 	pub fn expand_brace_pattern(pattern: &str) -> Vec<String> {
-		/**
-		 * ブレース展開の複雑な処理です (◕‿◕)
-		 * 
-		 * この関数は複雑なパターン展開を行います。
-		 * 数値範囲とカンマリストの処理が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
-		 */
+
 		
 		let mut results = Vec::new();
 		
@@ -133,19 +94,14 @@ impl ExpansionProcessor {
 		results
 	}
 	
-	/**
-	 * Expands numeric range patterns
-	 * 
-	 * @param pattern - Numeric range pattern
-	 * @return Option<Vec<String>> - Expanded numbers or None
-	 */
 	fn expand_numeric_range(pattern: &str) -> Option<Vec<String>> {
 		/**
 		 * 数値範囲展開の複雑な処理です (｡◕‿◕｡)
 		 * 
-		 * この関数は複雑な数値解析を行います。
-		 * 範囲とステップの処理が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 * この関数は複雑な数値解析を行います。範囲とステップの処理が
+		 * 難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 
+		 * 正負のステップ値と範囲検証の複雑なロジックです (◕‿◕)
 		 */
 		
 		// Check for range pattern: start..end or start..end..step
@@ -192,19 +148,14 @@ impl ExpansionProcessor {
 		Some(results)
 	}
 	
-	/**
-	 * Expands comma-separated list patterns
-	 * 
-	 * @param pattern - Comma list pattern
-	 * @return Option<Vec<String>> - Expanded list or None
-	 */
 	fn expand_comma_list(pattern: &str) -> Option<Vec<String>> {
 		/**
-		 * カンマリスト展開の複雑な処理です (◕‿◕)
+		 * カンマリスト展開の複雑な処理です (｡◕‿◕｡)
 		 * 
-		 * この関数は複雑なリスト解析を行います。
-		 * ネストしたカンマ処理が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+		 * この関数は複雑なリスト解析を行います。ネストしたカンマ処理が
+		 * 難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 
+		 * ブレース深度追跡によるネストしたカンマ処理の複雑なロジックです (◕‿◕)
 		 */
 		
 		// Check if pattern contains commas
@@ -257,20 +208,15 @@ impl ExpansionProcessor {
 		}
 	}
 	
-	/**
-	 * Expands glob patterns into matching files
-	 * 
-	 * @param pattern - Glob pattern to expand
-	 * @param working_directory - Working directory for relative paths
-	 * @return Vec<String> - List of matching files
-	 */
 	pub fn expand_glob_pattern(pattern: &str, working_directory: &Path) -> Vec<String> {
 		/**
 		 * グロブ展開の複雑な処理です (｡◕‿◕｡)
 		 * 
-		 * この関数は複雑なファイルマッチングを行います。
-		 * パターンマッチングとディレクトリ走査が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 * この関数は複雑なファイルシステム検索を行います。再帰的検索と
+		 * パターンマッチングが難しい部分なので、適切なエラーハンドリングで
+		 * 実装しています。
+		 * 
+		 * 再帰的ディレクトリ検索とパターンマッチングの複雑なロジックです (◕‿◕)
 		 */
 		
 		let mut results = Vec::new();
@@ -345,20 +291,15 @@ impl ExpansionProcessor {
 		results
 	}
 	
-	/**
-	 * Checks if a filename matches a glob pattern
-	 * 
-	 * @param filename - Filename to check
-	 * @param pattern - Glob pattern to match against
-	 * @return bool - True if filename matches pattern
-	 */
 	fn matches_glob_pattern(filename: &str, pattern: &str) -> bool {
 		/**
-		 * グロブマッチングの複雑な処理です (◕‿◕)
+		 * グロブパターンマッチングの複雑な処理です (｡◕‿◕｡)
 		 * 
-		 * この関数は複雑なパターンマッチングを行います。
-		 * ワイルドカードと文字クラスの処理が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+		 * この関数は複雑なパターンマッチングを行います。ワイルドカードと
+		 * 文字クラスの処理が難しい部分なので、適切なエラーハンドリングで
+		 * 実装しています。
+		 * 
+		 * 再帰的なパターンマッチングと文字クラス処理の複雑なロジックです (◕‿◕)
 		 */
 		
 		// Simple wildcard matching
@@ -422,20 +363,14 @@ impl ExpansionProcessor {
 		false
 	}
 	
-	/**
-	 * Checks if a character matches a character class
-	 * 
-	 * @param ch - Character to check
-	 * @param class - Character class pattern
-	 * @return bool - True if character matches class
-	 */
 	fn matches_character_class(ch: char, class: &str) -> bool {
 		/**
 		 * 文字クラスマッチングの複雑な処理です (｡◕‿◕｡)
 		 * 
-		 * この関数は複雑な文字クラス解析を行います。
-		 * 範囲指定と否定の処理が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 * この関数は複雑な文字クラス解析を行います。範囲指定と否定の
+		 * 処理が難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 
+		 * 文字範囲と否定文字クラスの複雑なロジックです (◕‿◕)
 		 */
 		
 		let mut i = 0;
@@ -472,20 +407,14 @@ impl ExpansionProcessor {
 		negated
 	}
 	
-	/**
-	 * Processes brace expansions and globbing in input
-	 * 
-	 * @param input - Input text to process
-	 * @param working_directory - Working directory for relative paths
-	 * @return Result<String> - Processed input with expansions
-	 */
 	pub fn process_brace_expansions(input: &str, working_directory: &Path) -> Result<String> {
 		/**
-		 * ブレース展開処理の複雑な処理です (◕‿◕)
+		 * ブレース展開処理の複雑な処理です (｡◕‿◕｡)
 		 * 
-		 * この関数は複雑な展開処理を行います。
-		 * ネストした展開とエラーハンドリングが難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+		 * この関数は複雑な展開処理を行います。ネストした展開とエラーハンドリングが
+		 * 難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * 
+		 * 逆順処理によるインデックス維持とグロブパターン処理の複雑なロジックです (◕‿◕)
 		 */
 		
 		let mut result = input.to_string();
@@ -529,85 +458,38 @@ impl ExpansionProcessor {
 }
 
 impl ExpansionState {
-	/**
-	 * Checks if in expansion mode
-	 * 
-	 * @return bool - True if in expansion mode
-	 */
 	pub fn is_expansion_mode(&self) -> bool {
 		self.expansion_mode
 	}
 	
-	/**
-	 * Sets expansion mode
-	 * 
-	 * @param mode - Expansion mode state
-	 */
 	pub fn set_expansion_mode(&mut self, mode: bool) {
 		self.expansion_mode = mode;
 	}
 	
-	/**
-	 * Gets expansion depth
-	 * 
-	 * @return usize - Current expansion depth
-	 */
 	pub fn get_depth(&self) -> usize {
 		self.expansion_depth
 	}
 	
-	/**
-	 * Sets expansion depth
-	 * 
-	 * @param depth - Expansion depth
-	 */
 	pub fn set_depth(&mut self, depth: usize) {
 		self.expansion_depth = depth;
 	}
 	
-	/**
-	 * Gets working directory
-	 * 
-	 * @return PathBuf - Current working directory
-	 */
 	pub fn get_working_directory(&self) -> PathBuf {
 		self.working_directory.clone()
 	}
 	
-	/**
-	 * Sets working directory
-	 * 
-	 * @param dir - Working directory path
-	 */
 	pub fn set_working_directory(&mut self, dir: PathBuf) {
 		self.working_directory = dir;
 	}
 	
-	/**
-	 * Gets glob cache
-	 * 
-	 * @return &HashMap<String, Vec<String>> - Glob cache reference
-	 */
 	pub fn get_glob_cache(&self) -> &HashMap<String, Vec<String>> {
 		&self.glob_cache
 	}
 	
-	/**
-	 * Adds pattern to glob cache
-	 * 
-	 * @param pattern - Glob pattern
-	 * @param matches - Matching files
-	 */
 	pub fn add_to_glob_cache(&mut self, pattern: String, matches: Vec<String>) {
 		self.glob_cache.insert(pattern, matches);
 	}
 	
-	/**
-	 * Processes brace expansions and globbing in input
-	 * 
-	 * @param input - Input text to process
-	 * @return Result<String> - Processed input with expansions
-	 */
 	pub fn process_expansions(&self, input: &str) -> Result<String> {
 		ExpansionProcessor::process_brace_expansions(input, &self.working_directory)
 	}

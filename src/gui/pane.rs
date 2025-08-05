@@ -1,23 +1,6 @@
-/**
- * Pane management for Sare terminal GUI
- * 
- * This module contains structures and enums for managing
- * terminal panes, including pane state, layout, and splitting.
- * 
- * Author: KleaSCM
- * Email: KleaSCM@gmail.com
- * File: pane.rs
- * Description: Pane management structures and enums
- */
 
 use eframe::egui;
 
-/**
- * Terminal pane structure
- * 
- * Represents a single terminal pane with its own
- * input, output, and state management.
- */
 #[derive(Debug, Clone)]
 pub struct TerminalPane {
 	/// Pane ID
@@ -42,12 +25,6 @@ pub struct TerminalPane {
 	pub split_direction: Option<SplitDirection>,
 }
 
-/**
- * Terminal line structure
- * 
- * Represents a single line of terminal output
- * with content, color, and prompt status.
- */
 #[derive(Debug, Clone)]
 pub struct TerminalLine {
 	/// Line content
@@ -58,11 +35,6 @@ pub struct TerminalLine {
 	pub is_prompt: bool,
 }
 
-/**
- * Split direction enumeration
- * 
- * Defines the direction for pane splitting.
- */
 #[derive(Debug, Clone, PartialEq)]
 pub enum SplitDirection {
 	/// Vertical split (left/right)
@@ -71,11 +43,6 @@ pub enum SplitDirection {
 	Horizontal,
 }
 
-/**
- * Terminal mode enumeration
- * 
- * Defines the different modes the terminal can be in.
- */
 #[derive(Debug, Clone, PartialEq)]
 pub enum TerminalMode {
 	/// Normal mode
@@ -105,9 +72,6 @@ impl Default for TerminalPane {
 }
 
 impl TerminalPane {
-	/**
-	 * Adds an output line to the pane
-	 */
 	pub fn add_output_line(&mut self, content: String, color: egui::Color32, is_prompt: bool) {
 		self.output_buffer.push(TerminalLine {
 			content,
@@ -116,9 +80,6 @@ impl TerminalPane {
 		});
 	}
 	
-	/**
-	 * Adds a character to the current input
-	 */
 	pub fn add_char(&mut self, c: char) {
 		self.current_input.push(c);
 		self.cursor_pos = self.current_input.len();

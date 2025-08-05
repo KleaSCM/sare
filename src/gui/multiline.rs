@@ -1,23 +1,6 @@
-/**
- * Multiline input handling for Sare terminal
- * 
- * This module provides multiline input support including
- * continuation lines, visual indicators, and state management.
- * 
- * Author: KleaSCM
- * Email: KleaSCM@gmail.com
- * File: multiline.rs
- * Description: Multiline input processing and state management
- */
 
 use anyhow::Result;
 
-/**
- * Multiline input state
- * 
- * Manages the state of multiline input including
- * continuation mode and visual indicators.
- */
 #[derive(Debug, Clone)]
 pub struct MultilineState {
 	/// Whether in multiline mode
@@ -39,84 +22,35 @@ impl Default for MultilineState {
 }
 
 impl MultilineState {
-	/**
-	 * Checks if in multiline mode
-	 * 
-	 * @return bool - True if in multiline mode
-	 */
 	pub fn is_multiline(&self) -> bool {
 		self.multiline_mode
 	}
 	
-	/**
-	 * Sets multiline mode
-	 * 
-	 * @param mode - Multiline mode state
-	 */
 	pub fn set_multiline(&mut self, mode: bool) {
 		self.multiline_mode = mode;
 	}
 	
-	/**
-	 * Sets continuation character
-	 * 
-	 * @param char - Continuation character
-	 */
 	pub fn set_continuation_char(&mut self, char: Option<char>) {
 		self.continuation_char = char;
 	}
 	
-	/**
-	 * Gets continuation character
-	 * 
-	 * @return Option<char> - Continuation character
-	 */
 	pub fn get_continuation_char(&self) -> Option<char> {
 		self.continuation_char
 	}
 	
-	/**
-	 * Sets multiline prompt
-	 * 
-	 * @param prompt - Prompt string
-	 */
 	pub fn set_prompt(&mut self, prompt: String) {
 		self.multiline_prompt = prompt;
 	}
 	
-	/**
-	 * Updates the state based on input
-	 * 
-	 * @param input - Input text to check
-	 */
 	pub fn update(&mut self, input: &str) {
 		*self = MultilineProcessor::update_multiline_state(self.clone(), input);
 	}
 }
 
-/**
- * Multiline input processor
- * 
- * Handles multiline input parsing and state management
- * for continuation lines and visual feedback.
- */
 pub struct MultilineProcessor;
 
 impl MultilineProcessor {
-	/**
-	 * Checks if input needs multiline continuation
-	 * 
-	 * @param input - Input text to check
-	 * @return (bool, Option<char>) - (Needs continuation, continuation character)
-	 */
 	pub fn check_multiline_continuation(input: &str) -> (bool, Option<char>) {
-		/**
-		 * マルチライン継続チェックの複雑な処理です (｡◕‿◕｡)
-		 * 
-		 * この関数は複雑な構文解析を行います。
-		 * 継続文字とクォート処理が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
-		 */
 		
 		let trimmed = input.trim();
 		
@@ -190,13 +124,6 @@ impl MultilineProcessor {
 		(false, None)
 	}
 	
-	/**
-	 * Updates multiline state based on input
-	 * 
-	 * @param state - Current multiline state
-	 * @param input - Input text to check
-	 * @return MultilineState - Updated state
-	 */
 	pub fn update_multiline_state(mut state: MultilineState, input: &str) -> MultilineState {
 		let (needs_continuation, continuation_char) = Self::check_multiline_continuation(input);
 		
@@ -222,12 +149,6 @@ impl MultilineProcessor {
 		state
 	}
 	
-	/**
-	 * Gets the appropriate prompt for multiline state
-	 * 
-	 * @param state - Multiline state
-	 * @return String - Prompt string
-	 */
 	pub fn get_prompt(state: &MultilineState) -> String {
 		if state.multiline_mode {
 			state.multiline_prompt.clone()

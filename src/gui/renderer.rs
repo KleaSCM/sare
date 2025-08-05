@@ -1,31 +1,11 @@
-/**
- * Terminal renderer for Sare GUI
- * 
- * This module contains the rendering logic for the terminal
- * interface including pane rendering and UI components.
- * 
- * Author: KleaSCM
- * Email: KleaSCM@gmail.com
- * File: renderer.rs
- * Description: Terminal rendering implementation
- */
 
 use eframe::egui;
 
 use super::terminal::SareTerminal;
 
-/**
- * Terminal renderer
- * 
- * Handles the rendering of the terminal interface
- * including panes, output, and input areas.
- */
 pub struct TerminalRenderer;
 
 impl TerminalRenderer {
-	/**
-	 * Renders the terminal interface
-	 */
 	pub fn render_terminal(terminal: &mut SareTerminal, ctx: &egui::Context) {
 		egui::CentralPanel::default().show(ctx, |ui| {
 			// Fill entire background with dark color

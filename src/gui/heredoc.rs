@@ -1,23 +1,6 @@
-/**
- * Heredoc processing for Sare terminal
- * 
- * This module provides heredoc support including
- * syntax detection, content collection, and variable expansion.
- * 
- * Author: KleaSCM
- * Email: KleaSCM@gmail.com
- * File: heredoc.rs
- * Description: Heredoc processing and content management
- */
 
 use anyhow::Result;
 
-/**
- * Heredoc state
- * 
- * Manages the state of heredoc processing including
- * delimiter, content collection, and variable expansion.
- */
 #[derive(Debug, Clone)]
 pub struct HeredocState {
 	/// Whether in heredoc mode
@@ -42,122 +25,52 @@ impl Default for HeredocState {
 }
 
 impl HeredocState {
-	/**
-	 * Checks if in heredoc mode
-	 * 
-	 * @return bool - True if in heredoc mode
-	 */
 	pub fn is_heredoc(&self) -> bool {
 		self.heredoc_mode
 	}
 	
-	/**
-	 * Sets heredoc mode
-	 * 
-	 * @param mode - Heredoc mode state
-	 */
 	pub fn set_heredoc(&mut self, mode: bool) {
 		self.heredoc_mode = mode;
 	}
 	
-	/**
-	 * Sets heredoc delimiter
-	 * 
-	 * @param delimiter - Delimiter string
-	 */
 	pub fn set_delimiter(&mut self, delimiter: String) {
 		self.heredoc_delimiter = delimiter;
 	}
 	
-	/**
-	 * Gets heredoc delimiter
-	 * 
-	 * @return String - Delimiter string
-	 */
 	pub fn get_delimiter(&self) -> String {
 		self.heredoc_delimiter.clone()
 	}
 	
-	/**
-	 * Sets heredoc content
-	 * 
-	 * @param content - Content string
-	 */
 	pub fn set_heredoc_content(&mut self, content: String) {
 		self.heredoc_content = content;
 	}
 	
-	/**
-	 * Gets heredoc content
-	 * 
-	 * @return String - Content string
-	 */
 	pub fn get_heredoc_content(&self) -> String {
 		self.heredoc_content.clone()
 	}
 	
-	/**
-	 * Sets variable expansion flag
-	 * 
-	 * @param expand - Whether to expand variables
-	 */
 	pub fn set_expand_vars(&mut self, expand: bool) {
 		self.heredoc_expand_vars = expand;
 	}
 	
-	/**
-	 * Checks if variables should be expanded
-	 * 
-	 * @return bool - True if variables should be expanded
-	 */
 	pub fn should_expand_vars(&self) -> bool {
 		self.heredoc_expand_vars
 	}
 	
-	/**
-	 * Adds content to heredoc
-	 * 
-	 * @param content - Content to add
-	 */
 	pub fn add_heredoc_content(&mut self, content: String) {
 		self.heredoc_content.push_str(&content);
 		self.heredoc_content.push('\n');
 	}
 	
-	/**
-	 * Detects heredoc syntax in input
-	 * 
-	 * @param input - Input text to check
-	 * @return Option<(String, bool)> - (Delimiter, expand variables) if heredoc found
-	 */
 	pub fn detect_heredoc(&self, input: &str) -> Option<(String, bool)> {
 		HeredocProcessor::detect_heredoc(input)
 	}
 }
 
-/**
- * Heredoc processor
- * 
- * Handles heredoc syntax detection and content processing
- * with variable expansion and delimiter handling.
- */
 pub struct HeredocProcessor;
 
 impl HeredocProcessor {
-	/**
-	 * Detects heredoc syntax in input
-	 * 
-	 * @param input - Input text to check
-	 * @return Option<(String, bool)> - (Delimiter, expand variables) if heredoc found
-	 */
 	pub fn detect_heredoc(input: &str) -> Option<(String, bool)> {
-		/**
-		 * ヒアドキュメント検出の複雑な処理です (｡◕‿◕｡)
-		 * 
-		 * この関数は複雑な構文解析を行います。
-		 * ヒアドキュメント構文の検出が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
-		 */
 		
 		let words: Vec<&str> = input.split_whitespace().collect();
 		
@@ -181,13 +94,6 @@ impl HeredocProcessor {
 		None
 	}
 	
-	/**
-	 * Checks if current line matches heredoc delimiter
-	 * 
-	 * @param state - Current heredoc state
-	 * @param line - Current line to check
-	 * @return bool - True if line matches delimiter
-	 */
 	pub fn is_heredoc_delimiter(state: &HeredocState, line: &str) -> bool {
 		if !state.heredoc_mode {
 			return false;
@@ -197,20 +103,7 @@ impl HeredocProcessor {
 		trimmed == state.heredoc_delimiter
 	}
 	
-	/**
-	 * Expands variables in heredoc content
-	 * 
-	 * @param content - Content to expand
-	 * @return String - Content with variables expanded
-	 */
 	pub fn expand_heredoc_variables(content: &str) -> String {
-		/**
-		 * ヒアドキュメント変数展開の複雑な処理です (◕‿◕)
-		 * 
-		 * この関数は複雑な変数展開を行います。
-		 * 環境変数の置換が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
-		 */
 		
 		let mut result = String::new();
 		let mut i = 0;
@@ -258,13 +151,6 @@ impl HeredocProcessor {
 		result
 	}
 	
-	/**
-	 * Updates heredoc state based on input
-	 * 
-	 * @param state - Current heredoc state
-	 * @param input - Input text to check
-	 * @return HeredocState - Updated state
-	 */
 	pub fn update_heredoc_state(mut state: HeredocState, input: &str) -> HeredocState {
 		// Check for heredoc syntax
 		if let Some((delimiter, expand_vars)) = Self::detect_heredoc(input) {
@@ -276,13 +162,6 @@ impl HeredocProcessor {
 		state
 	}
 	
-	/**
-	 * Adds content to heredoc with variable expansion
-	 * 
-	 * @param state - Current heredoc state
-	 * @param content - Content to add
-	 * @return HeredocState - Updated state
-	 */
 	pub fn add_heredoc_content(mut state: HeredocState, content: &str) -> HeredocState {
 		if state.heredoc_mode {
 			let processed_content = if state.heredoc_expand_vars {
@@ -298,12 +177,6 @@ impl HeredocProcessor {
 		state
 	}
 	
-	/**
-	 * Gets the heredoc prompt for display
-	 * 
-	 * @param state - Heredoc state
-	 * @return String - Prompt string
-	 */
 	pub fn get_prompt(state: &HeredocState) -> String {
 		if state.heredoc_mode {
 			"heredoc> ".to_string()
