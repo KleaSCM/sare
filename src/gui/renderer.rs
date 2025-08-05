@@ -20,12 +20,13 @@ pub struct TerminalRenderer;
 impl TerminalRenderer {
 	pub fn render_terminal(terminal: &mut SareTerminal, ctx: &egui::Context) {
 		/**
-		 * ターミナルレンダリングの複雑な処理です (｡◕‿◕｡)
+		 * ターミナルをレンダリングする関数です
 		 * 
-		 * この関数は複雑なUIレンダリングを行います。ペイン管理と
-		 * カーソル表示が難しい部分なので、適切なエラーハンドリングで実装しています。
+		 * マルチペインターミナルインターフェースを描画し、
+		 * 各ペインの出力バッファとカーソルを表示します。
 		 * 
-		 * マルチペイン表示とカーソルアニメーションの複雑なロジックです
+		 * ペイン管理、カーソルアニメーション、プロンプト表示を
+		 * 含む完全なターミナルレンダリングを実行します
 		 */
 		
 		egui::CentralPanel::default().show(ctx, |ui| {

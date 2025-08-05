@@ -128,11 +128,13 @@ impl ProcessManager {
 	 */
 	pub async fn create_process(&mut self, options: ProcessOptions) -> Result<u32> {
 		/**
-		 * プロセス作成の複雑な処理です (｡◕‿◕｡)
+		 * プロセスを作成する関数です
 		 * 
-		 * この関数は複雑なプロセス管理を行います。
-		 * フォークとexec呼び出しが難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 * 指定されたコマンドとオプションに基づいて新しいプロセスを
+		 * 作成し、プロセスグループとファイルディスクリプタを設定します。
+		 * 
+		 * fork()とexecvp()を使用してプロセスを作成し、環境変数と
+		 * 作業ディレクトリを適切に設定します
 		 */
 		
 		// Implement actual process creation with fork() and exec()
@@ -250,11 +252,13 @@ impl ProcessManager {
 	 */
 	pub async fn send_signal(&self, pid: u32, signal: i32) -> Result<()> {
 		/**
-		 * シグナル送信の複雑な処理です (◕‿◕)
+		 * プロセスにシグナルを送信する関数です
 		 * 
-		 * この関数は複雑なシグナル制御を行います。
-		 * killシステムコールが難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+		 * 指定されたプロセスIDにシグナルを送信し、
+		 * プロセスの状態を適切に更新します。
+		 * 
+		 * kill()システムコールを使用してシグナルを送信し、
+		 * プロセスステータスをシグナルに応じて変更します
 		 */
 		
 		// Implement actual signal sending with kill() system call
@@ -412,11 +416,13 @@ impl ProcessManager {
 	 */
 	pub async fn set_foreground_pgid(&mut self, pgid: u32) -> Result<()> {
 		/**
-		 * フォアグラウンドプロセスグループ設定の複雑な処理です (｡◕‿◕｡)
+		 * フォアグラウンドプロセスグループを設定する関数です
 		 * 
-		 * この関数は複雑なプロセスグループ制御を行います。
-		 * tcsetpgrp呼び出しが難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 * 指定されたプロセスグループをフォアグラウンドに設定し、
+		 * ターミナル制御を適切に管理します。
+		 * 
+		 * tcsetpgrp()システムコールを使用してフォアグラウンド
+		 * プロセスグループを設定し、内部状態を更新します
 		 */
 		
 		// Implement actual foreground group setting with tcsetpgrp()
@@ -443,11 +449,13 @@ impl ProcessManager {
 	 */
 	pub async fn create_process_group(&mut self, leader_pid: u32) -> Result<u32> {
 		/**
-		 * プロセスグループ作成の複雑な処理です (◕‿◕)
+		 * プロセスグループを作成する関数です
 		 * 
-		 * この関数は複雑なプロセスグループ管理を行います。
-		 * setpgid呼び出しが難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+		 * 指定されたリーダープロセスIDを使用して新しい
+		 * プロセスグループを作成し、グループ管理を設定します。
+		 * 
+		 * setpgid()システムコールを使用してプロセスグループを作成し、
+		 * グループ情報を内部管理システムに追加します
 		 */
 		
 		// Implement actual process group creation with setpgid()

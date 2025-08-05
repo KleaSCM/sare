@@ -122,7 +122,6 @@ impl FontManager {
 		
 		let mut font_paths = Vec::new();
 		
-		// Add system font paths
 		if cfg!(target_os = "linux") {
 			font_paths.push(PathBuf::from("/usr/share/fonts"));
 			font_paths.push(PathBuf::from("/usr/local/share/fonts"));
@@ -175,18 +174,14 @@ impl FontManager {
 		let cache_key = format!("{}:{}:{}:{}", family, size, weight as u32, style as u32);
 		let mut font_cache = self.font_cache.write().await;
 		
-		// Check cache first
 		if let Some(cached_font) = font_cache.get(&cache_key) {
 			return Ok(cached_font.clone());
 		}
 		
-		// Search for font file
 		let font_path = self.find_font_file(family, weight, style).await?;
 		
-		// Load font data
 		let font_data = std::fs::read(&font_path)?;
 		
-		// Create cached font
 		let cached_font = CachedFont {
 			family: family.to_string(),
 			size,
@@ -215,11 +210,13 @@ impl FontManager {
 	 */
 	async fn find_font_file(&self, family: &str, weight: FontWeight, style: FontStyle) -> Result<PathBuf> {
 		/**
-		 * フォントファイル検索の複雑な処理です (｡◕‿◕｡)
+		 * フォントファイルを検索する関数です
 		 * 
-		 * この関数は複雑なファイルシステム検索を行います。
-		 * 複数のフォントディレクトリの検索が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 * 指定されたファミリー、ウェイト、スタイルに一致する
+		 * フォントファイルをシステムのフォントディレクトリから検索します。
+		 * 
+		 * 複数のフォントディレクトリを順次検索し、ファイル名の
+		 * パターンマッチングを使用して適切なフォントファイルを特定します
 		 */
 		
 		for font_path in &self.font_paths {
@@ -261,7 +258,6 @@ impl FontManager {
 			return false;
 		}
 		
-		// Check weight (simplified)
 		match weight {
 			FontWeight::Bold => {
 				if !file_name_lower.contains("bold") && !file_name_lower.contains("heavy") {
@@ -273,20 +269,18 @@ impl FontManager {
 					return false;
 				}
 			}
-			_ => {} // Normal weight is default
+			_ => {}
 		}
 		
-		// Check style (simplified)
 		match style {
 			FontStyle::Italic => {
 				if !file_name_lower.contains("italic") && !file_name_lower.contains("oblique") {
 					return false;
 				}
 			}
-			_ => {} // Normal style is default
+			_ => {} 
 		}
 		
-		// Check file extension
 		file_name_lower.ends_with(".ttf") || 
 		file_name_lower.ends_with(".otf") || 
 		file_name_lower.ends_with(".woff") || 
@@ -338,11 +332,13 @@ impl FontManager {
 	 */
 	pub async fn get_available_font_families(&self) -> Result<Vec<String>> {
 		/**
-		 * 利用可能フォント検索の複雑な処理です (◕‿◕)
+		 * 利用可能なフォントファミリーを取得する関数です
 		 * 
-		 * この関数は複雑なフォント検索を行います。
-		 * システムフォントの列挙が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+		 * システムで利用可能なすべてのフォントファミリーを
+		 * 検索して一覧を返します。
+		 * 
+		 * フォントディレクトリを走査し、フォントファイルから
+		 * ファミリー名を抽出して重複を除去したリストを作成します
 		 */
 		
 		let mut families = std::collections::HashSet::new();
@@ -374,16 +370,13 @@ impl FontManager {
 	 * @return Option<String> - Extracted font family name
 	 */
 	fn extract_font_family(&self, file_name: &str) -> Option<String> {
-		// Implement proper font family extraction with actual font parsing
 		if !file_name.ends_with(".ttf") && !file_name.ends_with(".otf") && !file_name.ends_with(".ttc") {
 			return None;
 		}
 		
-		// Try to extract family name from font file using fontconfig
 		unsafe {
 			use std::ffi::CString;
 			
-			// Try to use fontconfig library
 			let fontconfig_lib = match CString::new("libfontconfig.so.1") {
 				Ok(s) => s,
 				Err(_) => return self.simple_extract_family(file_name),
@@ -391,7 +384,7 @@ impl FontManager {
 			
 			let handle = libc::dlopen(fontconfig_lib.as_ptr(), libc::RTLD_NOW);
 			if !handle.is_null() {
-				// Try to get font family using fontconfig
+	
 				if let Ok(family) = self.extract_family_with_fontconfig(file_name) {
 					libc::dlclose(handle);
 					return Some(family);
@@ -400,7 +393,6 @@ impl FontManager {
 			}
 		}
 		
-		// Fallback to simple extraction
 		self.simple_extract_family(file_name)
 	}
 	
@@ -417,25 +409,19 @@ impl FontManager {
 			.replace(".otf", "")
 			.replace(".ttc", "");
 		
-		// Handle common font naming patterns
 		if name.contains('-') {
-			// Split by dash and take the first part
 			if let Some(family) = name.split('-').next() {
 				return Some(family.to_string());
 			}
 		}
 		
-		// Handle underscore patterns
 		if name.contains('_') {
-			// Split by underscore and take the first part
 			if let Some(family) = name.split('_').next() {
 				return Some(family.to_string());
 			}
 		}
 		
-		// Handle camelCase patterns
 		if name.chars().any(|c| c.is_uppercase()) {
-			// Try to split at uppercase letters
 			let mut result = String::new();
 			let mut chars = name.chars().peekable();
 			
@@ -461,8 +447,7 @@ impl FontManager {
 	 * @return Result<String> - Font family name
 	 */
 	fn extract_family_with_fontconfig(&self, file_name: &str) -> Result<String> {
-		// This would require linking against fontconfig
-		// For now, return an error to fall back to simple extraction
+
 		Err(anyhow::anyhow!("Fontconfig not available"))
 	}
 	
