@@ -18,6 +18,7 @@ pub mod wgpu_backend;
 pub mod renderer;
 pub mod text;
 pub mod fonts;
+pub mod advanced_renderer;
 
 use anyhow::Result;
 use std::sync::Arc;

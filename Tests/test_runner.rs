@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
 
 mod test_ansi_protocol;
+mod test_advanced_rendering;
 
 /**
  * Test result information
@@ -747,6 +748,42 @@ impl TestRunner {
 	}
 	
 	/**
+	 * Runs all advanced rendering tests
+	 * 
+	 * @return Vec<TestResult> - Advanced rendering test results
+	 */
+	fn run_advanced_rendering_tests(&self) -> Vec<TestResult> {
+		/**
+		 * 高度なレンダリングテストを実行する関数です
+		 * 
+		 * 高度なレンダリングエンジンの各コンポーネントをテストし、
+		 * Unicodeサポート、双方向テキスト、行折り返し、GPUテクスチャ管理、
+		 * メモリ管理が正しく動作することを検証します。
+		 * 
+		 * フォントレンダリング、Unicodeサポート、双方向テキスト、行折り返し、
+		 * リガチャーサポート、GPUテクスチャ管理、メモリ管理の各機能を
+		 * 個別にテストして結果を返します
+		 */
+		
+		let mut results = Vec::new();
+		
+		// Use the comprehensive test suite from the separate module
+		let advanced_rendering_results = test_advanced_rendering::run_advanced_rendering_tests();
+		for (name, success) in advanced_rendering_results {
+			results.push(TestResult {
+				name: name.to_string(),
+				category: "advanced_rendering".to_string(),
+				success,
+				execution_time: 0,
+				error_message: if success { None } else { Some("Test failed".to_string()) },
+				description: format!("Advanced rendering test: {}", name),
+			});
+		}
+		
+		results
+	}
+	
+	/**
 	 * Runs all tests and generates comprehensive report
 	 * 
 	 * @return TestSuiteSummary - Complete test suite summary
@@ -802,6 +839,11 @@ impl TestRunner {
 		println!("\n🎨 Running ANSI Protocol Tests...");
 		let ansi_protocol_results = self.run_ansi_protocol_tests();
 		all_results.extend(ansi_protocol_results);
+		
+		// Run advanced rendering tests
+		println!("\n🎨 Running Advanced Rendering Tests...");
+		let advanced_rendering_results = self.run_advanced_rendering_tests();
+		all_results.extend(advanced_rendering_results);
 		
 		let total_time = start_time.elapsed();
 		
