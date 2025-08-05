@@ -243,13 +243,15 @@ impl GpuTextRenderer {
 			return Ok(cached_font.clone());
 		}
 		
-		// Create new font (placeholder implementation)
+		// Load actual font data using fontdue
+		let font_data = self.load_font_data(font_family, font_size).await?;
+		
 		let cached_font = CachedFont {
 			family: font_family.to_string(),
 			size: font_size,
 			weight: FontWeight::Normal,
 			style: FontStyle::Normal,
-			data: Vec::new(), // TODO: Load actual font data
+			data: font_data,
 		};
 		
 		font_cache.insert(cache_key, cached_font.clone());
@@ -289,12 +291,15 @@ impl GpuTextRenderer {
 	) {
 		let mut text_blob_cache = self.text_blob_cache.write().await;
 		
+		// Generate actual rendered data using fontdue
+		let rendered_data = self.generate_rendered_data(text, font_family, font_size, color).await?;
+		
 		let cached_blob = CachedTextBlob {
 			text: text.to_string(),
 			font_family: font_family.to_string(),
 			font_size,
 			color,
-			data: Vec::new(), // TODO: Store actual rendered data
+			data: rendered_data,
 			bounds: bounds.clone(),
 		};
 		
@@ -342,6 +347,202 @@ impl GpuTextRenderer {
 	pub async fn clear_text_blob_cache(&self) {
 		let mut text_blob_cache = self.text_blob_cache.write().await;
 		text_blob_cache.clear();
+	}
+	
+	/**
+	 * Loads actual font data from system fonts
+	 * 
+	 * @param font_family - Font family name
+	 * @param font_size - Font size in points
+	 * @return Result<Vec<u8>> - Font data or error
+	 */
+	async fn load_font_data(&self, font_family: &str, font_size: f32) -> Result<Vec<u8>> {
+		use fontdue::Font;
+		use std::fs;
+		use std::path::Path;
+		
+		// Common font paths to search
+		let font_paths = vec![
+			"/usr/share/fonts",
+			"/usr/local/share/fonts",
+			"/System/Library/Fonts", // macOS
+			"/Library/Fonts", // macOS
+			format!("{}/.fonts", dirs::home_dir().unwrap_or_default().display()),
+			format!("{}/Library/Fonts", dirs::home_dir().unwrap_or_default().display()),
+		];
+		
+		// Font file extensions to look for
+		let font_extensions = vec!["ttf", "otf", "woff", "woff2"];
+		
+		// Search for the font file
+		for font_path in font_paths {
+			if let Ok(entries) = fs::read_dir(font_path) {
+				for entry in entries {
+					if let Ok(entry) = entry {
+						let path = entry.path();
+						if let Some(extension) = path.extension() {
+							if let Some(ext_str) = extension.to_str() {
+								if font_extensions.contains(&ext_str) {
+									// Check if filename contains the font family name
+									if let Some(file_name) = path.file_name() {
+										if let Some(name_str) = file_name.to_str() {
+											if name_str.to_lowercase().contains(&font_family.to_lowercase()) {
+												// Found matching font file
+												if let Ok(font_data) = fs::read(&path) {
+													// Parse font with fontdue
+													if let Ok(font) = Font::from_bytes(font_data.clone(), fontdue::FontSettings::default()) {
+														// Store the parsed font data
+														return Ok(font_data);
+													}
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		// Fallback to default system font
+		let fallback_fonts = vec![
+			"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+			"/System/Library/Fonts/Helvetica.ttc",
+			"/usr/share/fonts/TTF/arial.ttf",
+		];
+		
+		for fallback_path in fallback_fonts {
+			if Path::new(fallback_path).exists() {
+				if let Ok(font_data) = fs::read(fallback_path) {
+					return Ok(font_data);
+				}
+			}
+		}
+		
+		// If no font found, return empty data (will use fallback rendering)
+		Ok(Vec::new())
+	}
+	
+	/**
+	 * Generates actual rendered text data using fontdue
+	 * 
+	 * @param text - Text to render
+	 * @param font_family - Font family
+	 * @param font_size - Font size
+	 * @param color - Text color
+	 * @return Result<Vec<u8>> - Rendered text data or error
+	 */
+	async fn generate_rendered_data(&self, text: &str, font_family: &str, font_size: f32, color: u32) -> Result<Vec<u8>> {
+		use fontdue::{Font, FontSettings};
+		use std::collections::HashMap;
+		
+		// Load font data
+		let font_data = self.load_font_data(font_family, font_size).await?;
+		
+		if font_data.is_empty() {
+			// Fallback to simple bitmap rendering
+			return self.generate_fallback_rendered_data(text, font_size, color);
+		}
+		
+		// Parse font with fontdue
+		let font = Font::from_bytes(font_data, FontSettings::default())?;
+		
+		// Render text to bitmap
+		let mut rendered_data = Vec::new();
+		let mut glyph_positions = Vec::new();
+		
+		// Calculate text layout
+		let mut x_offset = 0.0;
+		let line_height = font_size * 1.2;
+		
+		for ch in text.chars() {
+			// Get glyph metrics
+			let (metrics, bitmap) = font.rasterize(ch, font_size);
+			
+			// Store glyph position
+			glyph_positions.push((ch, x_offset, metrics));
+			
+			// Add bitmap data to rendered data
+			rendered_data.extend_from_slice(&bitmap);
+			
+			// Advance x position
+			x_offset += metrics.advance_width;
+		}
+		
+		// Add metadata to rendered data
+		let metadata = serde_json::json!({
+			"text": text,
+			"font_family": font_family,
+			"font_size": font_size,
+			"color": color,
+			"glyph_positions": glyph_positions,
+			"line_height": line_height,
+			"total_width": x_offset
+		});
+		
+		let metadata_bytes = serde_json::to_vec(&metadata)?;
+		
+		// Combine metadata and bitmap data
+		let mut final_data = Vec::new();
+		final_data.extend_from_slice(&(metadata_bytes.len() as u32).to_le_bytes());
+		final_data.extend_from_slice(&metadata_bytes);
+		final_data.extend_from_slice(&rendered_data);
+		
+		Ok(final_data)
+	}
+	
+	/**
+	 * Generates fallback rendered data when no font is available
+	 * 
+	 * @param text - Text to render
+	 * @param font_size - Font size
+	 * @param color - Text color
+	 * @return Result<Vec<u8>> - Fallback rendered data
+	 */
+	async fn generate_fallback_rendered_data(&self, text: &str, font_size: f32, color: u32) -> Result<Vec<u8>> {
+		// Simple bitmap rendering for fallback
+		let char_width = (font_size * 0.6) as usize;
+		let char_height = font_size as usize;
+		let text_width = text.len() * char_width;
+		
+		// Create simple bitmap data
+		let mut bitmap = vec![0u8; text_width * char_height * 4]; // RGBA
+		
+		// Fill with color data
+		let r = ((color >> 16) & 0xFF) as u8;
+		let g = ((color >> 8) & 0xFF) as u8;
+		let b = (color & 0xFF) as u8;
+		let a = 255u8;
+		
+		for i in 0..bitmap.len() / 4 {
+			bitmap[i * 4] = r;
+			bitmap[i * 4 + 1] = g;
+			bitmap[i * 4 + 2] = b;
+			bitmap[i * 4 + 3] = a;
+		}
+		
+		// Add metadata
+		let metadata = serde_json::json!({
+			"text": text,
+			"font_family": "fallback",
+			"font_size": font_size,
+			"color": color,
+			"width": text_width,
+			"height": char_height,
+			"fallback": true
+		});
+		
+		let metadata_bytes = serde_json::to_vec(&metadata)?;
+		
+		// Combine metadata and bitmap data
+		let mut final_data = Vec::new();
+		final_data.extend_from_slice(&(metadata_bytes.len() as u32).to_le_bytes());
+		final_data.extend_from_slice(&metadata_bytes);
+		final_data.extend_from_slice(&bitmap);
+		
+		Ok(final_data)
 	}
 	
 	/**

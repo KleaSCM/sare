@@ -294,10 +294,133 @@ impl TerminalEmulator {
 		self.pty_session = Some(Arc::new(RwLock::new(session)));
 		if let Some(cmd) = command {
 			// Launch specific command
-			// TODO: Implement command launching
+			self.launch_command(cmd).await?;
 		} else {
 			// Launch default shell
-			// TODO: Implement shell launching
+			self.launch_shell().await?;
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Launches a specific command in the PTY session
+	 * 
+	 * @param command - Command to launch
+	 * @return Result<()> - Success or error status
+	 */
+	async fn launch_command(&mut self, command: &str) -> Result<()> {
+		use std::process::Command;
+		use std::os::unix::io::{AsRawFd, FromRawFd};
+		
+		if let Some(pty_session) = &self.pty_session {
+			let session = pty_session.read().await;
+			
+			// Parse command and arguments
+			let parts: Vec<&str> = command.split_whitespace().collect();
+			if parts.is_empty() {
+				return Err(anyhow::anyhow!("Empty command"));
+			}
+			
+			let (cmd, args) = (parts[0], &parts[1..]);
+			
+			// Create command with PTY slave as stdin/stdout/stderr
+			let mut child = Command::new(cmd);
+			child.args(args);
+			
+			// Set up PTY slave file descriptor
+			unsafe {
+				use libc::{dup2, close};
+				let slave_fd = session.slave_fd;
+				
+				// Redirect stdin, stdout, stderr to PTY slave
+				dup2(slave_fd, 0); // stdin
+				dup2(slave_fd, 1); // stdout
+				dup2(slave_fd, 2); // stderr
+				
+				// Close the original slave fd since we've duplicated it
+				close(slave_fd);
+			}
+			
+			// Set environment variables
+			child.env("TERM", &self.config.term_type);
+			child.env("COLUMNS", self.state.size.0.to_string());
+			child.env("LINES", self.state.size.1.to_string());
+			
+			// Spawn the process
+			match child.spawn() {
+				Ok(child) => {
+					// Add process to tracking
+					let mut processes = self.processes.write().await;
+					processes.push(ProcessInfo {
+						pid: child.id(),
+						name: cmd.to_string(),
+						command: command.to_string(),
+						status: ProcessStatus::Running,
+					});
+				}
+				Err(e) => {
+					return Err(anyhow::anyhow!("Failed to spawn command: {}", e));
+				}
+			}
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Launches the default shell in the PTY session
+	 * 
+	 * @return Result<()> - Success or error status
+	 */
+	async fn launch_shell(&mut self) -> Result<()> {
+		use std::process::Command;
+		use std::os::unix::io::{AsRawFd, FromRawFd};
+		
+		if let Some(pty_session) = &self.pty_session {
+			let session = pty_session.read().await;
+			
+			// Get default shell
+			let shell = &self.config.default_shell;
+			
+			// Create command with PTY slave as stdin/stdout/stderr
+			let mut child = Command::new(shell);
+			
+			// Set up PTY slave file descriptor
+			unsafe {
+				use libc::{dup2, close};
+				let slave_fd = session.slave_fd;
+				
+				// Redirect stdin, stdout, stderr to PTY slave
+				dup2(slave_fd, 0); // stdin
+				dup2(slave_fd, 1); // stdout
+				dup2(slave_fd, 2); // stderr
+				
+				// Close the original slave fd since we've duplicated it
+				close(slave_fd);
+			}
+			
+			// Set environment variables
+			child.env("TERM", &self.config.term_type);
+			child.env("COLUMNS", self.state.size.0.to_string());
+			child.env("LINES", self.state.size.1.to_string());
+			
+			// Spawn the shell
+			match child.spawn() {
+				Ok(child) => {
+					// Add process to tracking
+					let mut processes = self.processes.write().await;
+					processes.push(ProcessInfo {
+						pid: child.id(),
+						name: shell.clone(),
+						command: shell.clone(),
+						status: ProcessStatus::Running,
+					});
+				}
+				Err(e) => {
+					return Err(anyhow::anyhow!("Failed to spawn shell: {}", e));
+				}
+			}
 		}
 		
 		Ok(())

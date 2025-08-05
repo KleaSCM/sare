@@ -17,8 +17,7 @@ use eframe::egui;
 use std::process::Command;
 
 use super::pane::{TerminalPane, SplitDirection, TerminalMode, TerminalLine};
-// TODO: Fix history import
-// use super::super::history::{HistoryManager, TabCompleter};
+use crate::history::{HistoryManager, TabCompleter};
 use super::multiline::{MultilineState, MultilineProcessor};
 use super::heredoc::{HeredocState, HeredocProcessor};
 use super::substitution::{SubstitutionState, SubstitutionProcessor};
@@ -27,9 +26,9 @@ use super::expansion::{ExpansionState, ExpansionProcessor};
 #[derive(Debug)]
 pub struct SareTerminal {
 	/// Command history manager
-	// pub history_manager: HistoryManager,
+	pub history_manager: HistoryManager,
 	/// Tab completion engine
-	// pub tab_completer: TabCompleter,
+	pub tab_completer: TabCompleter,
 	/// History index for navigation
 	pub history_index: Option<usize>,
 	/// Current working directory
@@ -69,24 +68,28 @@ impl Default for SareTerminal {
 
 		
 		let default_pane = TerminalPane::default();
-		// TODO: Fix history manager initialization
-		// let history_manager = HistoryManager::new().unwrap_or_else(|_| {
-		// 	HistoryManager::with_config(1000, std::path::PathBuf::from(".sare_history"))
-		// 		.unwrap_or_else(|_| HistoryManager {
-		// 			history: std::collections::VecDeque::new(),
-		// 			max_entries: 1000,
-		// 			history_file: std::path::PathBuf::from(".sare_history"),
-		// 		})
-		// });
 		
-		// TODO: Fix tab completer initialization
-		// let working_directory = std::env::current_dir()
-		// 	.unwrap_or_default();
-		// let tab_completer = TabCompleter::new(working_directory);
+		// Initialize history manager with proper error handling
+		let history_manager = HistoryManager::new().unwrap_or_else(|_| {
+			HistoryManager::with_config(1000, std::path::PathBuf::from(".sare_history"))
+				.unwrap_or_else(|_| {
+					// Fallback to basic history manager if all else fails
+					HistoryManager {
+						history: std::collections::VecDeque::new(),
+						max_entries: 1000,
+						history_file: std::path::PathBuf::from(".sare_history"),
+					}
+				})
+		});
+		
+		// Initialize tab completer with proper working directory
+		let working_directory = std::env::current_dir()
+			.unwrap_or_else(|_| std::path::PathBuf::from("/"));
+		let tab_completer = TabCompleter::new(working_directory);
 		
 		Self {
-			// history_manager,
-			// tab_completer,
+			history_manager,
+			tab_completer,
 			history_index: None,
 			current_dir: std::env::current_dir()
 				.unwrap_or_default()
@@ -129,9 +132,8 @@ impl SareTerminal {
 		};
 		
 		if !final_command.trim().is_empty() {
-			// TODO: Fix history manager usage
-			// self.history_manager.add_command(final_command.clone(), None);
-			// self.tab_completer.add_command(final_command.clone());
+			self.history_manager.add_command(final_command.clone(), None);
+			self.tab_completer.add_command(final_command.clone());
 			self.history_index = None;
 			self.history_search_mode = false;
 			self.history_search_query.clear();
@@ -199,16 +201,14 @@ impl SareTerminal {
 	}
 	
 	fn get_history_display(&self) -> String {
-		// TODO: Fix history manager usage
-		// let history = self.history_manager.get_history();
-		// let mut display = String::new();
-		// 
-		// for (i, entry) in history.iter().enumerate() {
-		// 	display.push_str(&format!("{:4}  {}\n", i + 1, entry.command));
-		// }
-		// 
-		// display
-		"History display temporarily disabled".to_string()
+		let history = self.history_manager.get_history();
+		let mut display = String::new();
+		
+		for (i, entry) in history.iter().enumerate() {
+			display.push_str(&format!("{:4}  {}\n", i + 1, entry.command));
+		}
+		
+		display
 	}
 	
 	pub fn add_output_line(&mut self, content: String, color: egui::Color32, is_prompt: bool) {
@@ -245,15 +245,14 @@ impl SareTerminal {
 									let input = &pane.current_input;
 									let cursor_pos = pane.cursor_pos;
 									
-									// TODO: Fix tab completer usage
-									// if let Ok(Some(completion)) = self.tab_completer.complete(input, cursor_pos) {
-									// 	pane.current_input = completion.completed_text;
-									// 	pane.cursor_pos = pane.current_input.len();
-									// 	
-									// 	if completion.is_partial && !completion.alternatives.is_empty() {
-									// 		println!("Available completions: {:?}", completion.alternatives);
-									// 	}
-									// }
+									if let Ok(Some(completion)) = self.tab_completer.complete(input, cursor_pos) {
+										pane.current_input = completion.completed_text;
+										pane.cursor_pos = pane.current_input.len();
+										
+										if completion.is_partial && !completion.alternatives.is_empty() {
+											println!("Available completions: {:?}", completion.alternatives);
+										}
+									}
 								}
 							}
 							egui::Key::Tab if modifiers.shift => {
@@ -401,54 +400,52 @@ impl SareTerminal {
 	}
 	
 	pub fn navigate_history_up(&mut self) {
-		// TODO: Fix history manager usage
-		// let history = self.history_manager.get_history();
-		// if history.is_empty() {
-		// 	return;
-		// }
-		// 
-		// let current_index = self.history_index.unwrap_or(history.len());
-		// 
-		// if current_index > 0 {
-		// 	self.history_index = Some(current_index - 1);
-		// 	if let Some(entry) = history.get(current_index - 1) {
-		// 		if self.original_input.is_empty() {
-		// 			if let Some(pane) = self.panes.get(self.focused_pane) {
-		// 				self.original_input = pane.current_input.clone();
-		// 			}
-		// 		}
-		// 		
-		// 		if let Some(pane) = self.panes.get_mut(self.focused_pane) {
-		// 			pane.current_input = entry.command.clone();
-		// 		}
-		// 	}
-		// }
+		let history = self.history_manager.get_history();
+		if history.is_empty() {
+			return;
+		}
+		
+		let current_index = self.history_index.unwrap_or(history.len());
+		
+		if current_index > 0 {
+			self.history_index = Some(current_index - 1);
+			if let Some(entry) = history.get(current_index - 1) {
+				if self.original_input.is_empty() {
+					if let Some(pane) = self.panes.get(self.focused_pane) {
+						self.original_input = pane.current_input.clone();
+					}
+				}
+				
+				if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+					pane.current_input = entry.command.clone();
+				}
+			}
+		}
 	}
 	
 	pub fn navigate_history_down(&mut self) {
-		// TODO: Fix history manager usage
-		// let history = self.history_manager.get_history();
-		// if history.is_empty() {
-		// 	return;
-		// }
-		// 
-		// let current_index = self.history_index.unwrap_or(history.len());
-		// 
-		// if current_index < history.len() - 1 {
-		// 	self.history_index = Some(current_index + 1);
-		// 	if let Some(entry) = history.get(current_index + 1) {
-		// 		if let Some(pane) = self.panes.get_mut(self.focused_pane) {
-		// 			pane.current_input = entry.command.clone();
-		// 		}
-		// 	}
-		// } else {
-		// 	// Reached the end, restore original input
-		// 	self.history_index = None;
-		// 	if let Some(pane) = self.panes.get_mut(self.focused_pane) {
-		// 		pane.current_input = self.original_input.clone();
-		// 	}
-		// 	self.original_input.clear();
-		// }
+		let history = self.history_manager.get_history();
+		if history.is_empty() {
+			return;
+		}
+		
+		let current_index = self.history_index.unwrap_or(history.len());
+		
+		if current_index < history.len() - 1 {
+			self.history_index = Some(current_index + 1);
+			if let Some(entry) = history.get(current_index + 1) {
+				if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+					pane.current_input = entry.command.clone();
+				}
+			}
+		} else {
+			// Reached the end, restore original input
+			self.history_index = None;
+			if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+				pane.current_input = self.original_input.clone();
+			}
+			self.original_input.clear();
+		}
 	}
 	
 	pub fn start_reverse_search(&mut self) {
@@ -463,24 +460,23 @@ impl SareTerminal {
 	}
 	
 	pub fn perform_reverse_search(&mut self) {
-		// TODO: Fix history manager usage
-		// let history = self.history_manager.get_history();
-		// let query = &self.history_search_query;
-		// 
-		// if query.is_empty() {
-		// 	return;
-		// }
-		// 
-		// // Search backwards through history
-		// for (i, entry) in history.iter().enumerate().rev() {
-		// 	if entry.command.contains(query) {
-		// 		self.history_index = Some(i);
-		// 		if let Some(pane) = self.panes.get_mut(self.focused_pane) {
-		// 			pane.current_input = entry.command.clone();
-		// 		}
-		// 		break;
-		// 	}
-		// }
+		let history = self.history_manager.get_history();
+		let query = &self.history_search_query;
+		
+		if query.is_empty() {
+			return;
+		}
+		
+		// Search backwards through history
+		for (i, entry) in history.iter().enumerate().rev() {
+			if entry.command.contains(query) {
+				self.history_index = Some(i);
+				if let Some(pane) = self.panes.get_mut(self.focused_pane) {
+					pane.current_input = entry.command.clone();
+				}
+				break;
+			}
+		}
 	}
 	
 	pub fn exit_history_search(&mut self) {

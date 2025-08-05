@@ -485,12 +485,116 @@ impl SessionManager {
 		// Synchronize shared environment
 		for session_id in session_ids {
 			if let Some(session) = sessions.get(session_id) {
-				// TODO: Implement session synchronization
-				// This will involve:
-				// 1. Sharing environment variables
-				// 2. Synchronizing working directory
-				// 3. Coordinating session state
+				// 1. Share environment variables
+				self.synchronize_environment_variables(session_id, &session).await?;
+				
+				// 2. Synchronize working directory
+				self.synchronize_working_directory(session_id, &session).await?;
+				
+				// 3. Coordinate session state
+				self.coordinate_session_state(session_id, &session).await?;
 			}
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Synchronizes environment variables between sessions
+	 * 
+	 * @param session_id - Session ID to synchronize
+	 * @param session - Session to synchronize with
+	 * @return Result<()> - Success or error status
+	 */
+	async fn synchronize_environment_variables(&self, session_id: &str, session: &ShellSession) -> Result<()> {
+		let mut sessions = self.sessions.write().await;
+		
+		// Get shared environment variables
+		let shared_env = &self.coordination.shared_environment;
+		
+		// Update session metadata with shared environment
+		if let Some(target_session) = sessions.get_mut(session_id) {
+			// Merge shared environment with session-specific environment
+			for (key, value) in shared_env {
+				target_session.metadata.environment.insert(key.clone(), value.clone());
+			}
+			
+			// Update terminal environment variables
+			if let Ok(terminal) = target_session.terminal.write() {
+				// Note: This would require adding environment variable methods to TerminalEmulator
+				// For now, we'll update the session metadata which can be used later
+			}
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Synchronizes working directory between sessions
+	 * 
+	 * @param session_id - Session ID to synchronize
+	 * @param session - Session to synchronize with
+	 * @return Result<()> - Success or error status
+	 */
+	async fn synchronize_working_directory(&self, session_id: &str, session: &ShellSession) -> Result<()> {
+		let mut sessions = self.sessions.write().await;
+		
+		// Get shared working directory
+		if let Some(shared_dir) = &self.coordination.shared_working_directory {
+			if let Some(target_session) = sessions.get_mut(session_id) {
+				// Update session metadata
+				target_session.metadata.working_directory = shared_dir.clone();
+				
+				// Update terminal working directory
+				if let Ok(mut terminal) = target_session.terminal.write() {
+					// Note: This would require adding working directory methods to TerminalEmulator
+					// For now, we'll update the session metadata which can be used later
+				}
+			}
+		} else {
+			// If no shared directory, use the source session's directory
+			if let Some(target_session) = sessions.get_mut(session_id) {
+				target_session.metadata.working_directory = session.metadata.working_directory.clone();
+			}
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Coordinates session state between sessions
+	 * 
+	 * @param session_id - Session ID to synchronize
+	 * @param session - Session to synchronize with
+	 * @return Result<()> - Success or error status
+	 */
+	async fn coordinate_session_state(&self, session_id: &str, session: &ShellSession) -> Result<()> {
+		let mut sessions = self.sessions.write().await;
+		
+		if let Some(target_session) = sessions.get_mut(session_id) {
+			// Synchronize session state based on source session
+			match session.state {
+				SessionState::Active => {
+					// If source session is active, ensure target session is also active
+					if target_session.state != SessionState::Active {
+						target_session.state = SessionState::Active;
+					}
+				}
+				SessionState::Paused => {
+					// If source session is paused, pause target session
+					target_session.state = SessionState::Paused;
+				}
+				SessionState::Stopping => {
+					// If source session is stopping, stop target session
+					target_session.state = SessionState::Stopping;
+				}
+				_ => {
+					// For other states, maintain current state
+				}
+			}
+			
+			// Update last activity time
+			target_session.metadata.last_activity = chrono::Utc::now();
 		}
 		
 		Ok(())
