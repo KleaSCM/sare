@@ -380,6 +380,37 @@
 - ✅ **Paste Protection** - Secure paste handling, paste bracketing
 - ✅ **Input Method Support** - IME integration, input method handling
 
+### Terminal Implementation TODOs (Extracted from Code)
+- [ ] **Fix history import** - History manager import needs to be fixed in GUI terminal
+- [ ] **Fix history manager initialization** - History manager initialization needs proper error handling
+- [ ] **Fix tab completer initialization** - Tab completer initialization needs proper working directory setup
+- [ ] **Fix history manager usage** - Multiple instances of history manager usage need to be fixed in GUI terminal
+- [ ] **Fix tab completer usage** - Tab completer usage needs to be properly implemented
+- [ ] **Implement command launching** - Command launching functionality needs to be implemented in terminal session
+- [ ] **Implement shell launching** - Shell launching functionality needs to be implemented in terminal session
+- [ ] **Implement session synchronization** - Session synchronization needs to be implemented with environment sharing and working directory coordination
+- [ ] **Load actual font data** - Font data loading is currently placeholder, needs actual font loading implementation
+- [ ] **Store actual rendered data** - Rendered data storage is currently placeholder, needs actual data storage implementation
+- [ ] **Implement extended color sequences** - Extended color sequence handling is simplified, needs full 256-color and true color support
+- [ ] **Implement GPU initialization** - GPU renderer initialization is simplified, needs proper GPU backend integration
+- [ ] **Implement texture size detection** - Texture size detection is simplified, needs actual GPU queries
+- [ ] **Implement GPU memory detection** - GPU memory detection is simplified, needs actual system queries
+- [ ] **Implement manual positioning logic** - Manual layout positioning is placeholder, needs actual positioning implementation
+- [ ] **Implement process management integration** - PTY resize requires process management integration for SIGWINCH handling
+- [ ] **Implement Skia GPU memory queries** - Skia backend needs actual GPU memory queries instead of using provided parameter
+- [ ] **Add X11 bindings dependencies** - GPU detection needs X11 bindings for proper OpenGL queries
+- [ ] **Implement proper texture size detection** - Current implementation uses estimates, needs actual GPU queries
+- [ ] **Implement proper GPU memory detection** - Current implementation uses estimates, needs actual system queries
+- [ ] **Implement proper font creation** - Skia backend uses simple font creation, needs proper font loading
+- [ ] **Implement proper GPU backend integration** - GPU renderer initialization is simplified, needs proper backend integration
+- [ ] **Implement proper fallback mechanisms** - Multiple fallback to no-op implementations need proper implementations
+- [ ] **Implement proper texture size parsing** - GPU info parsing is simplified, needs proper parsing logic
+- [ ] **Implement proper memory estimation** - Memory estimation uses 2x multiplier, needs proper calculation
+- [ ] **Implement persistent tab data loading** - Tab manager initialization needs persistent tab data loading (Japanese comment indicates future implementation)
+- [ ] **Implement persistent session sharing data loading** - Session sharing initialization needs persistent session sharing data loading (Japanese comment indicates future implementation)
+- [ ] **Implement persistent window data loading** - Window manager initialization needs persistent window data loading (Japanese comment indicates future implementation)
+
+
 ### Performance & Optimization
 - [ ] **Threading** - Multi-threaded rendering, I/O threads, render threads
 - [ ] **Async I/O** - Non-blocking I/O operations, async/await throughout
@@ -507,3 +538,5 @@
 - [ ] Multi-pane functionality testing
 - [ ] GPU acceleration testing
 - [ ] Developer workflow testing
+
+#
