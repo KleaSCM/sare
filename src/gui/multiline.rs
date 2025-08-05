@@ -1,14 +1,15 @@
 
 /**
- * Multiline module for Sare terminal
+ * Multiline input processing module for Sare terminal
  * 
  * This module provides multiline functionality including
- * continuation character detection, quote handling, and bracket matching.
+ * continuation character detection, quote handling, bracket matching,
+ * and multiline state management for complex command input.
  * 
  * Author: KleaSCM
  * Email: KleaSCM@gmail.com
  * File: multiline.rs
- * Description: Multiline processing and state management
+ * Description: Multiline input processing and state management
  */
 
 use anyhow::Result;

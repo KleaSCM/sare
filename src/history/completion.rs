@@ -1,8 +1,9 @@
 /**
- * Tab completion functionality for Sare terminal
+ * Advanced tab completion engine for Sare terminal
  * 
  * This module provides intelligent tab completion including
- * file path completion, command completion, and context awareness.
+ * file path completion, command completion, variable completion,
+ * flag completion, and context-aware completion with fuzzy matching.
  * 
  * Author: KleaSCM
  * Email: KleaSCM@gmail.com
@@ -256,10 +257,8 @@ impl TabCompleter {
 		
 		let last_word = words.last().unwrap();
 		
-		// Handle quoted paths
 		let (path, is_quoted) = self.parse_quoted_path(last_word);
 		
-		// Determine the directory to search
 		let (search_dir, partial_name) = if path.contains('/') {
 			let path_buf = PathBuf::from(&path);
 			if let Some(parent) = path_buf.parent() {
@@ -273,7 +272,6 @@ impl TabCompleter {
 		
 		let partial = partial_name.unwrap_or_default();
 		
-		// Find matching files
 		let mut matches = Vec::new();
 		
 		if let Ok(entries) = fs::read_dir(&search_dir) {
@@ -281,7 +279,6 @@ impl TabCompleter {
 				if let Ok(entry) = entry {
 					if let Ok(file_name) = entry.file_name().into_string() {
 						if file_name.starts_with(&partial) {
-							// Add trailing slash for directories
 							let mut display_name = file_name.clone();
 							if let Ok(metadata) = entry.metadata() {
 								if metadata.is_dir() {
@@ -295,13 +292,11 @@ impl TabCompleter {
 			}
 		}
 		
-		// Sort matches
 		matches.sort();
 		
 		if matches.is_empty() {
 			Ok(None)
 		} else if matches.len() == 1 {
-			// Single match - complete it
 			let completed_path = if path.contains('/') {
 				let mut path_buf = PathBuf::from(path);
 				path_buf.pop();
@@ -323,7 +318,6 @@ impl TabCompleter {
 				context: CompletionContext::FilePath,
 			}))
 		} else {
-			// Multiple matches - find common prefix
 			let common_prefix = self.find_common_prefix(&matches);
 			Ok(Some(CompletionResult {
 				completed_text: common_prefix,
@@ -365,10 +359,9 @@ impl TabCompleter {
 			return Ok(None);
 		}
 		
-		let var_name = &last_word[1..]; // Remove $
+		let var_name = &last_word[1..];
 		let mut matches = Vec::new();
 		
-		// Get environment variables
 		for (key, _) in std::env::vars() {
 			if key.starts_with(var_name) {
 				matches.push(format!("${}", key));

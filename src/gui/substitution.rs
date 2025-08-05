@@ -1,9 +1,10 @@
 
 /**
- * Command substitution module for Sare terminal
+ * Command substitution processing module for Sare terminal
  * 
  * This module provides command substitution functionality including
- * $(command) and `command` syntax parsing and execution.
+ * $(command) and `command` syntax parsing, execution, and result
+ * integration for dynamic command output embedding.
  * 
  * Author: KleaSCM
  * Email: KleaSCM@gmail.com

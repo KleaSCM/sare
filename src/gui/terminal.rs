@@ -1,4 +1,17 @@
 
+/**
+ * Main terminal interface module for Sare terminal
+ * 
+ * This module provides the core terminal interface including
+ * command execution, input handling, pane management, history
+ * navigation, and integration with all terminal subsystems.
+ * 
+ * Author: KleaSCM
+ * Email: KleaSCM@gmail.com
+ * File: terminal.rs
+ * Description: Main terminal interface and command processing
+ */
+
 use anyhow::Result;
 use eframe::egui;
 use std::process::Command;
@@ -56,7 +69,6 @@ impl Default for SareTerminal {
 		
 		let default_pane = TerminalPane::default();
 		let history_manager = HistoryManager::new().unwrap_or_else(|_| {
-			// Create a basic history manager with fallback config
 			HistoryManager::with_config(1000, std::path::PathBuf::from(".sare_history"))
 				.unwrap_or_else(|_| HistoryManager {
 					history: std::collections::VecDeque::new(),
@@ -103,19 +115,16 @@ impl SareTerminal {
 	pub fn execute_command(&mut self, command: &str) {
 
 		
-		// Process command substitutions first
 		let processed_command = match self.substitution_mode.process_substitutions(command) {
 			Ok(processed) => processed,
 			Err(_) => command.to_string(),
 		};
 		
-		// Process brace expansions and globbing
 		let final_command = match self.expansion_state.process_expansions(&processed_command) {
 			Ok(expanded) => expanded,
 			Err(_) => processed_command,
 		};
 		
-		// Add command to history
 		if !final_command.trim().is_empty() {
 			self.history_manager.add_command(final_command.clone(), None);
 			self.tab_completer.add_command(final_command.clone());
@@ -124,10 +133,8 @@ impl SareTerminal {
 			self.history_search_query.clear();
 		}
 		
-		// Execute the processed command
 		let output = self.run_command(&final_command);
 		
-		// Add output to the focused pane
 		if let Some(pane) = self.panes.get_mut(self.focused_pane) {
 			pane.add_output_line(output, egui::Color32::from_rgb(255, 255, 255), false);
 		}
@@ -138,10 +145,8 @@ impl SareTerminal {
 			return String::new();
 		}
 		
-		// Handle built-in commands first
 		match command.trim() {
 			"clear" => {
-				// Clear all panes
 				for pane in &mut self.panes {
 					pane.output_buffer.clear();
 				}
@@ -154,7 +159,6 @@ impl SareTerminal {
 				return self.get_history_display();
 			}
 			_ => {
-				// Try to execute as external command
 				let parts: Vec<&str> = command.split_whitespace().collect();
 				if parts.is_empty() {
 					return String::new();
@@ -218,34 +222,27 @@ impl SareTerminal {
 						match *key {
 							egui::Key::ArrowUp => {
 								if modifiers.ctrl {
-									// Ctrl+Up: Navigate history up
 									self.navigate_history_up();
 								} else {
-									// Up: Navigate history up
 									self.navigate_history_up();
 								}
 							}
 							egui::Key::ArrowDown => {
 								if modifiers.ctrl {
-									// Ctrl+Down: Navigate history down
 									self.navigate_history_down();
 								} else {
-									// Down: Navigate history down
 									self.navigate_history_down();
 								}
 							}
 							egui::Key::Tab => {
-								// Tab: Perform tab completion
 								if let Some(pane) = self.panes.get_mut(self.focused_pane) {
 									let input = &pane.current_input;
 									let cursor_pos = pane.cursor_pos;
 									
 									if let Ok(Some(completion)) = self.tab_completer.complete(input, cursor_pos) {
-										// Apply the completion
 										pane.current_input = completion.completed_text;
 										pane.cursor_pos = pane.current_input.len();
 										
-										// If partial completion, show alternatives
 										if completion.is_partial && !completion.alternatives.is_empty() {
 											println!("Available completions: {:?}", completion.alternatives);
 										}
@@ -253,62 +250,51 @@ impl SareTerminal {
 								}
 							}
 							egui::Key::Tab if modifiers.shift => {
-								// Shift+Tab: Switch between panes
 								println!("Shift+Tab detected - switching panes");
 								self.switch_to_next_pane();
 							}
 							egui::Key::D => {
 								if modifiers.ctrl {
-									// Ctrl+D: Close current pane
 									println!("Ctrl+D detected - closing pane");
 									self.close_current_pane();
 								}
 							}
 							egui::Key::N => {
 								if modifiers.ctrl {
-									// Ctrl+N: Create new pane
 									println!("Ctrl+N detected - creating new pane");
 									self.split_pane(SplitDirection::Horizontal);
 								}
 							}
 							egui::Key::H => {
 								if modifiers.ctrl {
-									// Ctrl+H: Create new pane
 									println!("Ctrl+H detected - creating new pane");
 									self.split_pane(SplitDirection::Vertical);
 								}
 							}
 							egui::Key::R => {
 								if modifiers.ctrl {
-									// Ctrl+R: Reverse incremental search
 									self.start_reverse_search();
 								}
 							}
 							egui::Key::Escape => {
-								// Escape: Exit history search mode
 								if self.history_search_mode {
 									self.exit_history_search();
 								}
 							}
 							egui::Key::Enter => {
-								// Enter: Execute current command or continue multiline
 								if let Some(pane) = self.panes.get(self.focused_pane) {
 									let command = pane.current_input.clone();
 									
 									if self.multiline_state.is_multiline() {
-										// In multiline mode, add newline and continue
 										let mut new_input = command.clone();
 										new_input.push('\n');
 										
-										// Check if this is a heredoc delimiter before mutable borrow
 										let is_heredoc_delimiter = self.heredoc_state.is_heredoc() && HeredocProcessor::is_heredoc_delimiter(&self.heredoc_state, &command);
 										
 										if is_heredoc_delimiter {
-											// End of heredoc, execute the command
 											let full_command = format!("{}\n{}", new_input, self.heredoc_state.get_heredoc_content());
 											self.execute_command(&full_command);
 											
-											// Clear the input and reset states
 											if let Some(pane) = self.panes.get_mut(self.focused_pane) {
 												pane.current_input.clear();
 												pane.cursor_pos = 0;
@@ -335,14 +321,11 @@ impl SareTerminal {
 												self.heredoc_state.add_heredoc_content(line_content);
 											}
 											
-											// Update multiline state
 											self.multiline_state.update(&new_input);
 										}
 									} else if !command.trim().is_empty() {
-										// Execute the command
 										self.execute_command(&command);
 										
-										// Clear the input and reset history navigation
 										if let Some(pane) = self.panes.get_mut(self.focused_pane) {
 											pane.current_input.clear();
 											pane.cursor_pos = 0;
@@ -355,21 +338,16 @@ impl SareTerminal {
 								}
 							}
 							_ => {
-								// Handle regular character input
 								if let Some(c) = Self::key_to_char(*key) {
 									if self.history_search_mode {
-										// Add to search query
 										self.history_search_query.push(c);
 										self.perform_reverse_search();
 									} else {
-										// Add to current pane input
 										if let Some(pane) = self.panes.get_mut(self.focused_pane) {
 											pane.add_char(c);
 											
-											// Get the updated input for multiline state update
 											let updated_input = pane.current_input.clone();
 											
-											// Update multiline state after character input
 											self.multiline_state.update(&updated_input);
 										}
 									}
@@ -428,14 +406,12 @@ impl SareTerminal {
 		if current_index > 0 {
 			self.history_index = Some(current_index - 1);
 			if let Some(entry) = history.get(current_index - 1) {
-				// Save original input if this is the first navigation
 				if self.original_input.is_empty() {
 					if let Some(pane) = self.panes.get(self.focused_pane) {
 						self.original_input = pane.current_input.clone();
 					}
 				}
 				
-				// Set the command from history
 				if let Some(pane) = self.panes.get_mut(self.focused_pane) {
 					pane.current_input = entry.command.clone();
 				}
@@ -504,7 +480,6 @@ impl SareTerminal {
 		self.history_search_query.clear();
 		self.history_index = None;
 		
-		// Restore original input
 		if let Some(pane) = self.panes.get_mut(self.focused_pane) {
 			pane.current_input = self.original_input.clone();
 		}
@@ -512,7 +487,6 @@ impl SareTerminal {
 	}
 	
 	pub fn split_pane(&mut self, direction: SplitDirection) {
-		// Extract necessary data before mutable borrow
 		let focused_pane_index = self.focused_pane;
 		let current_layout = self.panes[focused_pane_index].layout;
 		let current_id = self.panes[focused_pane_index].id.clone();
@@ -524,41 +498,31 @@ impl SareTerminal {
 		new_pane.id = new_pane_id.clone();
 		new_pane.working_directory = self.current_dir.clone();
 		
-		// Calculate new layout based on split direction
 		match direction {
 			SplitDirection::Vertical => {
-				// Current pane takes left half, new pane takes right half
 				let new_width = width / 2.0;
 				new_pane.layout = (x + new_width, y, new_width, height);
 				
-				// Update current pane layout
 				self.panes[focused_pane_index].layout = (x, y, new_width, height);
 			}
 			SplitDirection::Horizontal => {
-				// Current pane takes top half, new pane takes bottom half
 				let new_height = height / 2.0;
 				new_pane.layout = (x, y + new_height, width, new_height);
 				
-				// Update current pane layout
 				self.panes[focused_pane_index].layout = (x, y, width, new_height);
 			}
 		}
 		
-		// Set split direction for both panes
 		new_pane.split_direction = Some(direction.clone());
 		self.panes[focused_pane_index].split_direction = Some(direction);
 		
-		// Update parent/child relationships
 		new_pane.parent_id = Some(current_id);
 		self.panes[focused_pane_index].child_ids.push(new_pane_id.clone());
 		
-		// Add new pane
 		self.panes.push(new_pane);
 		
-		// Focus the new pane
 		self.focused_pane = self.panes.len() - 1;
 		
-		// Update active states
 		for (i, pane) in self.panes.iter_mut().enumerate() {
 			pane.active = i == self.focused_pane;
 		}
@@ -575,7 +539,6 @@ impl SareTerminal {
 				self.focused_pane = self.panes.len() - 1;
 			}
 			
-			// Update active states
 			for (i, pane) in self.panes.iter_mut().enumerate() {
 				pane.active = i == self.focused_pane;
 			}
@@ -586,7 +549,6 @@ impl SareTerminal {
 		if self.panes.len() > 1 {
 			self.focused_pane = (self.focused_pane + 1) % self.panes.len();
 			
-			// Update active states
 			for (i, pane) in self.panes.iter_mut().enumerate() {
 				pane.active = i == self.focused_pane;
 			}
