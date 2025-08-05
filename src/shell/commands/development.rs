@@ -18,11 +18,16 @@ use crate::shell::Shell;
 use crate::shell::commands::{CommandHandler, CommandResult};
 
 /**
- * バージョン管理の複雑な処理です (◕‿◕)
+ * Gitバージョン管理システムを操作するコマンドです
  * 
- * この関数は複雑なGit操作を行います。
- * バージョン管理システムのシミュレーションが難しい部分なので、
- * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+ * 実際のGitコマンドを実行し、出力にシンタックスハイライトを
+ * 適用して開発者にとって読みやすい形式で表示します。
+ * 
+ * status、add、commit、log、branch、diffなどの主要なGitコマンドを
+ * サポートし、各コマンドの出力に適切な色付けを行います。
+ * 
+ * Gitが利用できない場合はシミュレーション出力を提供し、
+ * 開発環境での作業を継続できるようにします。
  */
 pub struct GitCommand;
 
@@ -184,13 +189,17 @@ impl GitCommand {
      * @return String - Highlighted output
      */
     fn highlight_git_output(output: &str, command: &str) -> String {
-        /**
-         * Git出力ハイライトの複雑な処理です (｡◕‿◕｡)
-         * 
-         * この関数は複雑なシンタックスハイライトを行います。
-         * 複数のGitコマンド出力の解析が難しい部分なので、
-         * 適切なエラーハンドリングで実装しています (◕‿◕)
-         */
+        		/**
+		 * Gitコマンドの出力にシンタックスハイライトを適用する関数です
+		 * 
+		 * 各Gitコマンド（status、log、branch、diff）の出力に
+		 * 適切な色付けを適用して、開発者が読みやすい形式に変換します。
+		 * 
+		 * コマンドの種類に応じて適切なハイライト関数を呼び出し、
+		 * 各行に色付きのANSIエスケープシーケンスを適用します。
+		 * 
+		 * 対応していないコマンドの場合は元の行をそのまま返します。
+		 */
         
         let mut highlighted = String::new();
         let lines: Vec<&str> = output.lines().collect();
@@ -442,13 +451,17 @@ impl CargoCommand {
      * @return String - Highlighted output
      */
     fn highlight_cargo_output(output: &str, command: &str) -> String {
-        /**
-         * Cargo出力ハイライトの複雑な処理です (｡◕‿◕｡)
-         * 
-         * この関数は複雑なシンタックスハイライトを行います。
-         * 複数のCargoコマンド出力の解析が難しい部分なので、
-         * 適切なエラーハンドリングで実装しています (◕‿◕)
-         */
+        		/**
+		 * Cargoコマンドの出力にシンタックスハイライトを適用する関数です
+		 * 
+		 * 各Cargoコマンド（build、test、run、check）の出力に
+		 * 適切な色付けを適用して、開発者が読みやすい形式に変換します。
+		 * 
+		 * コマンドの種類に応じて適切なハイライト関数を呼び出し、
+		 * コンパイル情報、エラー、警告、成功メッセージに色付けを適用します。
+		 * 
+		 * 対応していないコマンドの場合は元の行をそのまま返します。
+		 */
         
         let mut highlighted = String::new();
         let lines: Vec<&str> = output.lines().collect();

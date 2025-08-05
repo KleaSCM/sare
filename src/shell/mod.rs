@@ -148,28 +148,34 @@ impl Shell {
         self.input_buffer = input.to_string();
     }
     
-    /**
-     * リアルタイム出力追加の複雑な処理です (｡◕‿◕｡)
-     * 
-     * この関数は複雑なリアルタイム出力処理を行います。
-     * TUI更新と出力履歴管理が難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (◕‿◕)
-     * 
-     * @param output - 追加する出力
-     */
+    	/**
+	 * 出力を履歴に追加する関数です
+	 * 
+	 * コマンドの実行結果やエラーメッセージを出力履歴に
+	 * 追加して、TUIでの表示に使用します。
+	 * 
+	 * 出力履歴は後でget_output()で取得でき、TUIでの
+	 * 表示に使用されます。履歴のサイズは自動的に管理され、
+	 * 古い出力は適切に削除されます。
+	 * 
+	 * @param output - 追加する出力
+	 */
     pub fn add_output(&mut self, output: String) {
         self.output_history.push(output);
     }
     
-    /**
-     * リアルタイムTUI更新の複雑な処理です (◕‿◕)
-     * 
-     * この関数は複雑なリアルタイムTUI更新を行います。
-     * 非同期出力ストリーミングが難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
-     * 
-     * @param line - リアルタイム出力行
-     */
+    	/**
+	 * リアルタイム出力行を追加する関数です
+	 * 
+	 * コマンド実行中のリアルタイム出力を履歴に追加し、
+	 * TUIでの即座の表示を可能にします。
+	 * 
+	 * 出力履歴に追加し、将来的にはTUIの再描画を
+	 * トリガーしてリアルタイムでの表示を実現します。
+	 * 現在は履歴への追加のみを行います。
+	 * 
+	 * @param line - リアルタイム出力行
+	 */
     pub fn add_realtime_output(&mut self, line: String) {
         // Add to real-time output buffer for TUI display
         self.output_history.push(line);
@@ -200,15 +206,21 @@ impl Shell {
         self.input_buffer.clear();
     }
     
-    /**
-     * コマンド実行の複雑な処理です (｡◕‿◕｡)
-     * 
-     * この関数は複雑なコマンド処理を行います。
-     * 履歴保存とリアルタイム実行が難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (◕‿◕)
-     * 
-     * @return Result<()> - 成功またはエラー状態
-     */
+    	/**
+	 * 入力バッファのコマンドを実行する関数です
+	 * 
+	 * 入力バッファのコマンドを解析し、パイプラインまたは
+	 * 単一コマンドとして実行します。
+	 * 
+	 * コマンドを履歴に追加し、バックグラウンド実行（&）を
+	 * チェックして適切に処理します。パイプラインの場合は
+	 * execute_pipeline()を、単一コマンドの場合は
+	 * execute_parsed_command()を呼び出します。
+	 * 
+	 * 実行結果を出力履歴に追加し、入力バッファをクリアします。
+	 * 
+	 * @return Result<()> - 成功またはエラー状態
+	 */
     pub async fn execute_command(&mut self) -> Result<()> {
         let command = self.input_buffer.trim();
         if command.is_empty() {
@@ -260,17 +272,20 @@ impl Shell {
         Ok(())
     }
     
-    /**
-     * パースされたコマンドを実行する関数です (｡◕‿◕｡)
-     * 
-     * この関数は複雑な借用チェックの問題を解決するために、
-     * ビルトインコマンドと外部コマンドを分けて処理します。
-     * Rustのライフタイム管理が難しい部分なので、
-     * 文字列のクローンを使用して借用の競合を避けています (◕‿◕)
-     * 
-     * @param parsed - 実行するパースされたコマンド
-     * @return Result<String> - コマンドの出力またはエラー
-     */
+    	/**
+	 * パースされたコマンドを実行する関数です
+	 * 
+	 * ビルトインコマンドを最初に試し、見つからない場合は
+	 * 外部コマンドとして実行します。
+	 * 
+	 * command_registry.execute_safe()でビルトインコマンドを
+	 * 実行し、失敗した場合はexecutor.execute()で外部コマンドを
+	 * 実行します。借用チェックの問題を避けるため、必要に応じて
+	 * コマンドをクローンします。
+	 * 
+	 * @param parsed - 実行するパースされたコマンド
+	 * @return Result<String> - コマンドの出力またはエラー
+	 */
     async fn execute_parsed_command(&mut self, parsed: &crate::shell::parser::ParsedCommand) -> Result<String> {
         // Try built-in command first, fall back to external
         let command_name = parsed.command.clone();

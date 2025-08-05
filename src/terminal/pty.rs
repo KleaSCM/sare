@@ -90,11 +90,17 @@ impl PtyManager {
 	 */
 	pub async fn create_session(&mut self, options: PtyOptions) -> Result<PtySession> {
 		/**
-		 * PTY作成の複雑な処理です (｡◕‿◕｡)
+		 * 新しいPTYセッションを作成する関数です
 		 * 
-		 * この関数は複雑なシステムコールを行います。
-		 * ファイルディスクリプタの管理が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 * posix_openpt()を使用してマスターファイルディスクリプタを作成し、
+		 * grantpt()とunlockpt()でスレーブ端末へのアクセスを設定します。
+		 * 
+		 * ptsname()でスレーブ端末のパスを取得し、open()でスレーブ
+		 * ファイルディスクリプタを作成します。最後にPtyUtils::setup_slave_terminal()
+		 * でスレーブ端末の初期化を行います。
+		 * 
+		 * 各ステップでエラーが発生した場合は適切にファイルディスクリプタを
+		 * クローズしてエラーを返します。
 		 */
 		
 		// Implement actual PTY creation with posix_openpt()
@@ -182,11 +188,14 @@ impl PtyManager {
 	 */
 	pub async fn resize_session(&self, size: (u16, u16)) -> Result<()> {
 		/**
-		 * PTYリサイズの複雑な処理です (◕‿◕)
+		 * PTYセッションのサイズを変更する関数です
 		 * 
-		 * この関数は複雑なターミナル制御を行います。
-		 * ioctl呼び出しが難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+		 * TIOCSWINSZ ioctlを使用してターミナルサイズを更新し、
+		 * 実行中のプロセスにサイズ変更を通知します。
+		 * 
+		 * winsize構造体に新しい列数と行数を設定し、
+		 * マスターとスレーブの両方のファイルディスクリプタに
+		 * ioctlを実行してサイズ変更を反映します。
 		 */
 		
 		if let Some(session) = &self.session {
@@ -352,11 +361,17 @@ impl PtyUtils {
 	 */
 	pub fn setup_slave_terminal(slave_fd: RawFd) -> Result<()> {
 		/**
-		 * スレーブターミナル設定の複雑な処理です (｡◕‿◕｡)
+		 * スレーブターミナルを設定する関数です
 		 * 
-		 * この関数は複雑なターミナル属性設定を行います。
-		 * tcsetattr呼び出しが難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 * tcgetattr()で現在のターミナル属性を取得し、
+		 * シェル操作に適した設定に変更します。
+		 * 
+		 * 入力モード（ICRNL無効化）、出力モード（OPOST無効化）、
+		 * ローカルモード（ECHO、ICANON、ISIG無効化）を設定して
+		 * 生モード（raw mode）にします。
+		 * 
+		 * tcsetattr()で変更された属性を適用し、エラー時は
+		 * 適切なエラーメッセージを返します。
 		 */
 		
 		// Implement slave terminal setup with actual terminal attributes

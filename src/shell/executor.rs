@@ -42,17 +42,23 @@ impl CommandExecutor {
         }
     }
     
-    /**
-     * リアルコマンド実行の複雑な処理です (｡◕‿◕｡)
-     * 
-     * この関数は複雑なI/Oリダイレクションを行います。
-     * ファイルディスクリプタ管理が難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (◕‿◕)
-     * 
-     * @param command - 実行するパースされたコマンド
-     * @param working_dir - 作業ディレクトリ
-     * @return Result<String> - コマンド出力またはエラー
-     */
+    	/**
+	 * パースされたコマンドを実行する関数です
+	 * 
+	 * 指定されたコマンドと引数を使用してプロセスを開始し、
+	 * 入力・出力・エラーのリダイレクションを適切に設定します。
+	 * 
+	 * 入力リダイレクション（<）、出力リダイレクション（>）、
+	 * 追記リダイレクション（>>）をサポートし、バックグラウンド
+	 * 実行オプションにも対応します。
+	 * 
+	 * ファイルディスクリプタを適切に管理し、標準入出力の
+	 * 継承またはパイプ設定を行ってコマンド実行環境を構築します。
+	 * 
+	 * @param command - 実行するパースされたコマンド
+	 * @param working_dir - 作業ディレクトリ
+	 * @return Result<String> - コマンド出力またはエラー
+	 */
     pub async fn execute(&self, command: &ParsedCommand, working_dir: &Path) -> Result<String> {
         let mut cmd = Command::new(&command.command);
         
@@ -98,16 +104,21 @@ impl CommandExecutor {
         Ok(output)
     }
     
-    /**
-     * リアルコマンド実行の複雑な処理です (｡◕‿◕｡)
-     * 
-     * この関数は複雑なプロセス制御を行います。
-     * リアルタイム出力キャプチャが難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (◕‿◕)
-     * 
-     * @param mut cmd - 実行するコマンド
-     * @return Result<String> - コマンド出力またはエラー
-     */
+    	/**
+	 * フォアグラウンドでコマンドを実行する関数です
+	 * 
+	 * 指定されたコマンドを同期的に実行し、標準出力と
+	 * 標準エラーをキャプチャして結果を返します。
+	 * 
+	 * コマンドの終了を待機し、成功時は出力を文字列として
+	 * 返し、失敗時はエラーコードと共にエラーを返します。
+	 * 
+	 * 標準出力と標準エラーの両方をキャプチャし、空でない
+	 * 場合は結果に含めます。
+	 * 
+	 * @param mut cmd - 実行するコマンド
+	 * @return Result<String> - コマンド出力またはエラー
+	 */
     async fn execute_foreground(&self, mut cmd: Command) -> Result<String> {
         // Use synchronous execution for now
         let output = cmd.output()?;
@@ -177,17 +188,23 @@ impl CommandExecutor {
         false
     }
     
-    /**
-     * パイプライン実行の複雑な処理です (｡◕‿◕｡)
-     * 
-     * この関数は複雑なパイプライン処理を行います。
-     * パイプ、リアルタイム出力、コマンドチェーンが難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (◕‿◕)
-     * 
-     * @param pipeline - 実行するコマンドパイプライン
-     * @param working_dir - 作業ディレクトリ
-     * @return Result<String> - パイプライン出力またはエラー
-     */
+    	/**
+	 * コマンドパイプラインを実行する関数です
+	 * 
+	 * 複数のコマンドをパイプ、AND、OR、シーケンシャル演算子で
+	 * 接続して順次実行します。
+	 * 
+	 * 各演算子（|、&&、||、;）に応じて適切な処理を行い、
+	 * 前のコマンドの終了コードに基づいて次のコマンドの実行を
+	 * 決定します。パイプの場合はexecute_with_pipe()を使用し、
+	 * その他の場合はexecute_with_realtime_output()を使用します。
+	 * 
+	 * 最終的な出力と終了コードを追跡して結果を返します。
+	 * 
+	 * @param pipeline - 実行するコマンドパイプライン
+	 * @param working_dir - 作業ディレクトリ
+	 * @return Result<String> - パイプライン出力またはエラー
+	 */
     pub async fn execute_pipeline(&self, pipeline: &CommandPipeline, working_dir: &Path) -> Result<String> {
         let mut output = String::new();
         let mut last_exit_code = 0;
@@ -251,17 +268,22 @@ impl CommandExecutor {
         Ok(output)
     }
     
-    /**
-     * リアルパイプ実行の複雑な処理です (｡◕‿◕｡)
-     * 
-     * この関数は複雑なプロセス間通信を行います。
-     * パイプ処理とリアルタイムデータ転送が難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (◕‿◕)
-     * 
-     * @param commands - パイプで接続されたコマンドのリスト
-     * @param working_dir - 作業ディレクトリ
-     * @return Result<String> - パイプライン出力またはエラー
-     */
+    	/**
+	 * 実際のパイプライン処理を実行する関数です
+	 * 
+	 * パイプで接続された複数のコマンドを順次実行し、
+	 * 前のコマンドの出力を次のコマンドの入力として使用します。
+	 * 
+	 * 現在は適切なパイプ実装まで順次実行を行い、
+	 * 各コマンドの出力を連結して結果を返します。
+	 * 
+	 * 将来的にはプロセス間通信を使用した実際のパイプ処理を
+	 * 実装する予定です。
+	 * 
+	 * @param commands - パイプで接続されたコマンドのリスト
+	 * @param working_dir - 作業ディレクトリ
+	 * @return Result<String> - パイプライン出力またはエラー
+	 */
     async fn execute_real_pipeline(&self, commands: &[ParsedCommand], working_dir: &Path) -> Result<String> {
         if commands.is_empty() {
             return Ok(String::new());
@@ -278,18 +300,24 @@ impl CommandExecutor {
         Ok(output)
     }
     
-    /**
-     * パイプ実行の複雑な処理です (◕‿◕)
-     * 
-     * この関数は複雑なパイプ処理を行います。
-     * プロセス間通信が難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
-     * 
-     * @param command - 実行するコマンド
-     * @param working_dir - 作業ディレクトリ
-     * @param has_next - 次のコマンドがあるかどうか
-     * @return Result<CommandResult> - コマンド結果またはエラー
-     */
+    	/**
+	 * パイプを使用してコマンドを実行する関数です
+	 * 
+	 * 指定されたコマンドをパイプ設定で実行し、標準出力と
+	 * 標準エラーをリアルタイムで読み取ります。
+	 * 
+	 * 次のコマンドがある場合は標準出力をパイプに設定し、
+	 * 標準エラーもパイプに設定してエラー出力もキャプチャします。
+	 * 
+	 * BufReaderを使用して標準出力と標準エラーを順次読み取り、
+	 * 各行を結果に追加します。プロセスの終了を待機して
+	 * 終了コードと出力を返します。
+	 * 
+	 * @param command - 実行するコマンド
+	 * @param working_dir - 作業ディレクトリ
+	 * @param has_next - 次のコマンドがあるかどうか
+	 * @return Result<CommandResult> - コマンド結果またはエラー
+	 */
     async fn execute_with_pipe(&self, command: &ParsedCommand, working_dir: &Path, has_next: bool) -> Result<CommandResult> {
         let mut cmd = Command::new(&command.command);
         
@@ -336,17 +364,24 @@ impl CommandExecutor {
         })
     }
     
-    /**
-     * リアルタイム出力の複雑な処理です (◕‿◕)
-     * 
-     * この関数は複雑なリアルタイム出力処理を行います。
-     * プロセス出力のストリーミングが難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
-     * 
-     * @param command - 実行するパースされたコマンド
-     * @param working_dir - 作業ディレクトリ
-     * @return Result<CommandResult> - コマンド結果またはエラー
-     */
+    	/**
+	 * リアルタイム出力でコマンドを実行する関数です
+	 * 
+	 * 指定されたコマンドを実行し、標準出力と標準エラーを
+	 * リアルタイムでストリーミングします。
+	 * 
+	 * 入力リダイレクション（<）、出力リダイレクション（>）、
+	 * 追記リダイレクション（>>）を適切に設定し、標準入出力を
+	 * 継承またはパイプに設定します。
+	 * 
+	 * プロセスを開始し、標準出力と標準エラーを同時に読み取り、
+	 * 各行をリアルタイムで結果に追加します。プロセスの終了を
+	 * 待機して終了コードと出力を返します。
+	 * 
+	 * @param command - 実行するパースされたコマンド
+	 * @param working_dir - 作業ディレクトリ
+	 * @return Result<CommandResult> - コマンド結果またはエラー
+	 */
     async fn execute_with_realtime_output(&self, command: &ParsedCommand, working_dir: &Path) -> Result<CommandResult> {
         let mut cmd = Command::new(&command.command);
         

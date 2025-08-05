@@ -82,17 +82,20 @@ impl JobManager {
         }
     }
     
-    /**
-     * ジョブ追加の複雑な処理です (｡◕‿◕｡)
-     * 
-     * この関数は複雑なジョブ管理を行います。
-     * プロセスID追跡と状態管理が難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (◕‿◕)
-     * 
-     * @param pid - プロセスID
-     * @param command - 実行されたコマンド
-     * @return u32 - ジョブID
-     */
+    	/**
+	 * 新しいジョブを追加する関数です
+	 * 
+	 * 指定されたプロセスIDとコマンドを使用して新しいジョブを作成し、
+	 * ジョブマネージャーに追加します。
+	 * 
+	 * 一意のジョブIDを生成し、Running状態でジョブを初期化します。
+	 * プロセスIDとコマンド文字列を保存し、ジョブリストに追加して
+	 * 管理できるようにします。
+	 * 
+	 * @param pid - プロセスID
+	 * @param command - 実行されたコマンド
+	 * @return u32 - ジョブID
+	 */
     pub fn add_job(&mut self, pid: u32, command: String) -> u32 {
         let job_id = self.next_job_id;
         self.next_job_id += 1;
@@ -134,13 +137,18 @@ impl JobManager {
         self.current_foreground
     }
     
-    /**
-     * 現在のフォアグラウンドジョブを中断する関数です (◕‿◕)
-     * 
-     * この関数は複雑なプロセス制御を行います。
-     * libcを使用してシグナル送信を行う難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
-     */
+    	/**
+	 * 現在のフォアグラウンドジョブを中断する関数です
+	 * 
+	 * 現在のフォアグラウンドジョブが存在し、Running状態の場合、
+	 * SIGINTシグナルを送信してジョブを中断します。
+	 * 
+	 * libc::kill()を使用してプロセスにSIGINTシグナルを送信し、
+	 * 失敗した場合はエラーメッセージを標準エラーに出力します。
+	 * 
+	 * フォアグラウンドジョブが存在しない場合や、ジョブが
+	 * Running状態でない場合は何も行いません。
+	 */
     pub fn interrupt_current_job(&mut self) {
         if let Some(job_id) = self.current_foreground {
             if let Some(job) = self.jobs.get_mut(&job_id) {
@@ -155,17 +163,22 @@ impl JobManager {
         }
     }
     
-    /**
-     * シグナル処理の複雑な処理です (｡◕‿◕｡)
-     * 
-     * この関数は複雑なシグナル処理を行います。
-     * リアルタイムシグナル配信が難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (◕‿◕)
-     * 
-     * @param signal - 送信するシグナル番号
-     * @param pid - 対象プロセスID
-     * @return Result<()> - 成功またはエラー
-     */
+    	/**
+	 * 指定されたジョブにシグナルを送信する関数です
+	 * 
+	 * 指定されたジョブIDのジョブが存在し、Running状態の場合、
+	 * 指定されたシグナル番号をプロセスに送信します。
+	 * 
+	 * libc::kill()を使用してプロセスにシグナルを送信し、
+	 * 失敗した場合は適切なエラーメッセージと共にエラーを返します。
+	 * 
+	 * ジョブが存在しない場合や、ジョブがRunning状態でない場合は
+	 * エラーを返します。
+	 * 
+	 * @param signal - 送信するシグナル番号
+	 * @param pid - 対象プロセスID
+	 * @return Result<()> - 成功またはエラー
+	 */
     pub fn send_signal_to_job(&mut self, job_id: u32, signal: i32) -> Result<()> {
         if let Some(job) = self.jobs.get(&job_id) {
             if job.state == JobState::Running {
@@ -180,16 +193,22 @@ impl JobManager {
         Ok(())
     }
     
-    /**
-     * リアルタイムシグナル処理の複雑な処理です (◕‿◕)
-     * 
-     * この関数は複雑なリアルタイムシグナル処理を行います。
-     * プロセス状態監視が難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
-     * 
-     * @param pid - 監視するプロセスID
-     * @return Result<()> - 成功またはエラー
-     */
+    	/**
+	 * ジョブの状態を監視する関数です
+	 * 
+	 * 指定されたジョブIDのプロセス状態を監視し、終了した場合は
+	 * ジョブの状態を更新します。
+	 * 
+	 * libc::waitpid()を使用してプロセスの状態を非ブロッキングで
+	 * チェックし、プロセスが終了した場合は適切な状態（Completed、
+	 * Terminated）に更新します。終了コードも保存します。
+	 * 
+	 * WNOHANGフラグを使用してプロセスがまだ実行中の場合は
+	 * 何も行わず、終了した場合のみ状態を更新します。
+	 * 
+	 * @param pid - 監視するプロセスID
+	 * @return Result<()> - 成功またはエラー
+	 */
     pub fn monitor_job_status(&mut self, job_id: u32) -> Result<()> {
         if let Some(job) = self.jobs.get_mut(&job_id) {
             unsafe {
@@ -336,16 +355,23 @@ impl SignalHandler {
         }
     }
     
-    /**
-     * シグナル処理の複雑な処理です (｡◕‿◕｡)
-     * 
-     * この関数は複雑なシグナル制御を行います。
-     * libcを使用したシグナルハンドラ登録が難しい部分なので、
-     * 適切なエラーハンドリングで実装しています (◕‿◕)
-     * 
-     * @param signal - 処理するシグナル番号
-     * @param handler - シグナルハンドラ関数
-     */
+    	/**
+	 * シグナルハンドラを登録する関数です
+	 * 
+	 * 指定されたシグナル番号に対してハンドラ関数を登録し、
+	 * システムレベルのシグナルハンドラを設定します。
+	 * 
+	 * ハンドラ関数を内部マップに保存し、libc::sigaction()を
+	 * 使用してシステムレベルのシグナルハンドラを設定します。
+	 * 
+	 * SA_SIGINFOフラグを使用してシグナル情報を取得し、
+	 * signal_handler_wrapper関数をシグナルハンドラとして登録します。
+	 * 
+	 * 登録に失敗した場合はエラーメッセージを標準エラーに出力します。
+	 * 
+	 * @param signal - 処理するシグナル番号
+	 * @param handler - シグナルハンドラ関数
+	 */
     pub fn register_handler(&mut self, signal: i32, handler: Box<dyn Fn() + Send + Sync>) {
         self.handlers.insert(signal, handler);
         
