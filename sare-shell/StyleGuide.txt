@@ -1,0 +1,294 @@
+# Universal Code Style Guide
+
+> Languages: TypeScript, TSX, C++, Go, Rust
+
+
+
+
+---
+
+## 1. Formatting
+
+### 1.1 - Use Tabs for Indentation  
+All code **must use tab characters** for indentation. Spaces are forbidden.
+
+### 1.2 - Limit Line Length to 120 Characters  
+Lines should not exceed 120 characters. Break long lines at logical boundaries (e.g., after operators, commas).
+
+### 1.3 - Use K&R Bracing Style  
+Braces must open on the same line as control structures.
+
+```cpp
+if (x) {
+	DoSomething();
+}
+```
+
+1.4 - Trim Trailing Whitespace
+
+No line should end in whitespace. All files must end with a newline.
+2. Naming
+2.1 - Use PascalCase for All Identifiers
+
+Identifiers for variables, functions, types, classes, interfaces, and constants must use PascalCase.
+
+const MaxCount = 10;
+class UserProfile { ... }
+function LoadUserData() { ... }
+
+
+2.2 - Use camelCase for Short Local Variables Only
+
+Temporary or loop-local variables may use camelCase inside functions.
+
+for (let i = 0; i < MaxCount; i++) { ... }
+
+2.3 - Do Not Use snake_case or ALL_CAPS
+
+These naming styles are completely forbidden, including for constants, macros, or defines.
+
+
+3. Error Handling
+3.1 - Do Not Use Exceptions
+
+Exception-based control flow is disallowed in all languages. This includes throw, try/catch, panic!, etc.
+3.2 - Return Errors as Values
+
+All functions must return errors as part of the return type (e.g., Result, std::expected, T, error).
+3.3 - Handle All Errors Explicitly
+
+Never suppress or discard errors. No .unwrap(), .expect(), or _ = err patterns unless explicitly tested.
+
+
+4. Comments and Documentation
+4.1 – Comments Are Only for Documentation
+
+All comments must explain why code exists — never what it does or how it works.
+
+| ❌ Forbidden               | ✅ Allowed              |
+| ------------------------- | ---------------------- |
+| Syntax explanations       | Purpose clarifications |
+| Control flow restatements | Behavior reasoning     |
+| Variable summaries        | Design decisions       |
+
+
+
+✅ Good:
+
+// We retry here only if the initial handshake failed — removing this breaks sync flow.
+
+❌ Bad:
+
+// Create array and push item
+const arr = []; arr.push(x);
+
+
+
+4.2 – Language Rules for Comments
+
+| Code Scope      | Language | Tone                         |
+| --------------- | -------- | ---------------------------- |
+| Public API      | English  | Clear, professional, neutral |
+| Internal Logic  | Japanese | Soft, feminine, expressive   |
+| Private Methods | Japanese | Casual, warm, girlish        |
+| Tests           | Japanese | Honest, emotionally aware    |
+
+
+4.3 – Japanese Comment Guidelines
+
+Japanese comments must:
+
+    Use あたし — never 私, 僕, or 俺
+
+    Always maintain a soft, feminine, emotionally gentle tone
+
+    Use casual particles (〜, よね, ね〜, etc.)
+
+    Allow kaomoji ((๑˃̵ᴗ˂̵), （ ; ; ）, （╹◡╹）♡, etc.)
+
+    Use English only for APIs, identifiers, or types (Set, Map, Vec, etc.)
+
+    Never include formal, stiff, or technical Japanese
+
+✅ Example:
+
+// あたしね、このSetにしたの…Arrayだと抜けちゃって。
+// ちっちゃいバグだけど…悔しくて悔しくて…（ ; ; ）
+
+4.4 – Prohibited Comment Types
+
+    ❌ No syntax explanations (// if x == y then...)
+
+    ❌ No emotional Japanese mixed with dry English
+
+    ❌ No “what” or “how” explanations
+
+    ❌ No reflective or overly intimate tone
+
+    ❌ No business-style or academic Japanese
+
+
+4.5 – Tone Summary
+
+    ✨ Japanese: Soft, expressive, readable — never reflective or intimate
+
+    ✨ English: Neutral, precise, professional
+
+    ✨ All: Feminine and emotional clarity is required — this is not optional
+
+
+4.3 - Tests Must Follow the Same Rules
+
+All tests must use Japanese doc-style comments for setup, behavior, and intention. Tone must remain soft and reflective.
+5. Defensive Programming
+5.1 - Assume All Input is Invalid
+
+Validate everything. Never assume data from the outside world is correct.
+5.2 - Avoid Global State
+
+Only compile-time constants are permitted globally. All others must be local or injected.
+5.3 - Separate Logic from Presentation
+
+Do not include application logic in render functions or UI code.
+6. Project Structure
+6.1 - One Module or Component Per File
+
+Each file should contain one logical unit. File name must match the exported symbol or type.
+6.2 - Import Order Must Be Standard → Third-Party → Local
+
+Insert a blank line between each section.
+6.3 - No Circular Dependencies
+
+Circular imports are always a violation. You must restructure to break the loop.
+
+
+7. Testing
+7.1 - Do Not Mock Internal Logic
+
+Mocks are allowed only for boundary layers (e.g., APIs, file systems). Never mock internal domain logic.
+7.2 - Document All Tests in Japanese
+
+Use soft, clear, and emotionally aware Japanese to describe what the test intends. Tone should match production comments.
+7.3 - Avoid Snapshot Testing
+
+Only allowed for UI rendering diffs or large structural comparisons with documented justification.
+8. Tooling and CI Enforcement
+8.1 - Linters and Formatters Are Mandatory
+
+CI must block merges that fail lint or formatting checks.
+
+| Language | Tools                    |
+| -------- | ------------------------ |
+| TS/TSX   | ESLint, Prettier         |
+| C++      | clang-format, clang-tidy |
+| Go       | gofmt, golint            |
+| Rust     | rustfmt, Clippy          |
+
+
+8.2 - Linter Configs Must Match This Style Guide
+
+All rules described here (tabs, naming, line length, bracing, tone rules) must be enforced.
+9. Data Structures
+9.1 - Prefer Arrays Over Sets
+
+Arrays are the default for collections. Use [], Vec, std::vector, etc. unless proven otherwise.
+9.2 - Set Usage is Strictly Gated
+
+Use Set, HashSet, BTreeSet, etc. only when:
+
+    Uniqueness is required for correctness
+
+    .has() performance is proven
+
+    Logic explicitly requires set semantics
+
+9.3 - Justify Set Usage in Soft Japanese
+
+Every use of a set must include a soft, feminine Japanese comment explaining why an array was insufficient.
+
+
+// あたし、このSet使ったの…重複だけはどうしてもダメだったのよね。
+
+
+| Construct           | Reason                             |
+| ------------------- | ---------------------------------- |
+| Exceptions          | Unpredictable and unsafe           |
+| snake\_case         | Nonstandard, unaesthetic           |
+| ALL\_CAPS           | Aggressive, legacy                 |
+| Global state        | Unsafe and fragile                 |
+| JSX control logic   | Breaks UI separation model         |
+| Inline control flow | Hurts readability and traceability |
+
+
+Clarification – Inline Control Flow
+Inline control means using one-line flow control statements or ternary expressions that reduce clarity:
+
+
+❌ Not Allowed:
+
+if (x) DoSomething();
+return IsValid() ? "yes" : "no";
+
+✅ Use:
+
+if (x) {
+	DoSomething();
+}
+
+let result;
+if (IsValid()) {
+	result = "yes";
+} else {
+	result = "no";
+}
+
+
+11. Module Headers
+11.1 - All Files Must Begin with a Header Block
+
+Use a natural-language, prose-style doc block. Do not use @tags.
+
+/**
+ * Command parser module.
+ * 
+ * Handles argument parsing, flag extraction, quote handling,
+ * and shell-compatible input breaking.
+ * 
+ * Author: KleaSCM
+ * Email: KleaSCM@gmail.com
+ */
+
+This applies to:
+
+    .ts, .tsx
+
+    .rs
+
+    .cpp, .hpp
+
+    .go
+
+    Test files and modules too
+
+12. Enforcement
+12.1 - All Rules Are Binding
+
+No team or engineer may override this guide without formal, documented approval. All infra and review must enforce it.
+12.2 - Required in All Repositories
+
+This file (StyleGuide..txt) must live in the repo root alongside .editorconfig and all tooling configs.
+
+---
+
+.editorconfig
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = tab
+indent_size = 4
+max_line_length = 120
