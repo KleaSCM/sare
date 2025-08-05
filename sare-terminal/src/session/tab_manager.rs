@@ -82,7 +82,183 @@ impl TabManager {
 		 * 復旧準備を行います
 		 */
 		
-		// 初期化処理（将来的に永続化されたタブデータを読み込む）
+		// Load persistent tab data from storage
+		self.load_persistent_tab_data().await?;
+		
+		Ok(())
+	}
+	
+	/**
+	 * Loads persistent tab data from storage
+	 * 
+	 * @return Result<()> - Success or error
+	 */
+	async fn load_persistent_tab_data(&self) -> Result<()> {
+		/**
+		 * 永続化されたタブデータをストレージから読み込む関数です
+		 * 
+		 * タブのメタデータ、セッションごとのタブリスト、
+		 * アクティブなタブ、タブの順序を復元します。
+		 * 
+		 * アプリケーション起動時に既存のタブ状態を
+		 * 復旧するために使用されます
+		 */
+		
+		// Get user's home directory for tab data storage
+		let home_dir = dirs::home_dir().ok_or_else(|| {
+			anyhow::anyhow!("Could not determine home directory")
+		})?;
+		
+		let tab_data_file = home_dir.join(".sare_tabs.json");
+		
+		// Try to load existing tab data
+		if let Ok(data) = std::fs::read_to_string(&tab_data_file) {
+			if let Ok(tab_data) = serde_json::from_str::<serde_json::Value>(&data) {
+				// Load tabs metadata
+				if let Some(tabs_data) = tab_data.get("tabs") {
+					if let Some(tabs_object) = tabs_data.as_object() {
+						let mut tabs = self.tabs.write().await;
+						for (tab_id_str, tab_metadata) in tabs_object {
+							if let Ok(tab_id) = Uuid::parse_str(tab_id_str) {
+								if let Ok(metadata) = serde_json::from_value::<TabMetadata>(tab_metadata.clone()) {
+									tabs.insert(tab_id, metadata);
+								}
+							}
+						}
+					}
+				}
+				
+				// Load session tabs mapping
+				if let Some(session_tabs_data) = tab_data.get("session_tabs") {
+					if let Some(session_tabs_object) = session_tabs_data.as_object() {
+						let mut session_tabs = self.session_tabs.write().await;
+						for (session_id_str, tab_ids_array) in session_tabs_object {
+							if let Ok(session_id) = Uuid::parse_str(session_id_str) {
+								if let Some(tab_ids) = tab_ids_array.as_array() {
+									let mut tab_ids_vec = Vec::new();
+									for tab_id_value in tab_ids {
+										if let Some(tab_id_str) = tab_id_value.as_str() {
+											if let Ok(tab_id) = Uuid::parse_str(tab_id_str) {
+												tab_ids_vec.push(tab_id);
+											}
+										}
+									}
+									session_tabs.insert(session_id, tab_ids_vec);
+								}
+							}
+						}
+					}
+				}
+				
+				// Load active tabs mapping
+				if let Some(active_tabs_data) = tab_data.get("active_tabs") {
+					if let Some(active_tabs_object) = active_tabs_data.as_object() {
+						let mut active_tabs = self.active_tabs.write().await;
+						for (session_id_str, tab_id_str) in active_tabs_object {
+							if let Ok(session_id) = Uuid::parse_str(session_id_str) {
+								if let Ok(tab_id) = Uuid::parse_str(tab_id_str.as_str().unwrap_or("")) {
+									active_tabs.insert(session_id, tab_id);
+								}
+							}
+						}
+					}
+				}
+				
+				// Load tab order mapping
+				if let Some(tab_order_data) = tab_data.get("tab_order") {
+					if let Some(tab_order_object) = tab_order_data.as_object() {
+						let mut tab_order = self.tab_order.write().await;
+						for (session_id_str, tab_ids_array) in tab_order_object {
+							if let Ok(session_id) = Uuid::parse_str(session_id_str) {
+								if let Some(tab_ids) = tab_ids_array.as_array() {
+									let mut tab_ids_vec = Vec::new();
+									for tab_id_value in tab_ids {
+										if let Some(tab_id_str) = tab_id_value.as_str() {
+											if let Ok(tab_id) = Uuid::parse_str(tab_id_str) {
+												tab_ids_vec.push(tab_id);
+											}
+										}
+									}
+									tab_order.insert(session_id, tab_ids_vec);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		Ok(())
+	}
+	
+	/**
+	 * Saves persistent tab data to storage
+	 * 
+	 * @return Result<()> - Success or error
+	 */
+	async fn save_persistent_tab_data(&self) -> Result<()> {
+		/**
+		 * タブデータを永続化ストレージに保存する関数です
+		 * 
+		 * タブのメタデータ、セッションごとのタブリスト、
+		 * アクティブなタブ、タブの順序を保存します。
+		 * 
+		 * アプリケーション終了時にタブ状態を
+		 * 永続化するために使用されます
+		 */
+		
+		// Get user's home directory for tab data storage
+		let home_dir = dirs::home_dir().ok_or_else(|| {
+			anyhow::anyhow!("Could not determine home directory")
+		})?;
+		
+		let tab_data_file = home_dir.join(".sare_tabs.json");
+		
+		// Prepare tab data for serialization
+		let mut tab_data = serde_json::Map::new();
+		
+		// Serialize tabs metadata
+		let tabs = self.tabs.read().await;
+		let mut tabs_object = serde_json::Map::new();
+		for (tab_id, metadata) in tabs.iter() {
+			tabs_object.insert(tab_id.to_string(), serde_json::to_value(metadata)?);
+		}
+		tab_data.insert("tabs".to_string(), serde_json::Value::Object(tabs_object));
+		
+		// Serialize session tabs mapping
+		let session_tabs = self.session_tabs.read().await;
+		let mut session_tabs_object = serde_json::Map::new();
+		for (session_id, tab_ids) in session_tabs.iter() {
+			let tab_ids_array: Vec<serde_json::Value> = tab_ids.iter()
+				.map(|id| serde_json::Value::String(id.to_string()))
+				.collect();
+			session_tabs_object.insert(session_id.to_string(), serde_json::Value::Array(tab_ids_array));
+		}
+		tab_data.insert("session_tabs".to_string(), serde_json::Value::Object(session_tabs_object));
+		
+		// Serialize active tabs mapping
+		let active_tabs = self.active_tabs.read().await;
+		let mut active_tabs_object = serde_json::Map::new();
+		for (session_id, tab_id) in active_tabs.iter() {
+			active_tabs_object.insert(session_id.to_string(), serde_json::Value::String(tab_id.to_string()));
+		}
+		tab_data.insert("active_tabs".to_string(), serde_json::Value::Object(active_tabs_object));
+		
+		// Serialize tab order mapping
+		let tab_order = self.tab_order.read().await;
+		let mut tab_order_object = serde_json::Map::new();
+		for (session_id, tab_ids) in tab_order.iter() {
+			let tab_ids_array: Vec<serde_json::Value> = tab_ids.iter()
+				.map(|id| serde_json::Value::String(id.to_string()))
+				.collect();
+			tab_order_object.insert(session_id.to_string(), serde_json::Value::Array(tab_ids_array));
+		}
+		tab_data.insert("tab_order".to_string(), serde_json::Value::Object(tab_order_object));
+		
+		// Write tab data to file
+		let tab_data_json = serde_json::to_string_pretty(&serde_json::Value::Object(tab_data))?;
+		std::fs::write(&tab_data_file, tab_data_json)?;
+		
 		Ok(())
 	}
 	
@@ -443,6 +619,9 @@ impl TabManager {
 		 * アプリケーション終了時に呼び出され、クリーンアップを
 		 * 実行します
 		 */
+		
+		// Save persistent tab data before clearing
+		self.save_persistent_tab_data().await?;
 		
 		// すべてのデータをクリア
 		{

@@ -183,8 +183,8 @@ impl UnifiedGpuRenderer {
 		if let Some(backend) = &self.backend {
 			backend.render_text(text, x, y, color, font_size)
 		} else {
-			// Fallback to no-op for now
-			Ok(())
+			// Fallback to CPU rendering
+			self.fallback_cpu_render_text(text, x, y, color, font_size)
 		}
 	}
 	
@@ -202,8 +202,8 @@ impl UnifiedGpuRenderer {
 		if let Some(backend) = &self.backend {
 			backend.render_rectangle(x, y, width, height, color)
 		} else {
-			// Fallback to no-op for now
-			Ok(())
+			// Fallback to CPU rendering
+			self.fallback_cpu_render_rectangle(x, y, width, height, color)
 		}
 	}
 	
@@ -217,8 +217,8 @@ impl UnifiedGpuRenderer {
 		if let Some(backend) = &self.backend {
 			backend.clear_surface(background_color)
 		} else {
-			// Fallback to no-op for now
-			Ok(())
+			// Fallback to CPU rendering
+			self.fallback_cpu_clear_surface(background_color)
 		}
 	}
 	
@@ -231,8 +231,8 @@ impl UnifiedGpuRenderer {
 		if let Some(backend) = &self.backend {
 			backend.flush_surface()
 		} else {
-			// Fallback to no-op for now
-			Ok(())
+			// Fallback to CPU rendering
+			self.fallback_cpu_flush_surface()
 		}
 	}
 	
@@ -368,5 +368,84 @@ impl UnifiedGpuRenderer {
 				return true;
 			}
 			false
+		}
+		
+		/**
+		 * Fallback CPU text rendering
+		 * 
+		 * @param text - Text to render
+		 * @param x - X coordinate
+		 * @param y - Y coordinate
+		 * @param color - Text color
+		 * @param font_size - Font size
+		 * @return Result<()> - Success or error status
+		 */
+		fn fallback_cpu_render_text(&self, text: &str, x: f32, y: f32, color: u32, font_size: f32) -> Result<()> {
+			// Create a temporary CPU renderer for fallback
+			if let Ok(mut cpu_renderer) = crate::tui::gpu::cpu_backend::CpuRenderer::new(self.config.clone()) {
+				cpu_renderer.initialize(self.config.clone())?;
+				cpu_renderer.render_text(text, x, y, color, font_size)
+			} else {
+				// Ultimate fallback: simple console output
+				println!("RENDER_TEXT: '{}' at ({}, {}) color={:x}", text, x, y, color);
+				Ok(())
+			}
+		}
+		
+		/**
+		 * Fallback CPU rectangle rendering
+		 * 
+		 * @param x - X coordinate
+		 * @param y - Y coordinate
+		 * @param width - Width
+		 * @param height - Height
+		 * @param color - Fill color
+		 * @return Result<()> - Success or error status
+		 */
+		fn fallback_cpu_render_rectangle(&self, x: f32, y: f32, width: f32, height: f32, color: u32) -> Result<()> {
+			// Create a temporary CPU renderer for fallback
+			if let Ok(mut cpu_renderer) = crate::tui::gpu::cpu_backend::CpuRenderer::new(self.config.clone()) {
+				cpu_renderer.initialize(self.config.clone())?;
+				cpu_renderer.render_rectangle(x, y, width, height, color)
+			} else {
+				// Ultimate fallback: simple console output
+				println!("RENDER_RECT: ({}, {}) {}x{} color={:x}", x, y, width, height, color);
+				Ok(())
+			}
+		}
+		
+		/**
+		 * Fallback CPU surface clearing
+		 * 
+		 * @param background_color - Background color
+		 * @return Result<()> - Success or error status
+		 */
+		fn fallback_cpu_clear_surface(&self, background_color: u32) -> Result<()> {
+			// Create a temporary CPU renderer for fallback
+			if let Ok(mut cpu_renderer) = crate::tui::gpu::cpu_backend::CpuRenderer::new(self.config.clone()) {
+				cpu_renderer.initialize(self.config.clone())?;
+				cpu_renderer.clear_surface(background_color)
+			} else {
+				// Ultimate fallback: simple console output
+				println!("CLEAR_SURFACE: color={:x}", background_color);
+				Ok(())
+			}
+		}
+		
+		/**
+		 * Fallback CPU surface flushing
+		 * 
+		 * @return Result<()> - Success or error status
+		 */
+		fn fallback_cpu_flush_surface(&self) -> Result<()> {
+			// Create a temporary CPU renderer for fallback
+			if let Ok(mut cpu_renderer) = crate::tui::gpu::cpu_backend::CpuRenderer::new(self.config.clone()) {
+				cpu_renderer.initialize(self.config.clone())?;
+				cpu_renderer.flush_surface()
+			} else {
+				// Ultimate fallback: simple console output
+				println!("FLUSH_SURFACE");
+				Ok(())
+			}
 		}
 	} 

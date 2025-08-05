@@ -82,7 +82,9 @@ impl SessionSharingManager {
 		 * 復旧準備を行います
 		 */
 		
-		// 初期化処理（将来的に永続化された共有セッションデータを読み込む）
+		// Load persistent session sharing data from storage
+		self.load_persistent_session_sharing_data().await?;
+		
 		Ok(())
 	}
 	
