@@ -159,11 +159,13 @@ impl GpuRenderer {
 	 */
 	pub fn new(config: GpuConfig) -> Result<Self> {
 		/**
-		 * GPU初期化の複雑な処理です (｡◕‿◕｡)
+		 * GPUレンダラーを初期化する関数です
 		 * 
-		 * この関数は複雑なハードウェア検出を行います。
-		 * 複数のGPUバックエンドの検出が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 * システムのGPU能力を検出し、最適なバックエンドを選択して
+		 * GPU加速レンダリングを初期化します。
+		 * 
+		 * Skia、WGPU、CPUの各バックエンドを検出し、設定に基づいて
+		 * 最適なレンダリングバックエンドを選択します
 		 */
 		let capabilities = Self::detect_gpu_capabilities()?;
 		let active_backend = Self::select_optimal_backend(&config, &capabilities)?;
@@ -186,11 +188,14 @@ impl GpuRenderer {
 	 */
 	fn detect_gpu_capabilities() -> Result<GpuCapabilities> {
 		/**
-		 * GPU能力検出の複雑な処理です (◕‿◕)
+		 * GPU能力を検出する関数です
 		 * 
-		 * この関数は複雑なハードウェア検出を行います。
-		 * 複数のGPU APIの検出が難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (｡◕‿◕｡)
+		 * システムで利用可能なGPUバックエンド（Skia、WGPU）を検出し、
+		 * サポートされているレンダリングAPIとハードウェア能力を
+		 * 判定します。
+		 * 
+		 * 各バックエンドの可用性をチェックし、CPUフォールバックを
+		 * 含む利用可能なレンダリングオプションを返します
 		 */
 		let mut available_backends = Vec::new();
 		let mut supported_apis = Vec::new();
@@ -234,11 +239,14 @@ impl GpuRenderer {
 	 */
 	fn select_optimal_backend(config: &GpuConfig, capabilities: &GpuCapabilities) -> Result<Option<GpuBackend>> {
 		/**
-		 * バックエンド選択の複雑な処理です (｡◕‿◕｡)
+		 * 最適なGPUバックエンドを選択する関数です
 		 * 
-		 * この関数は複雑な最適化ロジックを行います。
-		 * パフォーマンスと互換性のバランスが難しい部分なので、
-		 * 適切なエラーハンドリングで実装しています (◕‿◕)
+		 * 設定で指定された優先バックエンドが利用可能かチェックし、
+		 * 利用できない場合は利用可能なバックエンドから最適なものを
+		 * 選択します。
+		 * 
+		 * Skia、WGPU、CPUの順で優先度を設定し、最終的に
+		 * CPUフォールバックを保証します
 		 */
 		
 		// Check if preferred backend is available
