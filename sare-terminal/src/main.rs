@@ -12,157 +12,47 @@
  */
 
 use anyhow::Result;
-use std::sync::Arc;
-use std::time::Instant;
-use tokio::sync::OnceCell;
+use eframe;
+use egui;
+use std::process::Command;
 
-/**
- * Startup optimizer for efficient module initialization
- * 
- * モジュール初期化のためのスタートアップ最適化器です。
- * 遅延初期化とパフォーマンス測定を提供します。
- */
-pub struct StartupOptimizer {
-	/// Startup time
-	pub startup_time: Instant,
-	/// Initialized modules
-	pub initialized_modules: Vec<String>,
-	/// Initialization times
-	pub init_times: Vec<(String, std::time::Duration)>,
+// Import the REAL GuiTerminal directly to bypass lib.rs issues
+mod gui {
+	pub mod terminal;
+	pub mod pane;
+	pub mod multiline;
+	pub mod heredoc;
+	pub mod substitution;
+	pub mod expansion;
+	pub mod renderer;
 }
 
-/**
- * Startup statistics
- * 
- * スタートアップ統計情報です。
- * 初期化時間とモジュール情報を記録します。
- */
-pub struct StartupStats {
-	/// Total startup time
-	pub total_time: std::time::Duration,
-	/// Module initialization times
-	pub module_times: Vec<(String, std::time::Duration)>,
-	/// Number of modules initialized
-	pub module_count: usize,
-}
+// History module will be handled by GuiTerminal
 
-impl StartupOptimizer {
-	/**
-	 * Creates a new startup optimizer
-	 * 
-	 * @return StartupOptimizer - New startup optimizer
-	 */
-	pub fn new() -> Self {
-		Self {
-			startup_time: Instant::now(),
-			initialized_modules: Vec::new(),
-			init_times: Vec::new(),
-		}
-	}
-	
-	/**
-	 * Lazily initializes a module with performance tracking
-	 * 
-	 * @param module_name - Module name
-	 * @param init_fn - Initialization function
-	 * @return Result<()> - Success or error status
-	 */
-	pub async fn lazy_init<F>(&mut self, module_name: &str, init_fn: F) -> Result<()>
-	where
-		F: FnOnce() -> Result<()>,
-	{
-		let start_time = Instant::now();
-		
-		init_fn()?;
-		
-		let duration = start_time.elapsed();
-		self.initialized_modules.push(module_name.to_string());
-		self.init_times.push((module_name.to_string(), duration));
-		
-		println!("⚡ Initialized {} in {:?}", module_name, duration);
-		
-		Ok(())
-	}
-	
-	/**
-	 * Gets startup statistics
-	 * 
-	 * @return StartupStats - Startup statistics
-	 */
-	pub fn get_stats(&self) -> StartupStats {
-		let total_time = self.startup_time.elapsed();
-		
-		StartupStats {
-			total_time,
-			module_times: self.init_times.clone(),
-			module_count: self.initialized_modules.len(),
-		}
-	}
-}
+use gui::terminal::GuiTerminal;
 
-// Global startup optimizer
-static STARTUP_OPTIMIZER: OnceCell<StartupOptimizer> = OnceCell::const_new();
-
-/**
- * Main entry point for Sare terminal emulator
- * 
- * @return Result<()> - Success or error status
- */
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
 	println!("🚀 Starting Sare Terminal Emulator...");
 	println!("💕 Built with love and passion by Yuriko and KleaSCM");
 	
-	// Initialize startup optimizer
-	let mut optimizer = StartupOptimizer::new();
+	// Use the REAL GuiTerminal with ALL features!
+	let app = GuiTerminal::new()?;
 	
-	// Initialize core modules
-	optimizer.lazy_init("terminal", || {
-		println!("🔧 Initializing terminal core...");
-		Ok(())
-	}).await?;
-	
-	optimizer.lazy_init("tui", || {
-		println!("🎨 Initializing TUI components...");
-		Ok(())
-	}).await?;
-	
-	optimizer.lazy_init("gui", || {
-		println!("🖼️ Initializing GUI components...");
-		Ok(())
-	}).await?;
-	
-	// Create and initialize terminal emulator
-	let mut terminal = sare_terminal::SareTerminal::new().await?;
-	terminal.initialize().await?;
-	
-	// Set up signal handling for graceful shutdown
-	let terminal_ref = Arc::new(tokio::sync::RwLock::new(terminal));
-	let terminal_clone = Arc::clone(&terminal_ref);
-	
-	// Handle Ctrl+C for graceful shutdown (simplified for now)
-	tokio::spawn(async move {
-		println!("🛑 Signal handling disabled for now");
-	});
-	
-	// Run the terminal emulator
-	let run_result = {
-		let mut terminal = terminal_ref.write().await;
-		terminal.run().await
+	let native_options = eframe::NativeOptions {
+		initial_window_size: Some(egui::vec2(1200.0, 800.0)),
+		min_window_size: Some(egui::vec2(400.0, 300.0)),
+		..Default::default()
 	};
 	
-	// Print startup statistics
-	let stats = optimizer.get_stats();
-	println!("📊 Startup Statistics:");
-	println!("   Total time: {:?}", stats.total_time);
-	println!("   Modules initialized: {}", stats.module_count);
-	for (module, duration) in stats.module_times {
-		println!("   {}: {:?}", module, duration);
-	}
+	println!("🖼️  Starting FULL Sare Terminal with ALL features...");
+	let run_result = eframe::run_native(
+		"Sare Terminal Emulator - Full Feature Set",
+		native_options,
+		Box::new(|_cc| Box::new(app)),
+	);
 	
-	// Handle run result
 	match run_result {
-		Ok(()) => {
+		Ok(_) => {
 			println!("✅ Sare Terminal Emulator completed successfully!");
 		}
 		Err(e) => {

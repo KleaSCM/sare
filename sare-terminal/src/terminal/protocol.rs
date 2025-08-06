@@ -343,9 +343,8 @@ impl ScreenBuffer {
 		
 		Self {
 			content,
-			cursor_pos: (0, 0),
 			scrollback: Vec::new(),
-			max_scrollback: 1000,
+			size: (cols, rows),
 		}
 	}
 	
@@ -370,13 +369,7 @@ impl ScreenBuffer {
 		}
 		self.content = new_content;
 		
-		// Adjust cursor position
-		if self.cursor_pos.0 >= cols {
-			self.cursor_pos.0 = cols - 1;
-		}
-		if self.cursor_pos.1 >= rows {
-			self.cursor_pos.1 = rows - 1;
-		}
+		// Adjust cursor position is handled by terminal state
 	}
 }
 

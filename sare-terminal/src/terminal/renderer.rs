@@ -456,8 +456,8 @@ impl TerminalRenderer {
 	 * @param mode - Erase mode (0=from cursor to end, 1=from beginning to cursor, 2=all)
 	 */
 	fn erase_in_display(&mut self, mode: u32) {
-		let buffer = self.get_active_buffer();
 		let (col, row) = self.state.cursor_pos;
+		let buffer = self.get_active_buffer();
 		
 		match mode {
 			0 => {
@@ -507,8 +507,8 @@ impl TerminalRenderer {
 	 * @param mode - Erase mode (0=from cursor to end, 1=from beginning to cursor, 2=entire line)
 	 */
 	fn erase_in_line(&mut self, mode: u32) {
-		let buffer = self.get_active_buffer();
 		let (col, row) = self.state.cursor_pos;
+		let buffer = self.get_active_buffer();
 		
 		if row < buffer.content.len() as u16 {
 			match mode {
@@ -850,11 +850,9 @@ impl TerminalRenderer {
 	 * Scrolls the screen up
 	 */
 	fn scroll_up(&mut self) {
-		let buffer = self.get_active_buffer();
-		
-		// Save top line to scrollback
-		if !buffer.content.is_empty() {
-			let top_line = buffer.content[0].clone();
+		// Save top line to scrollback first
+		if !self.screen_buffers.primary.content.is_empty() {
+			let top_line = self.screen_buffers.primary.content[0].clone();
 			self.scrollback.push(top_line);
 			
 			// Limit scrollback size
@@ -863,6 +861,9 @@ impl TerminalRenderer {
 			}
 		}
 		
+		// Now work with the buffer
+		let buffer = self.get_active_buffer();
+		
 		// Move all lines up
 		for i in 0..buffer.content.len() - 1 {
 			buffer.content[i] = buffer.content[i + 1].clone();
@@ -870,8 +871,8 @@ impl TerminalRenderer {
 		
 		// Clear bottom line
 		if !buffer.content.is_empty() {
-			let bottom_line = &mut buffer.content[buffer.content.len() - 1];
-			for cell in bottom_line.iter_mut() {
+			let content_len = buffer.content.len();
+			for cell in &mut buffer.content[content_len - 1] {
 				*cell = Cell::default();
 				cell.dirty = true;
 			}

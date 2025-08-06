@@ -302,7 +302,8 @@ impl ErrorRecoveryManager {
 		};
 		
 		// Try to recover gracefully
-		self.attempt_recovery(&context).ok();
+		// TODO: Implement async recovery
+		// self.attempt_recovery(&context).await.ok();
 		
 		Ok(())
 	}

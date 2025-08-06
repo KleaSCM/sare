@@ -3,6 +3,18 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::time::{Duration, Instant};
 
+// Module declarations
+pub mod gui;
+pub mod tui;
+pub mod terminal;
+pub mod session;
+pub mod config;
+pub mod features;
+pub mod ui;
+pub mod debug;
+pub mod unicode;
+pub mod history;
+
 pub struct SareTerminal {
 	terminal_state: Arc<RwLock<TerminalState>>,
 	running: Arc<RwLock<bool>>,

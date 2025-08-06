@@ -68,9 +68,10 @@ impl OptimizedShader {
 	 */
 	pub fn compile_text_shader(&mut self, canvas: &Canvas) -> Result<()> {
 		// Create optimized shader for text rendering
+		let colors = vec![Color4f::from(Color::WHITE), Color4f::from(Color::WHITE)];
 		let shader = Shader::linear_gradient(
 			(Point::new(0.0, 0.0), Point::new(0.0, 1.0)),
-			&[Color4f::from(Color::WHITE), Color4f::from(Color::WHITE)],
+			&colors,
 			None,
 			skia_safe::TileMode::Clamp,
 			None,

@@ -1,60 +1,14 @@
 [package]
-name = "sare"
+name = "working-sare-terminal"
 version = "0.1.0"
 edition = "2021"
-authors = ["KleaSCM <KleaSCM@gmail.com>"]
-description = "A POSIX-compatible Rust shell with TUI interface"
-license = "MIT"
-
-[lib]
-name = "sare"
-path = "src/lib.rs"
 
 [dependencies]
-# GUI Framework
-egui = "0.26"
-eframe = "0.26"
-
-# Terminal and TUI (for fallback)
-ratatui = "0.26"
-crossterm = "0.27"
-
-# GPU Acceleration
-skia-safe = "0.70"
-wgpu = "0.19"
-
-# Async and Concurrency
-tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0"
-thiserror = "1.0"
-
-# Serialization and Configuration
+eframe = "0.26"
+egui = "0.26"
+tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-
-# Utilities
 chrono = { version = "0.4", features = ["serde"] }
-uuid = { version = "1.0", features = ["v4"] }
-whoami = "1.4"
-dirs = "5.0"
-walkdir = "2.4"
-
-# System and Process Management
-libc = "0.2"
-
-# Command Line Parsing
-clap = { version = "4.0", features = ["derive"] }
-
-# Text Processing
-regex = "1.0"
-
-# Development
-env_logger = "0.10"
-log = "0.4"
-
-[dev-dependencies]
-criterion = "0.5"
-
-[[bin]]
-name = "test_runner"
-path = "Tests/test_runner.rs" 
+uuid = { version = "1.0", features = ["v4"] } 

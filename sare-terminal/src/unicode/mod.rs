@@ -202,7 +202,7 @@ impl UnicodeProcessor {
 	 * @param max_width - Maximum display width
 	 * @return ProcessedText - Processed text information
 	 */
-	pub fn process_text(&self, text: &str, max_width: u32) -> TextProcessingResult {
+	pub fn process_text(&mut self, text: &str, max_width: u32) -> TextProcessingResult {
 		let base_direction = self.get_base_direction(text);
 		let reordered_text = self.reorder_text(text);
 		let display_width = self.get_string_width(&reordered_text);
