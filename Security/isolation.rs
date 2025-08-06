@@ -23,9 +23,7 @@ use super::{SecurityConfig, SecurityEvent, SecuritySeverity};
 /**
  * Isolation level
  * 
- * 分離レベルを定義する列挙型です。
- * プロセス分離の強度を
- * 管理します。
+ * Defines isolation levels for process isolation strength management.
  */
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IsolationLevel {
@@ -42,10 +40,8 @@ pub enum IsolationLevel {
 /**
  * Isolation configuration
  * 
- * 分離設定を管理する構造体です。
- * プロセス分離、リソース制限、
- * セキュリティコンテナの設定を
- * 提供します。
+ * Manages isolation settings including process isolation, resource limits,
+ * and security container configuration.
  */
 #[derive(Debug, Clone)]
 pub struct IsolationConfig {
@@ -84,10 +80,10 @@ impl Default for IsolationConfig {
 			network_isolation: false,
 			user_isolation: true,
 			default_isolation_level: IsolationLevel::Basic,
-			max_cpu_usage: 50, // 50%
-			max_memory_usage: 512 * 1024 * 1024, // 512MB
-			max_disk_usage: 1024 * 1024 * 1024, // 1GB
-			max_network_bandwidth: 1024 * 1024, // 1MB/s
+			max_cpu_usage: 50, /** 50% */
+			max_memory_usage: 512 * 1024 * 1024, /** 512MB */
+			max_disk_usage: 1024 * 1024 * 1024, /** 1GB */
+			max_network_bandwidth: 1024 * 1024, /** 1MB/s */
 			allowed_syscalls: vec![
 				"read".to_string(), "write".to_string(), "open".to_string(),
 				"close".to_string(), "stat".to_string(), "lstat".to_string(),
@@ -244,9 +240,8 @@ impl Default for IsolationConfig {
 /**
  * Isolated process information
  * 
- * 分離されたプロセスの情報を管理する構造体です。
- * プロセスID、分離レベル、リソース使用量などの
- * 情報を保持します。
+ * Manages isolated process information including process ID, isolation level,
+ * resource usage, and other details.
  */
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IsolatedProcess {
@@ -288,9 +283,7 @@ pub enum ProcessStatus {
 /**
  * Isolation manager for process containment
  * 
- * プロセスコンテナのための分離マネージャーです。
- * プロセス分離、リソース制限、セキュリティ
- * コンテナを提供します。
+ * Provides process isolation, resource limits, and security containers.
  */
 pub struct IsolationManager {
 	/// Security configuration
@@ -312,15 +305,15 @@ impl IsolationManager {
 	 */
 	pub async fn new(config: Arc<RwLock<SecurityConfig>>) -> Result<Self> {
 		/**
-		 * 分離マネージャーを初期化する関数です
+		 * Initializes the isolation manager
 		 * 
-		 * 指定された設定で分離マネージャーを作成し、
-		 * プロセス分離、リソース制限、セキュリティ
-		 * コンテナ機能を提供します。
+		 * Creates an isolation manager with the specified settings,
+		 * provides process isolation, resource limits, and security
+		 * container functionality.
 		 * 
-		 * 名前空間分離、ファイルシステム分離、ネットワーク
-		 * 分離などの機能を初期化して安全なプロセス
-		 * 実行環境を構築します。
+		 * Initializes namespace isolation, filesystem isolation,
+		 * network isolation, and other features to provide a safe
+		 * process execution environment.
 		 */
 		
 		Ok(Self {
@@ -340,22 +333,200 @@ impl IsolationManager {
 	 */
 	pub async fn create_isolated_process(&self, command: &str, isolation_level: IsolationLevel) -> Result<u32> {
 		/**
-		 * 分離されたプロセスを作成する関数です
+		 * Creates an isolated process
 		 * 
-		 * 指定されたコマンドを指定された分離レベルで
-		 * 実行し、リソース制限とセキュリティ監視を
-		 * 適用します。
+		 * Executes the specified command with the specified isolation level,
+		 * applies resource limits and security monitoring.
 		 * 
-		 * 名前空間分離、ユーザー分離、ファイルシステム
-		 * 分離を使用して安全なプロセス実行環境を
-		 * 構築し、プロセスIDを返します。
+		 * Uses namespace isolation, user isolation, filesystem isolation
+		 * to build a safe process execution environment and returns
+		 * the process ID.
 		 */
 		
-		// For now, return a simulated process ID
-		// TODO: Implement actual process isolation
-		let pid = 12345; // Simulated PID
+		/**
+		 * Actual process isolation implementation
+		 * 
+		 * Creates isolated processes with namespace isolation,
+		 * user isolation, filesystem isolation, and resource limits.
+		 */
 		
-		// Create isolated process info
+		/**
+		 * Parse command into executable and arguments
+		 */
+		let parts: Vec<&str> = command.split_whitespace().collect();
+		if parts.is_empty() {
+			return Err(anyhow::anyhow!("Empty command"));
+		}
+		
+		let executable = parts[0];
+		let args: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
+		
+		/**
+		 * Create child process with isolation
+		 */
+		let mut child = std::process::Command::new(executable);
+		child.args(&args);
+		
+		/**
+		 * Apply isolation based on level
+		 */
+		match isolation_level {
+			IsolationLevel::None => {
+				/**
+				 * No isolation - run normally
+				 */
+			}
+			IsolationLevel::Basic => {
+				/**
+				 * Basic isolation - set resource limits
+				 */
+				child.env("SARE_ISOLATION", "basic");
+				
+				/**
+				 * Set resource limits
+				 */
+				unsafe {
+					use nix::sys::resource::{setrlimit, Resource, Rlimit};
+					
+					/**
+					 * Set CPU time limit
+					 */
+					setrlimit(Resource::RLIMIT_CPU, Rlimit::new(60, 60))?;
+					
+					/**
+					 * Set memory limit
+					 */
+					setrlimit(Resource::RLIMIT_AS, Rlimit::new(1024 * 1024 * 1024, 1024 * 1024 * 1024))?;
+					
+					/**
+					 * Set file size limit
+					 */
+					setrlimit(Resource::RLIMIT_FSIZE, Rlimit::new(100 * 1024 * 1024, 100 * 1024 * 1024))?;
+				}
+			}
+			IsolationLevel::Enhanced => {
+				/**
+				 * Enhanced isolation - namespace isolation
+				 */
+				child.env("SARE_ISOLATION", "enhanced");
+				
+				/**
+				 * Create new namespaces
+				 */
+				unsafe {
+					use nix::unistd::{unshare, setuid, setgid};
+					use nix::sched::CloneFlags;
+					use libc::{uid_t, gid_t};
+					
+					/**
+					 * Unshare namespaces
+					 */
+					unshare(CloneFlags::CLONE_NEWNS | CloneFlags::CLONE_NEWPID | CloneFlags::CLONE_NEWNET)?;
+					
+					/**
+					 * Set user/group isolation
+					 */
+					setuid(1000 as uid_t)?;
+					setgid(1000 as gid_t)?;
+				}
+				
+				/**
+				 * Set enhanced resource limits
+				 */
+				unsafe {
+					use nix::sys::resource::{setrlimit, Resource, Rlimit};
+					
+					/**
+					 * Stricter CPU limit
+					 */
+					setrlimit(Resource::RLIMIT_CPU, Rlimit::new(30, 30))?;
+					
+					/**
+					 * Stricter memory limit
+					 */
+					setrlimit(Resource::RLIMIT_AS, Rlimit::new(512 * 1024 * 1024, 512 * 1024 * 1024))?;
+					
+					/**
+					 * Stricter file size limit
+					 */
+					setrlimit(Resource::RLIMIT_FSIZE, Rlimit::new(50 * 1024 * 1024, 50 * 1024 * 1024))?;
+					
+					/**
+					 * Set process limit
+					 */
+					setrlimit(Resource::RLIMIT_NPROC, Rlimit::new(10, 10))?;
+				}
+			}
+			IsolationLevel::Maximum => {
+				/**
+				 * Maximum isolation - complete sandbox
+				 */
+				child.env("SARE_ISOLATION", "maximum");
+				
+				/**
+				 * Create all namespaces
+				 */
+				unsafe {
+					use nix::unistd::{unshare, setuid, setgid};
+					use nix::sched::CloneFlags;
+					use libc::{uid_t, gid_t};
+					
+					/**
+					 * Unshare all namespaces
+					 */
+					unshare(CloneFlags::CLONE_NEWNS | CloneFlags::CLONE_NEWPID | CloneFlags::CLONE_NEWNET | 
+							CloneFlags::CLONE_NEWUTS | CloneFlags::CLONE_NEWIPC)?;
+					
+					/**
+					 * Set strict user/group isolation
+					 */
+					setuid(1001 as uid_t)?;
+					setgid(1001 as gid_t)?;
+				}
+				
+				/**
+				 * Set maximum resource limits
+				 */
+				unsafe {
+					use nix::sys::resource::{setrlimit, Resource, Rlimit};
+					
+					/**
+					 * Very strict CPU limit
+					 */
+					setrlimit(Resource::RLIMIT_CPU, Rlimit::new(15, 15))?;
+					
+					/**
+					 * Very strict memory limit
+					 */
+					setrlimit(Resource::RLIMIT_AS, Rlimit::new(256 * 1024 * 1024, 256 * 1024 * 1024))?;
+					
+					/**
+					 * Very strict file size limit
+					 */
+					setrlimit(Resource::RLIMIT_FSIZE, Rlimit::new(25 * 1024 * 1024, 25 * 1024 * 1024))?;
+					
+					/**
+					 * Very strict process limit
+					 */
+					setrlimit(Resource::RLIMIT_NPROC, Rlimit::new(5, 5))?;
+					
+					/**
+					 * Set core dump limit to 0
+					 */
+					setrlimit(Resource::RLIMIT_CORE, Rlimit::new(0, 0))?;
+				}
+			}
+		}
+		
+		/**
+		 * Spawn the isolated process
+		 */
+		let child_process = child.spawn()?;
+		let pid = child_process.id() as u32;
+		
+		/**
+		 * Create isolated process info
+		 */
 		let process = IsolatedProcess {
 			pid,
 			isolation_level,
@@ -369,7 +540,9 @@ impl IsolationManager {
 			status: ProcessStatus::Running,
 		};
 		
-		// Store process info
+		/**
+		 * Store process info
+		 */
 		{
 			let mut processes = self.processes.write().await;
 			processes.insert(pid, process);

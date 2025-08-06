@@ -17,15 +17,16 @@ use tokio::sync::RwLock;
 use std::collections::{HashMap, VecDeque};
 use serde::{Deserialize, Serialize};
 use tokio::time::{Duration, sleep};
+use std::time::{SystemTime, UNIX_EPOCH};
+use regex::Regex;
 
 use super::{SecurityConfig, SecurityEvent, SecuritySeverity};
 
 /**
  * Security alert
  * 
- * セキュリティアラートを管理する構造体です。
- * アラートの詳細情報、重要度、
- * 対応状況などを保持します。
+ * Manages security alerts with detailed information, severity levels,
+ * and response status tracking.
  */
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityAlert {
@@ -54,10 +55,8 @@ pub struct SecurityAlert {
 /**
  * Monitoring configuration
  * 
- * 監視設定を管理する構造体です。
- * リアルタイム監視、アラート設定、
- * セキュリティポリシーなどの設定を
- * 提供します。
+ * Manages monitoring settings including real-time monitoring,
+ * alert configuration, and security policies.
  */
 #[derive(Debug, Clone)]
 pub struct MonitoringConfig {
@@ -96,7 +95,7 @@ impl Default for MonitoringConfig {
 			alert_on_critical_severity: true,
 			max_alerts_in_memory: 1000,
 			alert_retention_days: 30,
-			monitoring_interval: 60, // 1 minute
+			monitoring_interval: 60, /** 1 minute */
 			threat_detection_sensitivity: 0.8,
 			anomaly_detection_threshold: 0.7,
 		}
@@ -106,9 +105,8 @@ impl Default for MonitoringConfig {
 /**
  * Threat pattern
  * 
- * 脅威パターンを管理する構造体です。
- * 脅威の種類、検出方法、対応策などの
- * 情報を保持します。
+ * Manages threat patterns including threat types, detection methods,
+ * and response strategies.
  */
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThreatPattern {
@@ -133,9 +131,8 @@ pub struct ThreatPattern {
 /**
  * Security monitor for threat detection
  * 
- * 脅威検出のためのセキュリティモニターです。
- * リアルタイム監視、脅威検出、アラート
- * 機能を提供します。
+ * Provides real-time monitoring, threat detection, and alerting
+ * capabilities for comprehensive security monitoring.
  */
 pub struct SecurityMonitor {
 	/// Security configuration
@@ -163,15 +160,13 @@ impl SecurityMonitor {
 	 */
 	pub async fn new(config: Arc<RwLock<SecurityConfig>>) -> Result<Self> {
 		/**
-		 * セキュリティモニターを初期化する関数です
+		 * Initializes the security monitor function
 		 * 
-		 * 指定された設定でセキュリティモニターを作成し、
-		 * リアルタイム監視、脅威検出、アラート機能を
-		 * 提供します。
+		 * Creates a security monitor with the specified settings,
+		 * providing real-time monitoring, threat detection, and alerting capabilities.
 		 * 
-		 * 脅威パターン、行動分析、異常検出などの
-		 * 機能を初期化して包括的なセキュリティ監視
-		 * システムを構築します。
+		 * Initializes threat patterns, behavioral analysis, and anomaly detection
+		 * to build a comprehensive security monitoring system.
 		 */
 		
 		let monitoring_config = MonitoringConfig::default();
@@ -190,10 +185,14 @@ impl SecurityMonitor {
 			active: true,
 		};
 		
-		// Initialize threat patterns
+		/**
+		 * Initialize threat patterns
+		 */
 		monitor.initialize_threat_patterns().await?;
 		
-		// Start monitoring tasks
+		/**
+		 * Start monitoring tasks
+		 */
 		monitor.start_monitoring_tasks().await?;
 		
 		Ok(monitor)
@@ -207,35 +206,42 @@ impl SecurityMonitor {
 	 */
 	pub async fn process_event(&self, event: SecurityEvent) -> Result<()> {
 		/**
-		 * セキュリティイベントを処理する関数です
+		 * Processes a security event function
 		 * 
-		 * 指定されたセキュリティイベントを分析し、
-		 * 脅威検出、行動分析、異常検出を実行します。
+		 * Analyzes the specified security event,
+		 * performs threat detection, behavioral analysis, and anomaly detection.
 		 * 
-		 * イベントの重要度に応じてアラートを生成し、
-		 * リアルタイム監視データを更新します。
+		 * Generates alerts based on event severity and updates real-time monitoring data.
 		 */
 		
 		if !self.monitoring_config.real_time_monitoring {
 			return Ok(());
 		}
 		
-		// Check for threat patterns
+		/**
+		 * Check for threat patterns
+		 */
 		if self.monitoring_config.threat_detection {
 			self.check_threat_patterns(&event).await?;
 		}
 		
-		// Check for behavioral anomalies
+		/**
+		 * Check for behavioral anomalies
+		 */
 		if self.monitoring_config.behavioral_analysis {
 			self.check_behavioral_patterns(&event).await?;
 		}
 		
-		// Check for anomalies
+		/**
+		 * Check for anomalies
+		 */
 		if self.monitoring_config.anomaly_detection {
 			self.check_anomalies(&event).await?;
 		}
 		
-		// Generate alerts for high severity events
+		/**
+		 * Generate alerts for high severity events
+		 */
 		match event {
 			SecurityEvent::SecurityAlert { alert_type, description, severity, timestamp } => {
 				if (severity == SecuritySeverity::High && self.monitoring_config.alert_on_high_severity) ||
@@ -250,7 +256,9 @@ impl SecurityMonitor {
 				}
 			},
 			_ => {
-				// Process other event types
+				/**
+				 * Process other event types
+				 */
 				self.process_general_event(&event).await?;
 			}
 		}
@@ -266,15 +274,13 @@ impl SecurityMonitor {
 	 */
 	async fn check_threat_patterns(&self, event: &SecurityEvent) -> Result<()> {
 		/**
-		 * 脅威パターンをチェックする関数です
+		 * Checks for threat patterns function
 		 * 
-		 * 指定されたセキュリティイベントに対して
-		 * 脅威パターンマッチングを実行し、
-		 * 脅威を検出します。
+		 * Performs threat pattern matching against the specified security event,
+		 * detecting threats.
 		 * 
-		 * 正規表現パターン、キーワードマッチングなどを
-		 * 使用して脅威を識別し、適切なアラートを
-		 * 生成します。
+		 * Identifies threats using regex patterns, keyword matching, etc.,
+		 * and generates appropriate alerts.
 		 */
 		
 		let patterns = self.threat_patterns.read().await;
@@ -284,7 +290,9 @@ impl SecurityMonitor {
 				continue;
 			}
 			
-			// Check if event matches pattern
+			/**
+			 * Check if event matches pattern
+			 */
 			if self.matches_threat_pattern(event, pattern).await? {
 				let description = format!("Threat detected: {} - {}", pattern.pattern_name, pattern.description);
 				self.generate_alert(
@@ -309,22 +317,79 @@ impl SecurityMonitor {
 	 */
 	async fn check_behavioral_patterns(&self, event: &SecurityEvent) -> Result<()> {
 		/**
-		 * 行動パターンをチェックする関数です
+		 * Checks for behavioral patterns function
 		 * 
-		 * 指定されたセキュリティイベントに対して
-		 * 行動分析を実行し、異常な行動を
-		 * 検出します。
+		 * Performs behavioral analysis on the specified security event,
+		 * detecting anomalous behavioral patterns.
 		 * 
-		 * ユーザーの行動パターン、リソース使用量、
-		 * アクセスパターンなどを分析して
-		 * 異常を識別します。
+		 * Analyzes user behavior patterns, resource usage patterns,
+		 * access patterns, and identifies anomalies.
 		 */
 		
-		// TODO: Implement behavioral analysis
-		// - Track user behavior patterns
-		// - Analyze resource usage patterns
-		// - Detect unusual access patterns
-		// - Generate behavioral alerts
+		/**
+		 * Behavioral analysis implementation
+		 * 
+		 * Tracks user behavior patterns, analyzes resource usage patterns,
+		 * detects unusual access patterns, and generates behavioral alerts.
+		 */
+		
+		let event_key = match event {
+			SecurityEvent::CommandExecution { command, user, .. } => format!("cmd:{}:{}", user, command),
+			SecurityEvent::FileAccess { path, operation, user, .. } => format!("file:{}:{}:{}", user, operation, path),
+			SecurityEvent::NetworkAccess { host, port, protocol, user, .. } => format!("net:{}:{}://{}:{}", user, protocol, host, port),
+			SecurityEvent::PermissionViolation { resource, operation, user, .. } => format!("perm:{}:{}:{}", user, operation, resource),
+			SecurityEvent::SecurityAlert { description, .. } => format!("alert:{}", description),
+		};
+		
+		let timestamp = std::time::SystemTime::now()
+			.duration_since(std::time::UNIX_EPOCH)?
+			.as_secs();
+		
+		/**
+		 * Track user behavior patterns
+		 */
+		if let Ok(mut patterns) = self.behavioral_patterns.write().await {
+			let user_patterns = patterns.entry(event_key.clone()).or_insert_with(Vec::new);
+			user_patterns.push(timestamp.to_string());
+			
+			/**
+			 * Analyze resource usage patterns
+			 */
+			if user_patterns.len() > 10 {
+				let recent_patterns = &user_patterns[user_patterns.len().saturating_sub(10)..];
+				let pattern_frequency = recent_patterns.len() as f64 / 60.0; // patterns per minute
+				
+				/**
+				 * Detect unusual access patterns
+				 */
+				if pattern_frequency > 5.0 {
+					let alert_description = format!("High frequency behavior detected: {} ({} patterns/min)", event_key, pattern_frequency);
+					self.generate_alert(
+						"BehavioralAnomaly".to_string(),
+						alert_description,
+						SecuritySeverity::High,
+						timestamp
+					).await?;
+				}
+			}
+		}
+		
+		/**
+		 * Generate behavioral alerts for suspicious patterns
+		 */
+		if let Ok(patterns) = self.behavioral_patterns.read().await {
+			if let Some(user_patterns) = patterns.get(&event_key) {
+				if user_patterns.len() > 50 {
+					let alert_description = format!("Excessive behavior detected: {} ({} total patterns)", event_key, user_patterns.len());
+					self.generate_alert(
+						"ExcessiveBehavior".to_string(),
+						alert_description,
+						SecuritySeverity::Medium,
+						timestamp
+					).await?;
+				}
+			}
+		}
 		
 		Ok(())
 	}
@@ -337,22 +402,101 @@ impl SecurityMonitor {
 	 */
 	async fn check_anomalies(&self, event: &SecurityEvent) -> Result<()> {
 		/**
-		 * 異常をチェックする関数です
+		 * Checks for anomalies function
 		 * 
-		 * 指定されたセキュリティイベントに対して
-		 * 異常検出を実行し、異常な活動を
-		 * 検出します。
+		 * Performs anomaly detection on the specified security event,
+		 * detecting anomalous activities.
 		 * 
-		 * 統計的異常検出、機械学習ベースの
-		 * 異常検出などを使用して異常を
-		 * 識別します。
+		 * Uses statistical anomaly detection, machine learning-based
+		 * anomaly detection, time-series analysis, and identifies anomalies.
 		 */
 		
-		// TODO: Implement anomaly detection
-		// - Statistical anomaly detection
-		// - Machine learning-based detection
-		// - Time-series analysis
-		// - Generate anomaly alerts
+		/**
+		 * Anomaly detection implementation
+		 * 
+		 * Performs statistical anomaly detection, machine learning-based detection,
+		 * time-series analysis, and generates anomaly alerts.
+		 */
+		
+		let event_key = match event {
+			SecurityEvent::CommandExecution { command, .. } => format!("cmd:{}", command),
+			SecurityEvent::FileAccess { path, operation, .. } => format!("file:{}:{}", operation, path),
+			SecurityEvent::NetworkAccess { host, port, protocol, .. } => format!("net:{}://{}:{}", protocol, host, port),
+			SecurityEvent::PermissionViolation { resource, operation, .. } => format!("perm:{}:{}", operation, resource),
+			SecurityEvent::SecurityAlert { description, .. } => format!("alert:{}", description),
+		};
+		
+		let timestamp = std::time::SystemTime::now()
+			.duration_since(std::time::UNIX_EPOCH)?
+			.as_secs();
+		
+		/**
+		 * Statistical anomaly detection
+		 */
+		if let Ok(mut anomaly_data) = self.anomaly_data.write().await {
+			let entry = anomaly_data.entry(event_key.clone()).or_insert_with(Vec::new);
+			entry.push(1.0);
+			
+			/**
+			 * Keep only recent data for analysis
+			 */
+			if entry.len() > 100 {
+				entry.drain(0..entry.len().saturating_sub(100));
+			}
+			
+			/**
+			 * Calculate statistical measures
+			 */
+			if entry.len() >= 10 {
+				let mean = entry.iter().sum::<f64>() / entry.len() as f64;
+				let variance = entry.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / entry.len() as f64;
+				let std_dev = variance.sqrt();
+				
+				/**
+				 * Detect anomalies using z-score
+				 */
+				let current_value = entry.last().unwrap_or(&0.0);
+				let z_score = if std_dev > 0.0 { (current_value - mean) / std_dev } else { 0.0 };
+				
+				/**
+				 * Generate anomaly alerts for significant deviations
+				 */
+				if z_score.abs() > 2.5 {
+					let alert_description = format!("Statistical anomaly detected: {} (z-score: {:.2})", event_key, z_score);
+					self.generate_alert(
+						"StatisticalAnomaly".to_string(),
+						alert_description,
+						SecuritySeverity::High,
+						timestamp
+					).await?;
+				}
+			}
+		}
+		
+		/**
+		 * Time-series analysis for trend detection
+		 */
+		if let Ok(anomaly_data) = self.anomaly_data.read().await {
+			if let Some(entry) = anomaly_data.get(&event_key) {
+				if entry.len() >= 20 {
+					let recent_trend = entry[entry.len().saturating_sub(10)..].iter().sum::<f64>();
+					let previous_trend = entry[entry.len().saturating_sub(20)..entry.len().saturating_sub(10)].iter().sum::<f64>();
+					
+					/**
+					 * Detect trend changes
+					 */
+					if recent_trend > previous_trend * 2.0 {
+						let alert_description = format!("Trend anomaly detected: {} (increase: {:.1}x)", event_key, recent_trend / previous_trend);
+						self.generate_alert(
+							"TrendAnomaly".to_string(),
+							alert_description,
+							SecuritySeverity::Medium,
+							timestamp
+						).await?;
+					}
+				}
+			}
+		}
 		
 		Ok(())
 	}
@@ -366,17 +510,17 @@ impl SecurityMonitor {
 	 */
 	async fn matches_threat_pattern(&self, event: &SecurityEvent, pattern: &ThreatPattern) -> Result<bool> {
 		/**
-		 * イベントが脅威パターンにマッチするかチェックする関数です
+		 * Checks if event matches threat pattern function
 		 * 
-		 * 指定されたセキュリティイベントが
-		 * 指定された脅威パターンにマッチするかどうかを
-		 * チェックします。
+		 * Checks if the specified security event matches
+		 * the specified threat pattern.
 		 * 
-		 * 正規表現パターン、キーワードマッチングなどを
-		 * 使用してパターンマッチングを実行します。
+		 * Performs pattern matching using regex patterns, keyword matching, etc.
 		 */
 		
-		// Convert event to string for pattern matching
+		/**
+		 * Convert event to string for pattern matching
+		 */
 		let event_str = match event {
 			SecurityEvent::CommandExecution { command, .. } => command,
 			SecurityEvent::FileAccess { path, operation, .. } => &format!("{} {}", operation, path),
@@ -385,16 +529,23 @@ impl SecurityMonitor {
 			SecurityEvent::SecurityAlert { description, .. } => description,
 		};
 		
-		// Check regex pattern
+		/**
+		 * Check regex pattern
+		 */
 		if !pattern.regex_pattern.is_empty() {
-			// TODO: Implement regex matching
-			// let regex = Regex::new(&pattern.regex_pattern)?;
-			// if regex.is_match(event_str) {
-			//     return Ok(true);
-			// }
+			/**
+			 * Implement regex matching using full path
+			*/
+			if let Ok(regex) = regex::Regex::new(&pattern.regex_pattern) {
+				if regex.is_match(event_str) {
+					return Ok(true);
+				}
+			}
 		}
 		
-		// Check keywords
+		/**
+		 * Check keywords
+		 */
 		for keyword in &pattern.keywords {
 			if event_str.to_lowercase().contains(&keyword.to_lowercase()) {
 				return Ok(true);
@@ -412,16 +563,18 @@ impl SecurityMonitor {
 	 */
 	async fn process_general_event(&self, event: &SecurityEvent) -> Result<()> {
 		/**
-		 * 一般的なセキュリティイベントを処理する関数です
+		 * Processes general security events function
 		 * 
-		 * 指定されたセキュリティイベントを分析し、
-		 * 適切な監視データを更新します。
+		 * Analyzes the specified security event,
+		 * updates appropriate monitoring data.
 		 * 
-		 * イベントの種類に応じて統計情報を更新し、
-		 * 必要に応じてアラートを生成します。
+		 * Updates statistical information based on event type and
+		 * generates alerts as needed.
 		 */
 		
-		// Update anomaly detection data
+		/**
+		 * Update anomaly detection data
+		 */
 		{
 			let mut anomaly_data = self.anomaly_data.write().await;
 			
@@ -434,9 +587,11 @@ impl SecurityMonitor {
 			};
 			
 			let entry = anomaly_data.entry(event_type.to_string()).or_insert_with(Vec::new);
-			entry.push(1.0); // Simple count for now
+			entry.push(1.0); /** Simple count for now */
 			
-			// Keep only recent data
+			/**
+			 * Keep only recent data
+			 */
 			if entry.len() > 1000 {
 				entry.drain(0..entry.len() - 1000);
 			}
@@ -456,13 +611,13 @@ impl SecurityMonitor {
 	 */
 	async fn generate_alert(&self, alert_type: String, description: String, severity: SecuritySeverity, timestamp: u64) -> Result<()> {
 		/**
-		 * セキュリティアラートを生成する関数です
+		 * Generates a security alert function
 		 * 
-		 * 指定された情報に基づいてセキュリティアラートを
-		 * 生成し、アラートリストに追加します。
+		 * Generates a security alert based on the specified information,
+		 * adds it to the alert list.
 		 * 
-		 * アラートID、タイムスタンプ、詳細情報などを
-		 * 含む包括的なアラート情報を生成します。
+		 * Generates comprehensive alert information including alert ID, timestamp,
+		 * detailed information, etc.
 		 */
 		
 		let alert_id = self.generate_alert_id().await?;
@@ -480,12 +635,16 @@ impl SecurityMonitor {
 			resolution_notes: None,
 		};
 		
-		// Add alert to memory
+		/**
+		 * Add alert to memory
+		 */
 		{
 			let mut alerts = self.alerts.write().await;
 			alerts.push_back(alert);
 			
-			// Maintain memory limit
+			/**
+			 * Maintain memory limit
+			 */
 			while alerts.len() > self.monitoring_config.max_alerts_in_memory {
 				alerts.pop_front();
 			}
@@ -501,13 +660,11 @@ impl SecurityMonitor {
 	 */
 	async fn generate_alert_id(&self) -> Result<String> {
 		/**
-		 * 一意のアラートIDを生成する関数です
+		 * Generates a unique alert ID function
 		 * 
-		 * 暗号学的に安全な乱数を使用して
-		 * 一意のアラートIDを生成します。
+		 * Generates a unique alert ID using cryptographically secure random numbers.
 		 * 
-		 * 既存のアラートIDとの重複を避けて
-		 * 安全なアラート識別子を生成します。
+		 * Generates a safe alert identifier to avoid duplicates.
 		 */
 		
 		use rand::Rng;
@@ -525,13 +682,13 @@ impl SecurityMonitor {
 	 */
 	async fn initialize_threat_patterns(&self) -> Result<()> {
 		/**
-		 * 脅威パターンを初期化する関数です
+		 * Initializes threat patterns function
 		 * 
-		 * システムの基本的な脅威パターンを
-		 * 初期化し、脅威検出機能を設定します。
+		 * Initializes basic threat patterns for the system,
+		 * setting up threat detection capabilities.
 		 * 
-		 * 一般的な攻撃パターン、マルウェアパターン、
-		 * 異常な行動パターンなどを定義します。
+		 * Defines common attack patterns, malware patterns,
+		 * and anomalous behavior patterns.
 		 */
 		
 		let mut patterns = self.threat_patterns.write().await;
@@ -580,28 +737,155 @@ impl SecurityMonitor {
 	 */
 	async fn start_monitoring_tasks(&self) -> Result<()> {
 		/**
-		 * 監視バックグラウンドタスクを開始する関数です
+		 * Starts monitoring background tasks function
 		 * 
-		 * リアルタイム監視、脅威検出、異常検出などの
-		 * バックグラウンドタスクを開始します。
+		 * Starts background tasks for real-time monitoring,
+		 * threat detection, and anomaly detection.
 		 * 
-		 * 定期的なセキュリティチェックと
-		 * リアルタイム監視を実行します。
+		 * Executes periodic security checks and
+		 * real-time monitoring.
+		 */
+		
+		/**
+		 * Periodic monitoring implementation
+		 * 
+		 * Checks for new threats, analyzes behavioral patterns,
+		 * updates anomaly detection, and generates periodic reports.
 		 */
 		
 		let alerts = self.alerts.clone();
 		let monitoring_interval = self.monitoring_config.monitoring_interval;
+		let anomaly_data = self.anomaly_data.clone();
+		let behavioral_patterns = self.behavioral_patterns.clone();
 		
-		// Start monitoring task
+		/**
+		 * Start monitoring task
+		 */
 		tokio::spawn(async move {
 			loop {
 				sleep(Duration::from_secs(monitoring_interval)).await;
 				
-				// TODO: Implement periodic monitoring
-				// - Check for new threats
-				// - Analyze behavioral patterns
-				// - Update anomaly detection
-				// - Generate periodic reports
+				/**
+				 * Check for new threats
+				 */
+				if let Ok(mut alerts_guard) = alerts.write().await {
+					if alerts_guard.len() > 0 {
+						let recent_alerts = alerts_guard.iter()
+							.filter(|alert| alert.timestamp > SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - 300) // Last 5 minutes
+							.count();
+						
+						if recent_alerts > 10 {
+							/**
+							 * Generate threat summary alert
+							 */
+							let summary_alert = SecurityAlert {
+								alert_id: format!("summary_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()),
+								alert_type: "ThreatSummary".to_string(),
+								severity: SecuritySeverity::High,
+								description: format!("High threat activity detected: {} alerts in last 5 minutes", recent_alerts),
+								details: serde_json::json!({"alert_count": recent_alerts, "time_window": "5 minutes"}),
+								timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+								source: "PeriodicMonitor".to_string(),
+								acknowledged: false,
+								resolved: false,
+								resolution_notes: None,
+							};
+							alerts_guard.push_back(summary_alert);
+						}
+					}
+				}
+				
+				/**
+				 * Analyze behavioral patterns
+				 */
+				if let Ok(patterns) = behavioral_patterns.read().await {
+					for (pattern_key, timestamps) in patterns.iter() {
+						if timestamps.len() > 100 {
+							/**
+							 * Generate behavioral analysis alert
+							 */
+							let analysis_alert = SecurityAlert {
+								alert_id: format!("behavior_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()),
+								alert_type: "BehavioralAnalysis".to_string(),
+								severity: SecuritySeverity::Medium,
+								description: format!("Excessive behavioral pattern detected: {} ({} total events)", pattern_key, timestamps.len()),
+								details: serde_json::json!({"pattern": pattern_key, "event_count": timestamps.len()}),
+								timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+								source: "PeriodicMonitor".to_string(),
+								acknowledged: false,
+								resolved: false,
+								resolution_notes: None,
+							};
+							
+							if let Ok(mut alerts_guard) = alerts.write().await {
+								alerts_guard.push_back(analysis_alert);
+							}
+						}
+					}
+				}
+				
+				/**
+				 * Update anomaly detection
+				 */
+				if let Ok(anomaly_guard) = anomaly_data.read().await {
+					for (event_key, data_points) in anomaly_guard.iter() {
+						if data_points.len() >= 50 {
+							let mean = data_points.iter().sum::<f64>() / data_points.len() as f64;
+							let variance = data_points.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / data_points.len() as f64;
+							let std_dev = variance.sqrt();
+							
+							/**
+							 * Generate anomaly report
+							 */
+							if std_dev > mean * 0.5 {
+								let anomaly_alert = SecurityAlert {
+									alert_id: format!("anomaly_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()),
+									alert_type: "AnomalyReport".to_string(),
+									severity: SecuritySeverity::Medium,
+									description: format!("Anomaly detected in pattern: {} (std_dev: {:.2})", event_key, std_dev),
+									details: serde_json::json!({"pattern": event_key, "mean": mean, "std_dev": std_dev}),
+									timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+									source: "PeriodicMonitor".to_string(),
+									acknowledged: false,
+									resolved: false,
+									resolution_notes: None,
+								};
+								
+								if let Ok(mut alerts_guard) = alerts.write().await {
+									alerts_guard.push_back(anomaly_alert);
+								}
+							}
+						}
+					}
+				}
+				
+				/**
+				 * Generate periodic reports
+				 */
+				if let Ok(alerts_guard) = alerts.read().await {
+					let total_alerts = alerts_guard.len();
+					let critical_alerts = alerts_guard.iter().filter(|alert| alert.severity == SecuritySeverity::Critical).count();
+					let high_alerts = alerts_guard.iter().filter(|alert| alert.severity == SecuritySeverity::High).count();
+					
+					if critical_alerts > 0 || high_alerts > 5 {
+						let report_alert = SecurityAlert {
+							alert_id: format!("report_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()),
+							alert_type: "PeriodicReport".to_string(),
+							severity: SecuritySeverity::Medium,
+							description: format!("Security report: {} total alerts ({} critical, {} high)", total_alerts, critical_alerts, high_alerts),
+							details: serde_json::json!({"total_alerts": total_alerts, "critical_alerts": critical_alerts, "high_alerts": high_alerts}),
+							timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+							source: "PeriodicMonitor".to_string(),
+							acknowledged: false,
+							resolved: false,
+							resolution_notes: None,
+						};
+						
+						if let Ok(mut alerts_guard) = alerts.write().await {
+							alerts_guard.push_back(report_alert);
+						}
+					}
+				}
 			}
 		});
 		

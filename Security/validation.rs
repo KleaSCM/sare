@@ -62,7 +62,7 @@ impl Default for ValidationConfig {
 			max_path_length: 4096,
 			max_host_length: 253,
 			max_url_length: 2048,
-			max_file_size: 100 * 1024 * 1024, // 100MB
+			max_file_size: 100 * 1024 * 1024, /** 100MB */
 			allowed_extensions: vec![
 				"txt".to_string(), "md".to_string(), "rs".to_string(),
 				"toml".to_string(), "json".to_string(), "yaml".to_string(),

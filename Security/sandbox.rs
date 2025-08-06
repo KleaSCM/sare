@@ -57,9 +57,9 @@ impl Default for SandboxConfig {
 			namespace_isolation: true,
 			user_isolation: true,
 			resource_limits: true,
-			max_cpu_time: 300, // 5 minutes
-			max_memory: 512 * 1024 * 1024, // 512MB
-			max_file_size: 100 * 1024 * 1024, // 100MB
+			max_cpu_time: 300, /** 5 minutes */
+			max_memory: 512 * 1024 * 1024, /** 512MB */
+			max_file_size: 100 * 1024 * 1024, /** 100MB */
 			max_processes: 10,
 			max_open_files: 100,
 			allowed_directories: vec![
