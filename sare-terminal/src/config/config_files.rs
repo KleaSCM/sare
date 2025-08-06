@@ -369,7 +369,11 @@ impl ConfigFileManager {
 			for (field_name, field_value) in obj {
 				if let Some(property_schema) = schema.properties.get(field_name) {
 					if let Err(property_errors) = self.validate_property(field_name, field_value, property_schema) {
-						errors.extend(property_errors.into_iter());
+						errors.push(ConfigValidationError {
+							field: field_name.clone(),
+							message: format!("Property validation error: {}", property_errors),
+							severity: ValidationSeverity::Error,
+						});
 					}
 				} else if !schema.additional_properties {
 					errors.push(ConfigValidationError {

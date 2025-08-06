@@ -12,18 +12,16 @@
  */
 
 use anyhow::Result;
+use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::OnceCell;
-use std::sync::Arc;
 
 /**
- * Startup optimizer for performance tracking
+ * Startup optimizer for efficient module initialization
  * 
- * スタートアップ最適化器です。
- * 起動時間の測定と
- * 最適化を行います。
+ * モジュール初期化のためのスタートアップ最適化器です。
+ * 遅延初期化とパフォーマンス測定を提供します。
  */
-#[derive(Debug)]
 pub struct StartupOptimizer {
 	/// Startup time
 	pub startup_time: Instant,
@@ -36,11 +34,9 @@ pub struct StartupOptimizer {
 /**
  * Startup statistics
  * 
- * スタートアップ統計です。
- * 起動統計情報を
- * 管理します。
+ * スタートアップ統計情報です。
+ * 初期化時間とモジュール情報を記録します。
  */
-#[derive(Debug)]
 pub struct StartupStats {
 	/// Total startup time
 	pub total_time: std::time::Duration,
@@ -65,7 +61,7 @@ impl StartupOptimizer {
 	}
 	
 	/**
-	 * Lazy initializes a module
+	 * Lazily initializes a module with performance tracking
 	 * 
 	 * @param module_name - Module name
 	 * @param init_fn - Initialization function
@@ -75,10 +71,11 @@ impl StartupOptimizer {
 	where
 		F: FnOnce() -> Result<()>,
 	{
-		let start = Instant::now();
-		init_fn()?;
-		let duration = start.elapsed();
+		let start_time = Instant::now();
 		
+		init_fn()?;
+		
+		let duration = start_time.elapsed();
 		self.initialized_modules.push(module_name.to_string());
 		self.init_times.push((module_name.to_string(), duration));
 		
@@ -117,7 +114,7 @@ async fn main() -> Result<()> {
 	println!("💕 Built with love and passion by Yuriko and KleaSCM");
 	
 	// Initialize startup optimizer
-	let optimizer = STARTUP_OPTIMIZER.get_or_init(StartupOptimizer::new);
+	let mut optimizer = StartupOptimizer::new();
 	
 	// Initialize core modules
 	optimizer.lazy_init("terminal", || {
@@ -135,11 +132,8 @@ async fn main() -> Result<()> {
 		Ok(())
 	}).await?;
 	
-	// Create terminal configuration
-	let config = sare_terminal::config::Config::default();
-	
 	// Create and initialize terminal emulator
-	let mut terminal = sare_terminal::SareTerminal::new(config).await?;
+	let mut terminal = sare_terminal::SareTerminal::new().await?;
 	terminal.initialize().await?;
 	
 	// Set up signal handling for graceful shutdown
