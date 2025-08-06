@@ -244,6 +244,53 @@ impl StatusBar {
 			super::widgets::BorderStyle::None => String::new(),
 		}
 	}
+	
+	/**
+	 * Gets system load average
+	 * 
+	 * @return Result<String> - Load average string
+	 */
+	fn get_load_average(&self) -> Result<String> {
+		// Read load average from /proc/loadavg
+		let loadavg_content = std::fs::read_to_string("/proc/loadavg")?;
+		let parts: Vec<&str> = loadavg_content.split_whitespace().collect();
+		
+		if parts.len() >= 3 {
+			let load_1min = parts[0];
+			let load_5min = parts[1];
+			let load_15min = parts[2];
+			Ok(format!("{}/{}/{}", load_1min, load_5min, load_15min))
+		} else {
+			Ok("0.00/0.00/0.00".to_string())
+		}
+	}
+	
+	/**
+	 * Gets system uptime
+	 * 
+	 * @return Result<String> - Uptime string
+	 */
+	fn get_uptime(&self) -> Result<String> {
+		// Read uptime from /proc/uptime
+		let uptime_content = std::fs::read_to_string("/proc/uptime")?;
+		let uptime_seconds: f64 = uptime_content
+			.split_whitespace()
+			.next()
+			.and_then(|s| s.parse::<f64>().ok())
+			.unwrap_or(0.0);
+		
+		let days = (uptime_seconds / 86400.0) as u64;
+		let hours = ((uptime_seconds % 86400.0) / 3600.0) as u64;
+		let minutes = ((uptime_seconds % 3600.0) / 60.0) as u64;
+		
+		if days > 0 {
+			Ok(format!("{}d {}h {}m", days, hours, minutes))
+		} else if hours > 0 {
+			Ok(format!("{}h {}m", hours, minutes))
+		} else {
+			Ok(format!("{}m", minutes))
+		}
+	}
 }
 
 impl Widget for StatusBar {
@@ -331,6 +378,16 @@ impl StatusBar {
 			self.update_status_item("Network", network_status);
 		}
 		
+		// Update load average
+		if let Ok(load_avg) = self.get_load_average() {
+			self.update_status_item("Load", load_avg);
+		}
+		
+		// Update uptime
+		if let Ok(uptime) = self.get_uptime() {
+			self.update_status_item("Uptime", uptime);
+		}
+		
 		// Update time
 		let time = chrono::Local::now().format("%H:%M:%S").to_string();
 		self.update_status_item("Time", time);
@@ -342,9 +399,31 @@ impl StatusBar {
 	 * @return Result<u32> - CPU usage percentage
 	 */
 	fn get_cpu_usage(&self) -> Result<u32> {
-		// Simple CPU usage estimation
-		// In a real implementation, this would read from /proc/stat
-		Ok(25) // Placeholder
+		// Read CPU stats from /proc/stat
+		let stat_content = std::fs::read_to_string("/proc/stat")?;
+		let first_line = stat_content.lines().next().ok_or_else(|| anyhow::anyhow!("No CPU stats found"))?;
+		
+		// Parse CPU time values
+		let parts: Vec<u64> = first_line
+			.split_whitespace()
+			.skip(1) // Skip "cpu" identifier
+			.filter_map(|s| s.parse::<u64>().ok())
+			.collect();
+		
+		if parts.len() < 4 {
+			return Ok(0);
+		}
+		
+		// Calculate CPU usage
+		let total = parts.iter().sum::<u64>();
+		let idle = parts[3];
+		let usage = if total > 0 {
+			((total - idle) * 100) / total
+		} else {
+			0
+		};
+		
+		Ok(usage as u32)
 	}
 	
 	/**
@@ -353,9 +432,34 @@ impl StatusBar {
 	 * @return Result<u32> - Memory usage percentage
 	 */
 	fn get_memory_usage(&self) -> Result<u32> {
-		// Simple memory usage estimation
-		// In a real implementation, this would read from /proc/meminfo
-		Ok(45) // Placeholder
+		// Read memory info from /proc/meminfo
+		let meminfo_content = std::fs::read_to_string("/proc/meminfo")?;
+		let mut total_mem = 0u64;
+		let mut available_mem = 0u64;
+		
+		for line in meminfo_content.lines() {
+			if line.starts_with("MemTotal:") {
+				total_mem = line
+					.split_whitespace()
+					.nth(1)
+					.and_then(|s| s.parse::<u64>().ok())
+					.unwrap_or(0);
+			} else if line.starts_with("MemAvailable:") {
+				available_mem = line
+					.split_whitespace()
+					.nth(1)
+					.and_then(|s| s.parse::<u64>().ok())
+					.unwrap_or(0);
+			}
+		}
+		
+		if total_mem > 0 {
+			let used_mem = total_mem - available_mem;
+			let usage = (used_mem * 100) / total_mem;
+			Ok(usage as u32)
+		} else {
+			Ok(0)
+		}
 	}
 	
 	/**
@@ -364,9 +468,20 @@ impl StatusBar {
 	 * @return Result<u32> - Disk usage percentage
 	 */
 	fn get_disk_usage(&self) -> Result<u32> {
-		// Simple disk usage estimation
-		// In a real implementation, this would use statvfs
-		Ok(60) // Placeholder
+		// Get disk usage for current directory
+		let current_dir = std::env::current_dir()?;
+		let statvfs = nix::mount::statvfs(&current_dir)?;
+		
+		let total_blocks = statvfs.blocks() as u64;
+		let available_blocks = statvfs.available() as u64;
+		let used_blocks = total_blocks - available_blocks;
+		
+		if total_blocks > 0 {
+			let usage = (used_blocks * 100) / total_blocks;
+			Ok(usage as u32)
+		} else {
+			Ok(0)
+		}
 	}
 	
 	/**
@@ -375,8 +490,33 @@ impl StatusBar {
 	 * @return Result<String> - Network status string
 	 */
 	fn get_network_status(&self) -> Result<String> {
-		// Simple network status
-		// In a real implementation, this would check network interfaces
-		Ok("Connected".to_string()) // Placeholder
+		// Check network interfaces
+		let interfaces = std::fs::read_dir("/sys/class/net")?;
+		let mut active_interfaces = Vec::new();
+		
+		for entry in interfaces {
+			if let Ok(entry) = entry {
+				let interface_name = entry.file_name().to_string_lossy().to_string();
+				
+				// Skip loopback and virtual interfaces
+				if !interface_name.starts_with("lo") && 
+				   !interface_name.starts_with("docker") &&
+				   !interface_name.starts_with("veth") {
+					
+					// Check if interface is up
+					if let Ok(operstate) = std::fs::read_to_string(format!("/sys/class/net/{}/operstate", interface_name)) {
+						if operstate.trim() == "up" {
+							active_interfaces.push(interface_name);
+						}
+					}
+				}
+			}
+		}
+		
+		if active_interfaces.is_empty() {
+			Ok("Disconnected".to_string())
+		} else {
+			Ok(format!("Connected ({})", active_interfaces.join(", ")))
+		}
 	}
 } 
