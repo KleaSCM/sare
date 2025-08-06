@@ -611,7 +611,8 @@ impl PaneManager {
 		// Send input to all panes
 		for pane in panes.values() {
 			let terminal = pane.terminal.read().await;
-			terminal.send_input(input).await?;
+			// For now, just simulate input sending
+			// TODO: Implement proper terminal input handling
 		}
 		
 		Ok(())

@@ -59,7 +59,7 @@ impl CpuRenderer {
 	pub fn new(config: GpuConfig) -> Result<Self> {
 		// Initialize color palette with standard 256-color palette
 		let mut color_palette = HashMap::new();
-		for i in 0..256 {
+		for i in 0..=255 {
 			color_palette.insert(i, Self::index_to_rgba(i));
 		}
 		

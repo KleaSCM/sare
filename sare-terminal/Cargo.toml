@@ -31,4 +31,8 @@ x11rb = "0.12"
 tokio-util = "0.7"
 unicode-segmentation = "1.10"
 
+[[bin]]
+name = "sare-terminal"
+path = "src/main.rs"
+
 [dev-dependencies] 

@@ -13,7 +13,7 @@
 
 use anyhow::Result;
 use eframe;
-use egui;
+use egui::{self, ViewportBuilder};
 use std::process::Command;
 
 // Import the REAL GuiTerminal directly to bypass lib.rs issues
@@ -39,8 +39,9 @@ fn main() -> Result<()> {
 	let app = GuiTerminal::new()?;
 	
 	let native_options = eframe::NativeOptions {
-		initial_window_size: Some(egui::vec2(1200.0, 800.0)),
-		min_window_size: Some(egui::vec2(400.0, 300.0)),
+		viewport: ViewportBuilder::default()
+			.with_inner_size([1200.0, 800.0])
+			.with_min_inner_size([400.0, 300.0]),
 		..Default::default()
 	};
 	

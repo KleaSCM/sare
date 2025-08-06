@@ -171,7 +171,7 @@ impl FontManager {
 		 * メモリに読み込んで効率的なアクセスを提供します
 		 */
 		
-		let cache_key = format!("{}:{}:{}:{}", family, size, weight as u32, style.clone() as u32);
+		let cache_key = format!("{}:{}:{}:{}", family, size, weight.clone() as u32, style.clone() as u32);
 		let mut font_cache = self.font_cache.write().await;
 		
 		if let Some(cached_font) = font_cache.get(&cache_key) {

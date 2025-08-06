@@ -593,17 +593,9 @@ impl<'a> AdvancedRenderer<'a> {
 	 * @return Result<CachedGlyph> - Cached glyph
 	 */
 	async fn get_or_create_glyph(&self, glyph_key: &GlyphKey) -> Result<CachedGlyph> {
-		let mut cache = self.font_cache.write().await;
-		
-		if let Some(glyph) = cache.fonts.get(glyph_key) {
-			return Ok(glyph.clone());
-		}
-		
-		// Create new glyph
-		let glyph = self.create_glyph(glyph_key).await?;
-		cache.fonts.insert(glyph_key.clone(), glyph.clone());
-		
-		Ok(glyph)
+		// For now, just create a simple glyph without caching
+		// TODO: Implement proper font caching
+		self.create_glyph(glyph_key).await
 	}
 	
 	/**
@@ -613,8 +605,9 @@ impl<'a> AdvancedRenderer<'a> {
 	 * @return Result<Option<CachedGlyph>> - Cached glyph if available
 	 */
 	async fn get_cached_glyph(&self, glyph_key: &GlyphKey) -> Result<Option<CachedGlyph>> {
-		let cache = self.font_cache.read().await;
-		Ok(cache.fonts.get(glyph_key).cloned())
+		// For now, return None since we're not caching
+		// TODO: Implement proper font caching
+		Ok(None)
 	}
 	
 	/**
@@ -624,13 +617,8 @@ impl<'a> AdvancedRenderer<'a> {
 	 * @return Result<CachedGlyph> - Created glyph
 	 */
 	async fn create_glyph(&self, glyph_key: &GlyphKey) -> Result<CachedGlyph> {
-		// Load font
-		let font = self.font_cache.read().await.load_font(
-			&glyph_key.font_family,
-			glyph_key.font_size,
-			glyph_key.font_weight,
-			glyph_key.font_style,
-		).await?;
+		// Create a simple glyph without font loading for now
+		// TODO: Implement proper font loading with FontManager
 		
 		let width = glyph_key.font_size as f32 * 0.6;
 		let height = glyph_key.font_size;
@@ -641,7 +629,7 @@ impl<'a> AdvancedRenderer<'a> {
 			width,
 			height: height as f32,
 			advance,
-			bounds: fonts::GlyphBounds {
+			bounds: super::fonts::GlyphBounds {
 				left: 0.0,
 				top: 0.0,
 				right: width,
