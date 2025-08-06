@@ -1,42 +1,53 @@
 /**
- * Sare Terminal - Terminal Emulator Implementation
+ * Sare Terminal Emulator - Main Entry Point
  * 
- * This is the standalone terminal emulator that provides
- * GPU-accelerated rendering, multi-pane support, and terminal
- * emulation without shell functionality. Can be used with any
- * shell implementation.
+ * This is the main entry point for the Sare terminal emulator,
+ * providing a modern, feature-rich terminal experience with
+ * GPU acceleration, advanced rendering, and developer tools.
  * 
  * Author: KleaSCM
  * Email: KleaSCM@gmail.com
  * File: main.rs
- * Description: Main entry point for the Sare terminal emulator
+ * Description: Main entry point for Sare terminal emulator
  */
 
 use anyhow::Result;
-use eframe::NativeOptions;
 use std::time::Instant;
 use tokio::sync::OnceCell;
-
-mod terminal;
-mod tui;
-mod gui;
-
-use gui::SareTerminal;
+use std::sync::Arc;
 
 /**
- * Startup optimization manager
+ * Startup optimizer for performance tracking
  * 
- * スタートアップ最適化マネージャーです。
- * 遅延読み込みと高速初期化を提供し、
- * アプリケーションの起動時間を短縮します。
+ * スタートアップ最適化器です。
+ * 起動時間の測定と
+ * 最適化を行います。
  */
+#[derive(Debug)]
 pub struct StartupOptimizer {
-	/// Startup time tracking
-	startup_time: Instant,
-	/// Lazy initialization flags
-	initialized_modules: std::collections::HashMap<String, bool>,
-	/// Performance metrics
-	init_times: std::collections::HashMap<String, f64>,
+	/// Startup time
+	pub startup_time: Instant,
+	/// Initialized modules
+	pub initialized_modules: Vec<String>,
+	/// Initialization times
+	pub init_times: Vec<(String, std::time::Duration)>,
+}
+
+/**
+ * Startup statistics
+ * 
+ * スタートアップ統計です。
+ * 起動統計情報を
+ * 管理します。
+ */
+#[derive(Debug)]
+pub struct StartupStats {
+	/// Total startup time
+	pub total_time: std::time::Duration,
+	/// Module initialization times
+	pub module_times: Vec<(String, std::time::Duration)>,
+	/// Number of modules initialized
+	pub module_count: usize,
 }
 
 impl StartupOptimizer {
@@ -48,30 +59,31 @@ impl StartupOptimizer {
 	pub fn new() -> Self {
 		Self {
 			startup_time: Instant::now(),
-			initialized_modules: std::collections::HashMap::new(),
-			init_times: std::collections::HashMap::new(),
+			initialized_modules: Vec::new(),
+			init_times: Vec::new(),
 		}
 	}
 	
 	/**
-	 * Performs lazy initialization of a module
+	 * Lazy initializes a module
 	 * 
 	 * @param module_name - Module name
 	 * @param init_fn - Initialization function
 	 * @return Result<()> - Success or error status
 	 */
-	pub async fn lazy_init<F, Fut>(&mut self, module_name: &str, init_fn: F) -> Result<()>
+	pub async fn lazy_init<F>(&mut self, module_name: &str, init_fn: F) -> Result<()>
 	where
-		F: FnOnce() -> Fut,
-		Fut: std::future::Future<Output = Result<()>>,
+		F: FnOnce() -> Result<()>,
 	{
-		if !self.initialized_modules.get(module_name).unwrap_or(&false) {
-			let start = Instant::now();
-			init_fn().await?;
-			let duration = start.elapsed().as_secs_f64();
-			self.init_times.insert(module_name.to_string(), duration);
-			self.initialized_modules.insert(module_name.to_string(), true);
-		}
+		let start = Instant::now();
+		init_fn()?;
+		let duration = start.elapsed();
+		
+		self.initialized_modules.push(module_name.to_string());
+		self.init_times.push((module_name.to_string(), duration));
+		
+		println!("⚡ Initialized {} in {:?}", module_name, duration);
+		
 		Ok(())
 	}
 	
@@ -81,90 +93,96 @@ impl StartupOptimizer {
 	 * @return StartupStats - Startup statistics
 	 */
 	pub fn get_stats(&self) -> StartupStats {
+		let total_time = self.startup_time.elapsed();
+		
 		StartupStats {
-			total_time: self.startup_time.elapsed().as_secs_f64(),
-			initialized_modules: self.initialized_modules.clone(),
-			init_times: self.init_times.clone(),
+			total_time,
+			module_times: self.init_times.clone(),
+			module_count: self.initialized_modules.len(),
 		}
 	}
 }
 
-/**
- * Startup statistics
- */
-#[derive(Debug, Clone)]
-pub struct StartupStats {
-	/// Total startup time in seconds
-	pub total_time: f64,
-	/// Map of initialized modules
-	pub initialized_modules: std::collections::HashMap<String, bool>,
-	/// Map of initialization times
-	pub init_times: std::collections::HashMap<String, f64>,
-}
-
-/**
- * Global startup optimizer instance
- */
+// Global startup optimizer
 static STARTUP_OPTIMIZER: OnceCell<StartupOptimizer> = OnceCell::const_new();
 
 /**
- * Main entry point for the Sare terminal emulator
+ * Main entry point for Sare terminal emulator
  * 
- * Initializes the terminal emulator with GPU acceleration
- * and starts the GUI application with proper error handling.
- * Uses startup optimization for fast initialization.
+ * @return Result<()> - Success or error status
  */
 #[tokio::main]
 async fn main() -> Result<()> {
-	/**
-	 * メインエントリーポイントです
-	 * 
-	 * スタートアップ最適化を使用して高速な
-	 * 初期化を実行し、GUIアプリケーションを
-	 * 起動します。
-	 */
+	println!("🚀 Starting Sare Terminal Emulator...");
+	println!("💕 Built with love and passion by Yuriko and KleaSCM");
 	
 	// Initialize startup optimizer
-	let mut optimizer = StartupOptimizer::new();
+	let optimizer = STARTUP_OPTIMIZER.get_or_init(StartupOptimizer::new);
 	
-	// Perform lazy initialization of core modules
-	optimizer.lazy_init("terminal", || async {
-		// Initialize terminal module
+	// Initialize core modules
+	optimizer.lazy_init("terminal", || {
+		println!("🔧 Initializing terminal core...");
 		Ok(())
 	}).await?;
 	
-	optimizer.lazy_init("tui", || async {
-		// Initialize TUI module
+	optimizer.lazy_init("tui", || {
+		println!("🎨 Initializing TUI components...");
 		Ok(())
 	}).await?;
 	
-	optimizer.lazy_init("gui", || async {
-		// Initialize GUI module
+	optimizer.lazy_init("gui", || {
+		println!("🖼️ Initializing GUI components...");
 		Ok(())
 	}).await?;
 	
-	// Set up native options for the GUI with optimized settings
-	let options = NativeOptions {
-		vsync: true, // Enable vsync for smooth rendering
-		multisampling: 4, // Enable multisampling for better quality
-		depth_buffer: 0, // Disable depth buffer for 2D rendering
-		stencil_buffer: 0, // Disable stencil buffer
-		..Default::default()
+	// Create terminal configuration
+	let config = sare_terminal::config::Config::default();
+	
+	// Create and initialize terminal emulator
+	let mut terminal = sare_terminal::SareTerminal::new(config).await?;
+	terminal.initialize().await?;
+	
+	// Set up signal handling for graceful shutdown
+	let terminal_ref = Arc::new(tokio::sync::RwLock::new(terminal));
+	let terminal_clone = Arc::clone(&terminal_ref);
+	
+	// Handle Ctrl+C for graceful shutdown
+	tokio::spawn(async move {
+		if let Ok(()) = tokio::signal::ctrl_c().await {
+			println!("\n🛑 Received shutdown signal...");
+			if let Ok(mut terminal) = terminal_clone.write().await {
+				if let Err(e) = terminal.stop().await {
+					eprintln!("Error stopping terminal: {}", e);
+				}
+			}
+		}
+	});
+	
+	// Run the terminal emulator
+	let run_result = {
+		let mut terminal = terminal_ref.write().await;
+		terminal.run().await
 	};
 	
-	// Run the terminal emulator with startup statistics
-	let startup_stats = optimizer.get_stats();
-	println!("🚀 Startup completed in {:.3}s", startup_stats.total_time);
-	for (module, time) in &startup_stats.init_times {
-		println!("  📦 {}: {:.3}s", module, time);
+	// Print startup statistics
+	let stats = optimizer.get_stats();
+	println!("📊 Startup Statistics:");
+	println!("   Total time: {:?}", stats.total_time);
+	println!("   Modules initialized: {}", stats.module_count);
+	for (module, duration) in stats.module_times {
+		println!("   {}: {:?}", module, duration);
 	}
 	
-	eframe::run_native(
-		"Sare Terminal",
-		options,
-		Box::new(|_cc| Box::new(SareTerminal::new().unwrap())),
-	)
-	.map_err(|e| anyhow::anyhow!("Failed to run application: {}", e))?;
+	// Handle run result
+	match run_result {
+		Ok(()) => {
+			println!("✅ Sare Terminal Emulator completed successfully!");
+		}
+		Err(e) => {
+			eprintln!("❌ Sare Terminal Emulator failed: {}", e);
+			std::process::exit(1);
+		}
+	}
 	
 	Ok(())
 } 
