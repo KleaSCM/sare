@@ -1,33 +1,28 @@
 /**
- * Input Validation System for Sare Terminal
+ * Input validation and sanitization module
  * 
  * This module provides comprehensive input validation and sanitization
- * capabilities, including command validation, path sanitization, and
- * security checks to prevent malicious input from affecting the system.
+ * for commands, file paths, hosts, and URLs to prevent injection attacks.
  * 
  * Author: KleaSCM
  * Email: KleaSCM@gmail.com
  * File: validation.rs
- * Description: Input validation and sanitization system
+ * Description: Input validation and sanitization with regex patterns
  */
 
 use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::collections::HashSet;
+use serde::{Deserialize, Serialize};
 use regex::Regex;
 use url::Url;
 
 use super::{SecurityConfig, SecurityEvent, SecuritySeverity};
 
 /**
- * Input validation configuration
- * 
- * 入力バリデーション設定を管理する構造体です。
- * コマンド検証、パス検証、セキュリティチェックなどの
- * 設定を提供します。
+ * Validation configuration
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationConfig {
 	/// Enable command validation
 	pub command_validation: bool,
@@ -37,8 +32,6 @@ pub struct ValidationConfig {
 	pub host_validation: bool,
 	/// Enable URL validation
 	pub url_validation: bool,
-	/// Enable file extension validation
-	pub extension_validation: bool,
 	/// Enable size validation
 	pub size_validation: bool,
 	/// Maximum command length
@@ -49,159 +42,92 @@ pub struct ValidationConfig {
 	pub max_host_length: usize,
 	/// Maximum URL length
 	pub max_url_length: usize,
+	/// Maximum file size (bytes)
+	pub max_file_size: u64,
 	/// Allowed file extensions
-	pub allowed_extensions: HashSet<String>,
-	/// Blocked file extensions
-	pub blocked_extensions: HashSet<String>,
-	/// Allowed hosts
-	pub allowed_hosts: HashSet<String>,
-	/// Blocked hosts
-	pub blocked_hosts: HashSet<String>,
-	/// Allowed protocols
-	pub allowed_protocols: HashSet<String>,
-	/// Blocked protocols
-	pub blocked_protocols: HashSet<String>,
+	pub allowed_extensions: Vec<String>,
+	/// Blocked patterns
+	pub blocked_patterns: Vec<String>,
 }
 
 impl Default for ValidationConfig {
 	fn default() -> Self {
-		let mut allowed_extensions = HashSet::new();
-		allowed_extensions.insert("txt".to_string());
-		allowed_extensions.insert("md".to_string());
-		allowed_extensions.insert("rs".to_string());
-		allowed_extensions.insert("toml".to_string());
-		allowed_extensions.insert("json".to_string());
-		allowed_extensions.insert("yaml".to_string());
-		allowed_extensions.insert("yml".to_string());
-		allowed_extensions.insert("sh".to_string());
-		allowed_extensions.insert("py".to_string());
-		allowed_extensions.insert("js".to_string());
-		allowed_extensions.insert("ts".to_string());
-		allowed_extensions.insert("html".to_string());
-		allowed_extensions.insert("css".to_string());
-		allowed_extensions.insert("xml".to_string());
-		allowed_extensions.insert("log".to_string());
-		
-		let mut blocked_extensions = HashSet::new();
-		blocked_extensions.insert("exe".to_string());
-		blocked_extensions.insert("bat".to_string());
-		blocked_extensions.insert("com".to_string());
-		blocked_extensions.insert("scr".to_string());
-		blocked_extensions.insert("pif".to_string());
-		blocked_extensions.insert("vbs".to_string());
-		blocked_extensions.insert("js".to_string());
-		blocked_extensions.insert("jar".to_string());
-		blocked_extensions.insert("class".to_string());
-		blocked_extensions.insert("dll".to_string());
-		blocked_extensions.insert("so".to_string());
-		blocked_extensions.insert("dylib".to_string());
-		
-		let mut allowed_hosts = HashSet::new();
-		allowed_hosts.insert("localhost".to_string());
-		allowed_hosts.insert("127.0.0.1".to_string());
-		allowed_hosts.insert("::1".to_string());
-		
-		let mut blocked_hosts = HashSet::new();
-		blocked_hosts.insert("0.0.0.0".to_string());
-		blocked_hosts.insert("255.255.255.255".to_string());
-		
-		let mut allowed_protocols = HashSet::new();
-		allowed_protocols.insert("http".to_string());
-		allowed_protocols.insert("https".to_string());
-		allowed_protocols.insert("ftp".to_string());
-		allowed_protocols.insert("sftp".to_string());
-		allowed_protocols.insert("ssh".to_string());
-		
-		let mut blocked_protocols = HashSet::new();
-		blocked_protocols.insert("file".to_string());
-		blocked_protocols.insert("data".to_string());
-		blocked_protocols.insert("javascript".to_string());
-		blocked_protocols.insert("vbscript".to_string());
-		
 		Self {
 			command_validation: true,
 			path_validation: true,
 			host_validation: true,
 			url_validation: true,
-			extension_validation: true,
 			size_validation: true,
-			max_command_length: 8192,
+			max_command_length: 1024,
 			max_path_length: 4096,
-			max_host_length: 255,
+			max_host_length: 253,
 			max_url_length: 2048,
-			allowed_extensions,
-			blocked_extensions,
-			allowed_hosts,
-			blocked_hosts,
-			allowed_protocols,
-			blocked_protocols,
+			max_file_size: 100 * 1024 * 1024, // 100MB
+			allowed_extensions: vec![
+				"txt".to_string(), "md".to_string(), "rs".to_string(),
+				"toml".to_string(), "json".to_string(), "yaml".to_string(),
+				"yml".to_string(), "sh".to_string(), "py".to_string(),
+				"js".to_string(), "ts".to_string(), "html".to_string(),
+				"css".to_string(), "xml".to_string(), "log".to_string(),
+			],
+			blocked_patterns: vec![
+				r"rm\s+-rf\s+/".to_string(),
+				r"dd\s+if=/dev/zero".to_string(),
+				r":\(\)\s*\{\s*:\|\s*:\s*&\s*\};\s*:".to_string(),
+				r"forkbomb".to_string(),
+				r"mkfs".to_string(),
+				r"fdisk".to_string(),
+				r"dd\s+if=".to_string(),
+			],
 		}
 	}
 }
 
 /**
- * Input validation patterns
- * 
- * 入力バリデーションパターンを管理する構造体です。
- * 正規表現パターンを使用して入力の検証を
- * 実行します。
+ * Validation patterns
  */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ValidationPatterns {
-	/// Command pattern
-	pub command_pattern: Regex,
-	/// Path pattern
-	pub path_pattern: Regex,
-	/// Host pattern
-	pub host_pattern: Regex,
-	/// URL pattern
-	pub url_pattern: Regex,
-	/// File extension pattern
-	pub extension_pattern: Regex,
-	/// Dangerous command pattern
-	pub dangerous_command_pattern: Regex,
-	/// Path traversal pattern
-	pub path_traversal_pattern: Regex,
-	/// Shell injection pattern
-	pub shell_injection_pattern: Regex,
+	/// Command validation regex
+	pub command_regex: Regex,
+	/// Path validation regex
+	pub path_regex: Regex,
+	/// Host validation regex
+	pub host_regex: Regex,
+	/// URL validation regex
+	pub url_regex: Regex,
+	/// Blocked patterns
+	pub blocked_patterns: Vec<Regex>,
+	/// Dangerous characters
+	pub dangerous_chars: Regex,
 }
 
 impl ValidationPatterns {
 	/**
 	 * Creates new validation patterns
-	 * 
-	 * @return Result<ValidationPatterns> - New validation patterns or error
 	 */
 	pub fn new() -> Result<Self> {
-		/**
-		 * バリデーションパターンを初期化する関数です
-		 * 
-		 * 正規表現パターンを使用して入力検証のための
-		 * パターンを作成します。
-		 * 
-		 * コマンド、パス、ホスト、URLなどの入力形式を
-		 * 検証するためのパターンを定義します。
-		 */
-		
 		Ok(Self {
-			command_pattern: Regex::new(r"^[a-zA-Z0-9_\-\./\\\s]+$")?,
-			path_pattern: Regex::new(r"^[a-zA-Z0-9_\-\./\\\s]+$")?,
-			host_pattern: Regex::new(r"^[a-zA-Z0-9\-\.]+$")?,
-			url_pattern: Regex::new(r"^[a-zA-Z0-9\-\.:/?=&]+$")?,
-			extension_pattern: Regex::new(r"\.([a-zA-Z0-9]+)$")?,
-			dangerous_command_pattern: Regex::new(r"(rm\s+-rf|dd\s+if=|:\(\)\s*\{\s*:\|:\s*&\s*\};:|forkbomb|killall|pkill|kill\s+-9)")?,
-			path_traversal_pattern: Regex::new(r"\.\./|\.\.\\|%2e%2e|%2e%2e%2f|%2e%2e%5c")?,
-			shell_injection_pattern: Regex::new(r"[;&|`$\(\)\{\}\[\]]")?,
+			command_regex: Regex::new(r"^[a-zA-Z0-9_\-\./\\\s]+$")?,
+			path_regex: Regex::new(r"^[a-zA-Z0-9_\-\./\\\s]+$")?,
+			host_regex: Regex::new(r"^[a-zA-Z0-9\-\.]+$")?,
+			url_regex: Regex::new(r"^https?://[a-zA-Z0-9\-\.]+(:\d+)?(/[a-zA-Z0-9\-\./]*)?$")?,
+			blocked_patterns: vec![
+				Regex::new(r"rm\s+-rf\s+/")?,
+				Regex::new(r"dd\s+if=/dev/zero")?,
+				Regex::new(r":\(\)\s*\{\s*:\|\s*:\s*&\s*\};\s*:")?,
+				Regex::new(r"forkbomb")?,
+				Regex::new(r"mkfs")?,
+				Regex::new(r"fdisk")?,
+				Regex::new(r"dd\s+if=")?,
+			],
+			dangerous_chars: Regex::new(r"[;&|`$(){}[\]<>]")?,
 		})
 	}
 }
 
 /**
- * Input validator for security checks
- * 
- * セキュリティチェックのための入力バリデーターです。
- * コマンド、パス、ホスト、URLなどの入力の
- * 検証とサニタイゼーションを提供します。
+ * Input validator
  */
 pub struct InputValidator {
 	/// Security configuration
@@ -217,79 +143,57 @@ pub struct InputValidator {
 impl InputValidator {
 	/**
 	 * Creates a new input validator
-	 * 
-	 * @param config - Security configuration
-	 * @return Result<InputValidator> - New input validator or error
 	 */
 	pub async fn new(config: Arc<RwLock<SecurityConfig>>) -> Result<Self> {
-		/**
-		 * 入力バリデーターを初期化する関数です
-		 * 
-		 * 指定された設定で入力バリデーターを作成し、
-		 * コマンド、パス、ホスト、URLなどの入力の
-		 * 検証とサニタイゼーション機能を提供します。
-		 * 
-		 * 正規表現パターンを使用して入力の形式と
-		 * セキュリティを検証し、悪意のある入力を
-		 * 防止します。
-		 */
+		let validation_config = ValidationConfig::default();
+		let patterns = ValidationPatterns::new()?;
 		
 		Ok(Self {
 			config,
-			validation_config: ValidationConfig::default(),
-			patterns: ValidationPatterns::new()?,
+			validation_config,
+			patterns,
 			active: true,
 		})
 	}
 	
 	/**
 	 * Validates a command
-	 * 
-	 * @param command - Command to validate
-	 * @return Result<bool> - Whether command is valid
 	 */
 	pub async fn validate_command(&self, command: &str) -> Result<bool> {
-		/**
-		 * コマンドを検証する関数です
-		 * 
-		 * 指定されたコマンドの形式とセキュリティを
-		 * 検証し、悪意のあるコマンドを防止します。
-		 * 
-		 * コマンドの長さ、文字、危険なパターンなどを
-		 * チェックして安全なコマンドかどうかを
-		 * 判定します。
-		 */
-		
-		if !self.validation_config.command_validation {
+		if !self.active || !self.validation_config.command_validation {
 			return Ok(true);
 		}
 		
-		// Check command length
+		// Check length
 		if command.len() > self.validation_config.max_command_length {
 			return Ok(false);
 		}
 		
-		// Check command pattern
-		if !self.patterns.command_pattern.is_match(command) {
-			return Ok(false);
-		}
-		
-		// Check for dangerous commands
-		if self.patterns.dangerous_command_pattern.is_match(command) {
-			return Ok(false);
-		}
-		
-		// Check for shell injection
-		if self.patterns.shell_injection_pattern.is_match(command) {
-			return Ok(false);
-		}
-		
-		// Check blocked commands from config
-		let config = self.config.read().await;
-		for blocked_cmd in &config.blocked_commands {
-			if command.contains(blocked_cmd) {
+		// Check for blocked patterns
+		for pattern in &self.patterns.blocked_patterns {
+			if pattern.is_match(command) {
 				return Ok(false);
 			}
+		}
+		
+		// Check for dangerous characters
+		if self.patterns.dangerous_chars.is_match(command) {
+			return Ok(false);
+		}
+		
+		// Validate command format
+		if !self.patterns.command_regex.is_match(command) {
+			return Ok(false);
+		}
+		
+		// Check for command injection attempts
+		if command.contains(";") || command.contains("|") || command.contains("&") {
+			return Ok(false);
+		}
+		
+		// Check for path traversal attempts
+		if command.contains("../") || command.contains("..\\") {
+			return Ok(false);
 		}
 		
 		Ok(true)
@@ -297,93 +201,38 @@ impl InputValidator {
 	
 	/**
 	 * Validates a file path
-	 * 
-	 * @param path - Path to validate
-	 * @return Result<bool> - Whether path is valid
 	 */
 	pub async fn validate_path(&self, path: &str) -> Result<bool> {
-		/**
-		 * ファイルパスを検証する関数です
-		 * 
-		 * 指定されたパスの形式とセキュリティを
-		 * 検証し、パストラバーサル攻撃を防止します。
-		 * 
-		 * パスの長さ、文字、危険なパターンなどを
-		 * チェックして安全なパスかどうかを
-		 * 判定します。
-		 */
-		
-		if !self.validation_config.path_validation {
+		if !self.active || !self.validation_config.path_validation {
 			return Ok(true);
 		}
 		
-		// Check path length
+		// Check length
 		if path.len() > self.validation_config.max_path_length {
 			return Ok(false);
 		}
 		
-		// Check path pattern
-		if !self.patterns.path_pattern.is_match(path) {
-			return Ok(false);
-		}
-		
 		// Check for path traversal
-		if self.patterns.path_traversal_pattern.is_match(path) {
+		if path.contains("../") || path.contains("..\\") {
 			return Ok(false);
 		}
 		
-		// Check file extension if validation is enabled
-		if self.validation_config.extension_validation {
-			if let Some(extension) = self.get_file_extension(path) {
-				if self.validation_config.blocked_extensions.contains(&extension) {
-					return Ok(false);
-				}
+		// Check for absolute paths to sensitive directories
+		let sensitive_dirs = vec!["/etc", "/var", "/sys", "/proc", "/dev"];
+		for dir in sensitive_dirs {
+			if path.starts_with(dir) {
+				return Ok(false);
 			}
 		}
 		
-		Ok(true)
-	}
-	
-	/**
-	 * Validates a host name or IP address
-	 * 
-	 * @param host - Host to validate
-	 * @return Result<bool> - Whether host is valid
-	 */
-	pub async fn validate_host(&self, host: &str) -> Result<bool> {
-		/**
-		 * ホスト名またはIPアドレスを検証する関数です
-		 * 
-		 * 指定されたホストの形式とセキュリティを
-		 * 検証し、不正なホストへのアクセスを防止します。
-		 * 
-		 * ホストの長さ、文字、許可されたホストなどを
-		 * チェックして安全なホストかどうかを
-		 * 判定します。
-		 */
-		
-		if !self.validation_config.host_validation {
-			return Ok(true);
-		}
-		
-		// Check host length
-		if host.len() > self.validation_config.max_host_length {
+		// Validate path format
+		if !self.patterns.path_regex.is_match(path) {
 			return Ok(false);
 		}
 		
-		// Check host pattern
-		if !self.patterns.host_pattern.is_match(host) {
-			return Ok(false);
-		}
-		
-		// Check blocked hosts
-		if self.validation_config.blocked_hosts.contains(host) {
-			return Ok(false);
-		}
-		
-		// Check if host is in allowed list (if not empty)
-		if !self.validation_config.allowed_hosts.is_empty() {
-			if !self.validation_config.allowed_hosts.contains(host) {
+		// Check file extension if specified
+		if let Some(extension) = self.get_file_extension(path) {
+			if !self.validation_config.allowed_extensions.contains(&extension) {
 				return Ok(false);
 			}
 		}
@@ -392,59 +241,80 @@ impl InputValidator {
 	}
 	
 	/**
-	 * Validates a URL
-	 * 
-	 * @param url - URL to validate
-	 * @return Result<bool> - Whether URL is valid
+	 * Validates a host
 	 */
-	pub async fn validate_url(&self, url: &str) -> Result<bool> {
-		/**
-		 * URLを検証する関数です
-		 * 
-		 * 指定されたURLの形式とセキュリティを
-		 * 検証し、不正なURLへのアクセスを防止します。
-		 * 
-		 * URLの長さ、プロトコル、ホストなどを
-		 * チェックして安全なURLかどうかを
-		 * 判定します。
-		 */
-		
-		if !self.validation_config.url_validation {
+	pub async fn validate_host(&self, host: &str) -> Result<bool> {
+		if !self.active || !self.validation_config.host_validation {
 			return Ok(true);
 		}
 		
-		// Check URL length
+		// Check length
+		if host.len() > self.validation_config.max_host_length {
+			return Ok(false);
+		}
+		
+		// Check for localhost or private IPs
+		if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+			return Ok(false);
+		}
+		
+		// Check for private IP ranges
+		if host.starts_with("192.168.") || host.starts_with("10.") || host.starts_with("172.") {
+			return Ok(false);
+		}
+		
+		// Validate host format
+		if !self.patterns.host_regex.is_match(host) {
+			return Ok(false);
+		}
+		
+		// Check for IP address format
+		if self.is_ip_address(host) {
+			return self.validate_ip_address(host);
+		}
+		
+		// Check for domain name format
+		if self.is_domain_name(host) {
+			return self.validate_domain_name(host);
+		}
+		
+		Ok(false)
+	}
+	
+	/**
+	 * Validates a URL
+	 */
+	pub async fn validate_url(&self, url: &str) -> Result<bool> {
+		if !self.active || !self.validation_config.url_validation {
+			return Ok(true);
+		}
+		
+		// Check length
 		if url.len() > self.validation_config.max_url_length {
 			return Ok(false);
 		}
 		
-		// Check URL pattern
-		if !self.patterns.url_pattern.is_match(url) {
+		// Parse URL
+		let parsed_url = match Url::parse(url) {
+			Ok(url) => url,
+			Err(_) => return Ok(false),
+		};
+		
+		// Check scheme
+		let scheme = parsed_url.scheme();
+		if scheme != "http" && scheme != "https" {
 			return Ok(false);
 		}
 		
-		// Parse URL
-		if let Ok(parsed_url) = Url::parse(url) {
-			// Check protocol
-			if let Some(scheme) = parsed_url.scheme() {
-				if self.validation_config.blocked_protocols.contains(scheme) {
-					return Ok(false);
-				}
-				
-				if !self.validation_config.allowed_protocols.is_empty() {
-					if !self.validation_config.allowed_protocols.contains(scheme) {
-						return Ok(false);
-					}
-				}
+		// Check host
+		if let Some(host) = parsed_url.host_str() {
+			if !self.validate_host(host).await? {
+				return Ok(false);
 			}
-			
-			// Check host
-			if let Some(host) = parsed_url.host_str() {
-				if !self.validate_host(host).await? {
-					return Ok(false);
-				}
-			}
-		} else {
+		}
+		
+		// Validate URL format
+		if !self.patterns.url_regex.is_match(url) {
 			return Ok(false);
 		}
 		
@@ -453,96 +323,58 @@ impl InputValidator {
 	
 	/**
 	 * Sanitizes input by removing dangerous characters
-	 * 
-	 * @param input - Input to sanitize
-	 * @return String - Sanitized input
 	 */
 	pub fn sanitize_input(&self, input: &str) -> String {
-		/**
-		 * 入力から危険な文字を除去する関数です
-		 * 
-		 * 指定された入力から危険な文字やパターンを
-		 * 除去して安全な入力に変換します。
-		 * 
-		 * シェルインジェクション、パストラバーサルなどの
-		 * 攻撃を防止するための文字を除去します。
-		 */
+		// Remove dangerous characters
+		let sanitized = self.patterns.dangerous_chars.replace_all(input, "");
 		
-		let mut sanitized = input.to_string();
+		// Remove path traversal attempts
+		let sanitized = sanitized.replace("../", "").replace("..\\", "");
 		
-		// Remove shell injection characters
-		sanitized = sanitized.replace(";", "");
-		sanitized = sanitized.replace("&", "");
-		sanitized = sanitized.replace("|", "");
-		sanitized = sanitized.replace("`", "");
-		sanitized = sanitized.replace("$", "");
-		sanitized = sanitized.replace("(", "");
-		sanitized = sanitized.replace(")", "");
-		sanitized = sanitized.replace("{", "");
-		sanitized = sanitized.replace("}", "");
-		sanitized = sanitized.replace("[", "");
-		sanitized = sanitized.replace("]", "");
+		// Remove command injection attempts
+		let sanitized = sanitized.replace(";", "").replace("|", "").replace("&", "");
 		
-		// Remove path traversal patterns
-		sanitized = sanitized.replace("../", "");
-		sanitized = sanitized.replace("..\\", "");
-		sanitized = sanitized.replace("%2e%2e", "");
-		sanitized = sanitized.replace("%2e%2e%2f", "");
-		sanitized = sanitized.replace("%2e%2e%5c", "");
+		// Remove backticks
+		let sanitized = sanitized.replace("`", "");
 		
-		// Remove null bytes
-		sanitized = sanitized.replace('\0', "");
+		// Remove dollar signs
+		let sanitized = sanitized.replace("$", "");
 		
-		// Trim whitespace
-		sanitized = sanitized.trim().to_string();
+		// Remove parentheses
+		let sanitized = sanitized.replace("(", "").replace(")", "");
 		
-		sanitized
+		// Remove brackets
+		let sanitized = sanitized.replace("[", "").replace("]", "");
+		let sanitized = sanitized.replace("{", "").replace("}", "");
+		
+		// Remove angle brackets
+		let sanitized = sanitized.replace("<", "").replace(">", "");
+		
+		sanitized.to_string()
 	}
 	
 	/**
 	 * Gets file extension from path
-	 * 
-	 * @param path - File path
-	 * @return Option<String> - File extension or None
 	 */
 	fn get_file_extension(&self, path: &str) -> Option<String> {
-		if let Some(captures) = self.patterns.extension_pattern.captures(path) {
-			if let Some(extension) = captures.get(1) {
-				return Some(extension.as_str().to_lowercase());
-			}
-		}
-		None
+		path.split('.')
+			.last()
+			.map(|ext| ext.to_lowercase())
 	}
 	
 	/**
 	 * Validates file size
-	 * 
-	 * @param size - File size in bytes
-	 * @return Result<bool> - Whether size is valid
 	 */
 	pub async fn validate_size(&self, size: u64) -> Result<bool> {
-		/**
-		 * ファイルサイズを検証する関数です
-		 * 
-		 * 指定されたファイルサイズが制限内かどうかを
-		 * 検証し、大きなファイルによる攻撃を防止します。
-		 * 
-		 * 設定された最大ファイルサイズと比較して
-		 * 安全なサイズかどうかを判定します。
-		 */
-		
-		if !self.validation_config.size_validation {
+		if !self.active || !self.validation_config.size_validation {
 			return Ok(true);
 		}
 		
-		let config = self.config.read().await;
-		Ok(size <= config.max_file_size)
+		Ok(size <= self.validation_config.max_file_size)
 	}
 	
 	/**
-	 * Checks if validator is active
-	 * 
-	 * @return bool - Whether validator is active
+	 * Checks if sandbox is active
 	 */
 	pub async fn is_active(&self) -> bool {
 		self.active
@@ -550,19 +382,103 @@ impl InputValidator {
 	
 	/**
 	 * Updates validation configuration
-	 * 
-	 * @param config - New validation configuration
 	 */
 	pub fn update_config(&mut self, config: ValidationConfig) {
 		self.validation_config = config;
 	}
 	
 	/**
-	 * Gets current validation configuration
-	 * 
-	 * @return ValidationConfig - Current validation configuration
+	 * Gets current configuration
 	 */
 	pub fn get_config(&self) -> ValidationConfig {
 		self.validation_config.clone()
+	}
+	
+	/**
+	 * Checks if string is an IP address
+	 */
+	fn is_ip_address(&self, host: &str) -> bool {
+		// Simple IP address check
+		host.split('.').count() == 4 && host.chars().all(|c| c.is_ascii_digit() || c == '.')
+	}
+	
+	/**
+	 * Validates IP address
+	 */
+	fn validate_ip_address(&self, ip: &str) -> Result<bool> {
+		// Check for private IP ranges
+		if ip.starts_with("192.168.") || ip.starts_with("10.") || ip.starts_with("172.") {
+			return Ok(false);
+		}
+		
+		// Check for loopback
+		if ip == "127.0.0.1" || ip == "::1" {
+			return Ok(false);
+		}
+		
+		// Parse IP address
+		let parts: Vec<&str> = ip.split('.').collect();
+		if parts.len() != 4 {
+			return Ok(false);
+		}
+		
+		for part in parts {
+			if let Ok(num) = part.parse::<u8>() {
+				if num > 255 {
+					return Ok(false);
+				}
+			} else {
+				return Ok(false);
+			}
+		}
+		
+		Ok(true)
+	}
+	
+	/**
+	 * Checks if string is a domain name
+	 */
+	fn is_domain_name(&self, host: &str) -> bool {
+		// Simple domain name check
+		host.contains('.') && !host.starts_with('.') && !host.ends_with('.')
+	}
+	
+	/**
+	 * Validates domain name
+	 */
+	fn validate_domain_name(&self, domain: &str) -> Result<bool> {
+		// Check for localhost
+		if domain == "localhost" {
+			return Ok(false);
+		}
+		
+		// Check for valid characters
+		if !domain.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.') {
+			return Ok(false);
+		}
+		
+		// Check for consecutive dots
+		if domain.contains("..") {
+			return Ok(false);
+		}
+		
+		// Check for valid TLD
+		let parts: Vec<&str> = domain.split('.').collect();
+		if parts.len() < 2 {
+			return Ok(false);
+		}
+		
+		// Check each part
+		for part in parts {
+			if part.is_empty() || part.len() > 63 {
+				return Ok(false);
+			}
+			
+			if part.starts_with('-') || part.ends_with('-') {
+				return Ok(false);
+			}
+		}
+		
+		Ok(true)
 	}
 } 

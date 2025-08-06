@@ -1,97 +1,121 @@
 /**
- * Permission Management System for Sare Terminal
+ * Permission management module
  * 
  * This module provides comprehensive permission management and access control,
- * including user permissions, resource access control, and role-based
- * security to ensure proper authorization for all system operations.
+ * including user permissions, resource access control, and role-based security.
  * 
  * Author: KleaSCM
  * Email: KleaSCM@gmail.com
  * File: permissions.rs
- * Description: Permission management and access control system
+ * Description: Permission management with role-based access control
  */
 
 use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::{SecurityConfig, SecurityEvent, SecuritySeverity};
 
 /**
- * Permission level
- * 
- * 権限レベルを定義する列挙型です。
- * システム内の権限の階層を
- * 管理します。
+ * Permission levels
  */
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum PermissionLevel {
-	/// No permissions
-	None,
-	/// Read-only permissions
+	/// No access
+	Deny,
+	/// Read-only access
 	Read,
-	/// Read and write permissions
-	ReadWrite,
-	/// Full permissions
+	/// Read and write access
+	Write,
+	/// Full access
 	Full,
-	/// Administrative permissions
+	/// Administrative access
 	Admin,
 }
 
 /**
- * Resource type
- * 
- * リソースタイプを定義する列挙型です。
- * システム内のリソースの種類を
- * 管理します。
+ * Resource types
  */
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum ResourceType {
 	/// File system resource
 	File,
 	/// Network resource
 	Network,
-	/// Process resource
-	Process,
+	/// Command resource
+	Command,
 	/// System resource
 	System,
 	/// User resource
 	User,
-	/// Configuration resource
-	Config,
 }
 
 /**
  * Permission rule
- * 
- * 権限ルールを管理する構造体です。
- * リソース、操作、権限レベルなどの
- * 権限情報を保持します。
  */
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PermissionRule {
+	/// Rule ID
+	pub id: String,
 	/// Resource type
 	pub resource_type: ResourceType,
-	/// Resource path/identifier
+	/// Resource path
 	pub resource_path: String,
-	/// Allowed operations
-	pub allowed_operations: HashSet<String>,
 	/// Permission level
 	pub permission_level: PermissionLevel,
-	/// User or group
-	pub subject: String,
-	/// Whether rule is active
+	/// Allowed users
+	pub allowed_users: HashSet<String>,
+	/// Allowed roles
+	pub allowed_roles: HashSet<String>,
+	/// Allowed groups
+	pub allowed_groups: HashSet<String>,
+	/// Denied users
+	pub denied_users: HashSet<String>,
+	/// Denied roles
+	pub denied_roles: HashSet<String>,
+	/// Denied groups
+	pub denied_groups: HashSet<String>,
+	/// Time restrictions
+	pub time_restrictions: Option<TimeRestrictions>,
+	/// IP restrictions
+	pub ip_restrictions: Option<IpRestrictions>,
+	/// Active state
 	pub active: bool,
 }
 
 /**
+ * Time restrictions
+ */
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeRestrictions {
+	/// Allowed days of week (0=Sunday, 6=Saturday)
+	pub allowed_days: HashSet<u8>,
+	/// Allowed hours (0-23)
+	pub allowed_hours: HashSet<u8>,
+	/// Allowed time range (start hour, end hour)
+	pub time_range: Option<(u8, u8)>,
+}
+
+/**
+ * IP restrictions
+ */
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IpRestrictions {
+	/// Allowed IP addresses
+	pub allowed_ips: HashSet<String>,
+	/// Allowed IP ranges
+	pub allowed_ranges: HashSet<String>,
+	/// Denied IP addresses
+	pub denied_ips: HashSet<String>,
+	/// Denied IP ranges
+	pub denied_ranges: HashSet<String>,
+}
+
+/**
  * User permissions
- * 
- * ユーザー権限を管理する構造体です。
- * ユーザーの権限、ロール、グループなどの
- * 情報を保持します。
  */
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserPermissions {
@@ -101,44 +125,41 @@ pub struct UserPermissions {
 	pub roles: HashSet<String>,
 	/// User groups
 	pub groups: HashSet<String>,
-	/// Direct permissions
+	/// User permissions
 	pub permissions: HashMap<String, PermissionLevel>,
-	/// Whether user is active
+	/// Failed login attempts
+	pub failed_attempts: u32,
+	/// Last failed attempt time
+	pub last_failed_attempt: Option<u64>,
+	/// Account locked until
+	pub locked_until: Option<u64>,
+	/// Account active
 	pub active: bool,
-	/// User creation time
-	pub created_at: u64,
-	/// Last login time
-	pub last_login: Option<u64>,
 }
 
 /**
  * Permission configuration
- * 
- * 権限設定を管理する構造体です。
- * 権限システムの動作、デフォルト権限、
- * セキュリティポリシーなどの設定を
- * 提供します。
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PermissionConfig {
 	/// Enable permission system
 	pub enabled: bool,
 	/// Default permission level
 	pub default_permission_level: PermissionLevel,
-	/// Require authentication
-	pub require_authentication: bool,
-	/// Allow anonymous access
-	pub allow_anonymous: bool,
-	/// Enable role-based access control
-	pub enable_rbac: bool,
-	/// Enable group-based access control
-	pub enable_gbac: bool,
-	/// Enable audit logging for permissions
-	pub audit_permissions: bool,
-	/// Maximum failed login attempts
+	/// Maximum failed attempts before lockout
 	pub max_failed_attempts: u32,
 	/// Lockout duration (seconds)
 	pub lockout_duration: u64,
+	/// Session timeout (seconds)
+	pub session_timeout: u64,
+	/// Enable role-based access control
+	pub rbac_enabled: bool,
+	/// Enable group-based access control
+	pub gbac_enabled: bool,
+	/// Enable time-based restrictions
+	pub time_restrictions_enabled: bool,
+	/// Enable IP-based restrictions
+	pub ip_restrictions_enabled: bool,
 }
 
 impl Default for PermissionConfig {
@@ -146,23 +167,19 @@ impl Default for PermissionConfig {
 		Self {
 			enabled: true,
 			default_permission_level: PermissionLevel::Read,
-			require_authentication: true,
-			allow_anonymous: false,
-			enable_rbac: true,
-			enable_gbac: true,
-			audit_permissions: true,
 			max_failed_attempts: 5,
 			lockout_duration: 300, // 5 minutes
+			session_timeout: 3600, // 1 hour
+			rbac_enabled: true,
+			gbac_enabled: true,
+			time_restrictions_enabled: true,
+			ip_restrictions_enabled: true,
 		}
 	}
 }
 
 /**
- * Permission manager for access control
- * 
- * アクセス制御のための権限マネージャーです。
- * ユーザー権限、リソースアクセス制御、
- * ロールベースセキュリティを提供します。
+ * Permission manager
  */
 pub struct PermissionManager {
 	/// Security configuration
@@ -177,7 +194,7 @@ pub struct PermissionManager {
 	roles: Arc<RwLock<HashMap<String, HashSet<String>>>>,
 	/// Group definitions
 	groups: Arc<RwLock<HashMap<String, HashSet<String>>>>,
-	/// Failed login attempts
+	/// Failed attempts tracking
 	failed_attempts: Arc<RwLock<HashMap<String, (u32, u64)>>>,
 	/// Active state
 	active: bool,
@@ -186,38 +203,18 @@ pub struct PermissionManager {
 impl PermissionManager {
 	/**
 	 * Creates a new permission manager
-	 * 
-	 * @param config - Security configuration
-	 * @return Result<PermissionManager> - New permission manager or error
 	 */
 	pub async fn new(config: Arc<RwLock<SecurityConfig>>) -> Result<Self> {
-		/**
-		 * 権限マネージャーを初期化する関数です
-		 * 
-		 * 指定された設定で権限マネージャーを作成し、
-		 * ユーザー権限、リソースアクセス制御、
-		 * ロールベースセキュリティ機能を提供します。
-		 * 
-		 * 権限ルール、ユーザー権限、ロール定義などを
-		 * 初期化して包括的なアクセス制御システムを
-		 * 構築します。
-		 */
-		
 		let permission_config = PermissionConfig::default();
-		let rules = Arc::new(RwLock::new(HashMap::new()));
-		let users = Arc::new(RwLock::new(HashMap::new()));
-		let roles = Arc::new(RwLock::new(HashMap::new()));
-		let groups = Arc::new(RwLock::new(HashMap::new()));
-		let failed_attempts = Arc::new(RwLock::new(HashMap::new()));
 		
 		let manager = Self {
 			config,
 			permission_config,
-			rules,
-			users,
-			roles,
-			groups,
-			failed_attempts,
+			rules: Arc::new(RwLock::new(HashMap::new())),
+			users: Arc::new(RwLock::new(HashMap::new())),
+			roles: Arc::new(RwLock::new(HashMap::new())),
+			groups: Arc::new(RwLock::new(HashMap::new())),
+			failed_attempts: Arc::new(RwLock::new(HashMap::new())),
 			active: true,
 		};
 		
@@ -229,23 +226,9 @@ impl PermissionManager {
 	
 	/**
 	 * Checks if user can execute a command
-	 * 
-	 * @param command - Command to check
-	 * @param user - User executing the command
-	 * @return Result<bool> - Whether user can execute command
 	 */
 	pub async fn can_execute_command(&self, command: &str, user: &str) -> Result<bool> {
-		/**
-		 * ユーザーがコマンドを実行できるかチェックする関数です
-		 * 
-		 * 指定されたユーザーが指定されたコマンドを
-		 * 実行する権限があるかどうかをチェックします。
-		 * 
-		 * ユーザーの権限、ロール、グループなどを
-		 * 考慮してコマンド実行の許可を判定します。
-		 */
-		
-		if !self.permission_config.enabled {
+		if !self.active || !self.permission_config.enabled {
 			return Ok(true);
 		}
 		
@@ -257,47 +240,31 @@ impl PermissionManager {
 		// Get user permissions
 		let user_permissions = self.get_user_permissions(user).await?;
 		
-		// Check command-specific permissions
+		// Check for explicit command rule
 		if let Some(rule) = self.find_command_rule(command, user).await? {
-			return Ok(rule.active && rule.permission_level != PermissionLevel::None);
+			return Ok(self.check_rule_access(&rule, user, &user_permissions).await?);
 		}
 		
-		// Check user's general command execution permission
-		if let Some(level) = user_permissions.permissions.get("command_execution") {
+		// Check user's command permissions
+		if let Some(level) = user_permissions.permissions.get("command") {
 			match level {
-				PermissionLevel::None => Ok(false),
-				PermissionLevel::Read => Ok(false),
-				PermissionLevel::ReadWrite => Ok(true),
+				PermissionLevel::Deny => Ok(false),
+				PermissionLevel::Read => Ok(false), // Read-only doesn't allow execution
+				PermissionLevel::Write => Ok(true),
 				PermissionLevel::Full => Ok(true),
 				PermissionLevel::Admin => Ok(true),
 			}
 		} else {
 			// Use default permission level
-			Ok(self.permission_config.default_permission_level != PermissionLevel::None)
+			Ok(self.permission_config.default_permission_level != PermissionLevel::Deny)
 		}
 	}
 	
 	/**
 	 * Checks if user can access a file
-	 * 
-	 * @param path - File path
-	 * @param operation - File operation
-	 * @param user - User accessing the file
-	 * @return Result<bool> - Whether user can access file
 	 */
 	pub async fn can_access_file(&self, path: &str, operation: &str, user: &str) -> Result<bool> {
-		/**
-		 * ユーザーがファイルにアクセスできるかチェックする関数です
-		 * 
-		 * 指定されたユーザーが指定されたファイルに対して
-		 * 指定された操作を実行する権限があるかどうかを
-		 * チェックします。
-		 * 
-		 * ファイルパス、操作タイプ、ユーザー権限などを
-		 * 考慮してファイルアクセスの許可を判定します。
-		 */
-		
-		if !self.permission_config.enabled {
+		if !self.active || !self.permission_config.enabled {
 			return Ok(true);
 		}
 		
@@ -309,53 +276,31 @@ impl PermissionManager {
 		// Get user permissions
 		let user_permissions = self.get_user_permissions(user).await?;
 		
-		// Check file-specific permissions
+		// Check for explicit file rule
 		if let Some(rule) = self.find_file_rule(path, operation, user).await? {
-			return Ok(rule.active && rule.allowed_operations.contains(operation));
+			return Ok(self.check_rule_access(&rule, user, &user_permissions).await?);
 		}
 		
-		// Check user's general file access permission
-		if let Some(level) = user_permissions.permissions.get("file_access") {
+		// Check user's file permissions
+		if let Some(level) = user_permissions.permissions.get("file") {
 			match level {
-				PermissionLevel::None => Ok(false),
+				PermissionLevel::Deny => Ok(false),
 				PermissionLevel::Read => Ok(operation == "read"),
-				PermissionLevel::ReadWrite => Ok(operation == "read" || operation == "write"),
+				PermissionLevel::Write => Ok(operation == "read" || operation == "write"),
 				PermissionLevel::Full => Ok(true),
 				PermissionLevel::Admin => Ok(true),
 			}
 		} else {
 			// Use default permission level
-			match self.permission_config.default_permission_level {
-				PermissionLevel::None => Ok(false),
-				PermissionLevel::Read => Ok(operation == "read"),
-				PermissionLevel::ReadWrite => Ok(operation == "read" || operation == "write"),
-				PermissionLevel::Full => Ok(true),
-				PermissionLevel::Admin => Ok(true),
-			}
+			Ok(self.permission_config.default_permission_level != PermissionLevel::Deny)
 		}
 	}
 	
 	/**
 	 * Checks if user can access network
-	 * 
-	 * @param host - Target host
-	 * @param port - Target port
-	 * @param protocol - Network protocol
-	 * @param user - User making the request
-	 * @return Result<bool> - Whether user can access network
 	 */
 	pub async fn can_access_network(&self, host: &str, port: u16, protocol: &str, user: &str) -> Result<bool> {
-		/**
-		 * ユーザーがネットワークにアクセスできるかチェックする関数です
-		 * 
-		 * 指定されたユーザーが指定されたネットワークリソースに
-		 * アクセスする権限があるかどうかをチェックします。
-		 * 
-		 * ホスト、ポート、プロトコル、ユーザー権限などを
-		 * 考慮してネットワークアクセスの許可を判定します。
-		 */
-		
-		if !self.permission_config.enabled {
+		if !self.active || !self.permission_config.enabled {
 			return Ok(true);
 		}
 		
@@ -367,89 +312,47 @@ impl PermissionManager {
 		// Get user permissions
 		let user_permissions = self.get_user_permissions(user).await?;
 		
-		// Check network-specific permissions
+		// Check for explicit network rule
 		let resource_path = format!("{}:{}", host, port);
 		if let Some(rule) = self.find_network_rule(&resource_path, protocol, user).await? {
-			return Ok(rule.active && rule.allowed_operations.contains(protocol));
+			return Ok(self.check_rule_access(&rule, user, &user_permissions).await?);
 		}
 		
-		// Check user's general network access permission
-		if let Some(level) = user_permissions.permissions.get("network_access") {
+		// Check user's network permissions
+		if let Some(level) = user_permissions.permissions.get("network") {
 			match level {
-				PermissionLevel::None => Ok(false),
-				PermissionLevel::Read => Ok(true), // Read access for network
-				PermissionLevel::ReadWrite => Ok(true),
+				PermissionLevel::Deny => Ok(false),
+				PermissionLevel::Read => Ok(protocol == "http" || protocol == "https"),
+				PermissionLevel::Write => Ok(true),
 				PermissionLevel::Full => Ok(true),
 				PermissionLevel::Admin => Ok(true),
 			}
 		} else {
 			// Use default permission level
-			match self.permission_config.default_permission_level {
-				PermissionLevel::None => Ok(false),
-				PermissionLevel::Read => Ok(true),
-				PermissionLevel::ReadWrite => Ok(true),
-				PermissionLevel::Full => Ok(true),
-				PermissionLevel::Admin => Ok(true),
-			}
+			Ok(self.permission_config.default_permission_level != PermissionLevel::Deny)
 		}
 	}
 	
 	/**
 	 * Adds a permission rule
-	 * 
-	 * @param rule - Permission rule to add
-	 * @return Result<()> - Success or error status
 	 */
 	pub async fn add_rule(&self, rule: PermissionRule) -> Result<()> {
-		/**
-		 * 権限ルールを追加する関数です
-		 * 
-		 * 指定された権限ルールをシステムに追加し、
-		 * リソースアクセス制御を強化します。
-		 * 
-		 * ルールの重複チェック、有効性検証などを
-		 * 実行して安全な権限管理を実現します。
-		 */
-		
-		let rule_id = format!("{}:{}:{}", rule.resource_type, rule.resource_path, rule.subject);
-		
-		let mut rules = self.rules.write().await;
-		rules.insert(rule_id, rule);
-		
+		self.rules.write().await.insert(rule.id.clone(), rule);
 		Ok(())
 	}
 	
 	/**
 	 * Removes a permission rule
-	 * 
-	 * @param rule_id - ID of rule to remove
-	 * @return Result<()> - Success or error status
 	 */
 	pub async fn remove_rule(&self, rule_id: &str) -> Result<()> {
-		let mut rules = self.rules.write().await;
-		rules.remove(rule_id);
-		
+		self.rules.write().await.remove(rule_id);
 		Ok(())
 	}
 	
 	/**
 	 * Gets user permissions
-	 * 
-	 * @param user - User ID
-	 * @return Result<UserPermissions> - User permissions or error
 	 */
 	async fn get_user_permissions(&self, user: &str) -> Result<UserPermissions> {
-		/**
-		 * ユーザー権限を取得する関数です
-		 * 
-		 * 指定されたユーザーの権限情報を取得し、
-		 * 存在しない場合はデフォルト権限を
-		 * 作成します。
-		 * 
-		 * ユーザーのロール、グループ、直接権限などを
-		 * 含む包括的な権限情報を返します。
-		 */
-		
 		let users = self.users.read().await;
 		
 		if let Some(user_perms) = users.get(user) {
@@ -461,30 +364,40 @@ impl PermissionManager {
 				roles: HashSet::new(),
 				groups: HashSet::new(),
 				permissions: HashMap::new(),
+				failed_attempts: 0,
+				last_failed_attempt: None,
+				locked_until: None,
 				active: true,
-				created_at: std::time::SystemTime::now()
-					.duration_since(std::time::UNIX_EPOCH)?
-					.as_secs(),
-				last_login: None,
 			})
 		}
 	}
 	
 	/**
-	 * Finds command-specific rule
-	 * 
-	 * @param command - Command to check
-	 * @param user - User executing command
-	 * @return Result<Option<PermissionRule>> - Matching rule or None
+	 * Finds command rule
 	 */
 	async fn find_command_rule(&self, command: &str, user: &str) -> Result<Option<PermissionRule>> {
 		let rules = self.rules.read().await;
 		
 		for rule in rules.values() {
-			if rule.resource_type == ResourceType::Process &&
-			   rule.resource_path == command &&
-			   rule.subject == user {
-				return Ok(Some(rule.clone()));
+			if rule.resource_type == ResourceType::Command && rule.active {
+				// Check if command matches rule pattern
+				if self.matches_pattern(command, &rule.resource_path) {
+					// Check if user is allowed
+					if rule.allowed_users.contains(user) {
+						return Ok(Some(rule.clone()));
+					}
+					
+					// Check if user is denied
+					if rule.denied_users.contains(user) {
+						return Ok(None);
+					}
+					
+					// Check roles and groups
+					let user_permissions = self.get_user_permissions(user).await?;
+					if self.check_rule_access(rule, user, &user_permissions).await? {
+						return Ok(Some(rule.clone()));
+					}
+				}
 			}
 		}
 		
@@ -492,22 +405,31 @@ impl PermissionManager {
 	}
 	
 	/**
-	 * Finds file-specific rule
-	 * 
-	 * @param path - File path
-	 * @param operation - File operation
-	 * @param user - User accessing file
-	 * @return Result<Option<PermissionRule>> - Matching rule or None
+	 * Finds file rule
 	 */
 	async fn find_file_rule(&self, path: &str, operation: &str, user: &str) -> Result<Option<PermissionRule>> {
 		let rules = self.rules.read().await;
 		
 		for rule in rules.values() {
-			if rule.resource_type == ResourceType::File &&
-			   rule.resource_path == path &&
-			   rule.subject == user &&
-			   rule.allowed_operations.contains(operation) {
-				return Ok(Some(rule.clone()));
+			if rule.resource_type == ResourceType::File && rule.active {
+				// Check if path matches rule pattern
+				if self.matches_pattern(path, &rule.resource_path) {
+					// Check if user is allowed
+					if rule.allowed_users.contains(user) {
+						return Ok(Some(rule.clone()));
+					}
+					
+					// Check if user is denied
+					if rule.denied_users.contains(user) {
+						return Ok(None);
+					}
+					
+					// Check roles and groups
+					let user_permissions = self.get_user_permissions(user).await?;
+					if self.check_rule_access(rule, user, &user_permissions).await? {
+						return Ok(Some(rule.clone()));
+					}
+				}
 			}
 		}
 		
@@ -515,22 +437,31 @@ impl PermissionManager {
 	}
 	
 	/**
-	 * Finds network-specific rule
-	 * 
-	 * @param resource_path - Network resource path
-	 * @param protocol - Network protocol
-	 * @param user - User accessing network
-	 * @return Result<Option<PermissionRule>> - Matching rule or None
+	 * Finds network rule
 	 */
 	async fn find_network_rule(&self, resource_path: &str, protocol: &str, user: &str) -> Result<Option<PermissionRule>> {
 		let rules = self.rules.read().await;
 		
 		for rule in rules.values() {
-			if rule.resource_type == ResourceType::Network &&
-			   rule.resource_path == resource_path &&
-			   rule.subject == user &&
-			   rule.allowed_operations.contains(protocol) {
-				return Ok(Some(rule.clone()));
+			if rule.resource_type == ResourceType::Network && rule.active {
+				// Check if resource matches rule pattern
+				if self.matches_pattern(resource_path, &rule.resource_path) {
+					// Check if user is allowed
+					if rule.allowed_users.contains(user) {
+						return Ok(Some(rule.clone()));
+					}
+					
+					// Check if user is denied
+					if rule.denied_users.contains(user) {
+						return Ok(None);
+					}
+					
+					// Check roles and groups
+					let user_permissions = self.get_user_permissions(user).await?;
+					if self.check_rule_access(rule, user, &user_permissions).await? {
+						return Ok(Some(rule.clone()));
+					}
+				}
 			}
 		}
 		
@@ -539,20 +470,16 @@ impl PermissionManager {
 	
 	/**
 	 * Checks if user is locked out
-	 * 
-	 * @param user - User to check
-	 * @return Result<bool> - Whether user is locked out
 	 */
 	async fn is_user_locked_out(&self, user: &str) -> Result<bool> {
-		let attempts = self.failed_attempts.read().await;
+		let failed_attempts = self.failed_attempts.read().await;
 		
-		if let Some((count, timestamp)) = attempts.get(user) {
-			if *count >= self.permission_config.max_failed_attempts {
-				let now = std::time::SystemTime::now()
-					.duration_since(std::time::UNIX_EPOCH)?
-					.as_secs();
-				
-				if now - timestamp < self.permission_config.lockout_duration {
+		if let Some((attempts, last_attempt)) = failed_attempts.get(user) {
+			let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+			let lockout_duration = self.permission_config.lockout_duration;
+			
+			if *attempts >= self.permission_config.max_failed_attempts {
+				if now - last_attempt < lockout_duration {
 					return Ok(true);
 				}
 			}
@@ -562,92 +489,214 @@ impl PermissionManager {
 	}
 	
 	/**
-	 * Records failed login attempt
-	 * 
-	 * @param user - User who failed login
+	 * Records a failed attempt
 	 */
 	pub async fn record_failed_attempt(&self, user: &str) {
-		let mut attempts = self.failed_attempts.write().await;
-		let now = std::time::SystemTime::now()
-			.duration_since(std::time::UNIX_EPOCH)
-			.unwrap_or_default()
-			.as_secs();
+		let mut failed_attempts = self.failed_attempts.write().await;
+		let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
 		
-		if let Some((count, _)) = attempts.get_mut(user) {
-			*count += 1;
-		} else {
-			attempts.insert(user.to_string(), (1, now));
-		}
+		let entry = failed_attempts.entry(user.to_string()).or_insert((0, now));
+		entry.0 += 1;
+		entry.1 = now;
 	}
 	
 	/**
-	 * Clears failed login attempts
-	 * 
-	 * @param user - User to clear attempts for
+	 * Clears failed attempts for user
 	 */
 	pub async fn clear_failed_attempts(&self, user: &str) {
-		let mut attempts = self.failed_attempts.write().await;
-		attempts.remove(user);
+		self.failed_attempts.write().await.remove(user);
+	}
+	
+	/**
+	 * Checks rule access
+	 */
+	async fn check_rule_access(&self, rule: &PermissionRule, user: &str, user_permissions: &UserPermissions) -> Result<bool> {
+		// Check time restrictions
+		if let Some(time_restrictions) = &rule.time_restrictions {
+			if !self.check_time_restrictions(time_restrictions).await? {
+				return Ok(false);
+			}
+		}
+		
+		// Check IP restrictions
+		if let Some(ip_restrictions) = &rule.ip_restrictions {
+			if !self.check_ip_restrictions(ip_restrictions).await? {
+				return Ok(false);
+			}
+		}
+		
+		// Check roles
+		if !rule.allowed_roles.is_empty() {
+			let has_role = user_permissions.roles.iter().any(|role| rule.allowed_roles.contains(role));
+			if !has_role {
+				return Ok(false);
+			}
+		}
+		
+		// Check groups
+		if !rule.allowed_groups.is_empty() {
+			let has_group = user_permissions.groups.iter().any(|group| rule.allowed_groups.contains(group));
+			if !has_group {
+				return Ok(false);
+			}
+		}
+		
+		// Check denied roles
+		if !rule.denied_roles.is_empty() {
+			let has_denied_role = user_permissions.roles.iter().any(|role| rule.denied_roles.contains(role));
+			if has_denied_role {
+				return Ok(false);
+			}
+		}
+		
+		// Check denied groups
+		if !rule.denied_groups.is_empty() {
+			let has_denied_group = user_permissions.groups.iter().any(|group| rule.denied_groups.contains(group));
+			if has_denied_group {
+				return Ok(false);
+			}
+		}
+		
+		Ok(true)
+	}
+	
+	/**
+	 * Checks time restrictions
+	 */
+	async fn check_time_restrictions(&self, restrictions: &TimeRestrictions) -> Result<bool> {
+		if !self.permission_config.time_restrictions_enabled {
+			return Ok(true);
+		}
+		
+		let now = chrono::Utc::now();
+		let weekday = now.weekday().num_days_from_sunday();
+		let hour = now.hour() as u8;
+		
+		// Check day restrictions
+		if !restrictions.allowed_days.is_empty() && !restrictions.allowed_days.contains(&weekday) {
+			return Ok(false);
+		}
+		
+		// Check hour restrictions
+		if !restrictions.allowed_hours.is_empty() && !restrictions.allowed_hours.contains(&hour) {
+			return Ok(false);
+		}
+		
+		// Check time range
+		if let Some((start_hour, end_hour)) = restrictions.time_range {
+			if hour < start_hour || hour > end_hour {
+				return Ok(false);
+			}
+		}
+		
+		Ok(true)
+	}
+	
+	/**
+	 * Checks IP restrictions
+	 */
+	async fn check_ip_restrictions(&self, restrictions: &IpRestrictions) -> Result<bool> {
+		if !self.permission_config.ip_restrictions_enabled {
+			return Ok(true);
+		}
+		
+		// For now, use a default IP (in real implementation, get actual IP)
+		let client_ip = "127.0.0.1";
+		
+		// Check denied IPs first
+		if restrictions.denied_ips.contains(client_ip) {
+			return Ok(false);
+		}
+		
+		// Check denied ranges
+		for range in &restrictions.denied_ranges {
+			if self.ip_in_range(client_ip, range) {
+				return Ok(false);
+			}
+		}
+		
+		// Check allowed IPs
+		if !restrictions.allowed_ips.is_empty() && !restrictions.allowed_ips.contains(client_ip) {
+			return Ok(false);
+		}
+		
+		// Check allowed ranges
+		if !restrictions.allowed_ranges.is_empty() {
+			let in_allowed_range = restrictions.allowed_ranges.iter().any(|range| self.ip_in_range(client_ip, range));
+			if !in_allowed_range {
+				return Ok(false);
+			}
+		}
+		
+		Ok(true)
+	}
+	
+	/**
+	 * Checks if IP is in range
+	 */
+	fn ip_in_range(&self, ip: &str, range: &str) -> bool {
+		// Simple IP range check (in real implementation, use proper IP parsing)
+		ip == range || range.contains(ip)
+	}
+	
+	/**
+	 * Checks if string matches pattern
+	 */
+	fn matches_pattern(&self, input: &str, pattern: &str) -> bool {
+		// Simple pattern matching (in real implementation, use regex or glob)
+		input.contains(pattern) || pattern.contains(input) || input == pattern
 	}
 	
 	/**
 	 * Initializes default permissions
-	 * 
-	 * @return Result<()> - Success or error status
 	 */
 	async fn initialize_default_permissions(&self) -> Result<()> {
-		/**
-		 * デフォルト権限を初期化する関数です
-		 * 
-		 * システムの基本的な権限ルールを
-		 * 初期化し、セキュリティポリシーを
-		 * 設定します。
-		 * 
-		 * デフォルトユーザー、ロール、グループなどの
-		 * 基本的な権限構造を構築します。
-		 */
+		// Add default admin user
+		let admin_user = UserPermissions {
+			user_id: "admin".to_string(),
+			roles: HashSet::from(["admin".to_string()]),
+			groups: HashSet::from(["admin".to_string()]),
+			permissions: HashMap::from([
+				("command".to_string(), PermissionLevel::Admin),
+				("file".to_string(), PermissionLevel::Admin),
+				("network".to_string(), PermissionLevel::Admin),
+				("system".to_string(), PermissionLevel::Admin),
+			]),
+			failed_attempts: 0,
+			last_failed_attempt: None,
+			locked_until: None,
+			active: true,
+		};
+		
+		self.users.write().await.insert("admin".to_string(), admin_user);
 		
 		// Add default roles
-		{
-			let mut roles = self.roles.write().await;
-			
-			let mut admin_permissions = HashSet::new();
-			admin_permissions.insert("command_execution".to_string());
-			admin_permissions.insert("file_access".to_string());
-			admin_permissions.insert("network_access".to_string());
-			admin_permissions.insert("system_access".to_string());
-			roles.insert("admin".to_string(), admin_permissions);
-			
-			let mut user_permissions = HashSet::new();
-			user_permissions.insert("file_access".to_string());
-			user_permissions.insert("network_access".to_string());
-			roles.insert("user".to_string(), user_permissions);
-			
-			let mut guest_permissions = HashSet::new();
-			guest_permissions.insert("file_access".to_string());
-			roles.insert("guest".to_string(), guest_permissions);
-		}
+		let mut roles = self.roles.write().await;
+		roles.insert("admin".to_string(), HashSet::from([
+			"command".to_string(),
+			"file".to_string(),
+			"network".to_string(),
+			"system".to_string(),
+		]));
+		roles.insert("user".to_string(), HashSet::from([
+			"file".to_string(),
+			"network".to_string(),
+		]));
+		roles.insert("guest".to_string(), HashSet::from([
+			"file".to_string(),
+		]));
 		
 		// Add default groups
-		{
-			let mut groups = self.groups.write().await;
-			
-			let mut admin_group = HashSet::new();
-			admin_group.insert("admin".to_string());
-			groups.insert("administrators".to_string(), admin_group);
-			
-			let mut user_group = HashSet::new();
-			user_group.insert("user".to_string());
-			groups.insert("users".to_string(), user_group);
-		}
+		let mut groups = self.groups.write().await;
+		groups.insert("admin".to_string(), HashSet::from(["admin".to_string()]));
+		groups.insert("users".to_string(), HashSet::from(["user".to_string()]));
+		groups.insert("guests".to_string(), HashSet::from(["guest".to_string()]));
 		
 		Ok(())
 	}
 	
 	/**
 	 * Checks if permission manager is active
-	 * 
-	 * @return bool - Whether permission manager is active
 	 */
 	pub async fn is_active(&self) -> bool {
 		self.active
@@ -655,17 +704,13 @@ impl PermissionManager {
 	
 	/**
 	 * Updates permission configuration
-	 * 
-	 * @param config - New permission configuration
 	 */
 	pub fn update_config(&mut self, config: PermissionConfig) {
 		self.permission_config = config;
 	}
 	
 	/**
-	 * Gets current permission configuration
-	 * 
-	 * @return PermissionConfig - Current permission configuration
+	 * Gets current configuration
 	 */
 	pub fn get_config(&self) -> PermissionConfig {
 		self.permission_config.clone()
