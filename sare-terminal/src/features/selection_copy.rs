@@ -30,6 +30,7 @@ use super::{
  * テキスト選択、クリップボード操作、選択モードの管理の各機能を提供し、
  * 複数の選択モードに対応します
  */
+#[derive(Debug)]
 pub struct SelectionCopyManager {
 	/// アクティブな選択
 	active_selections: Arc<RwLock<HashMap<Uuid, ActiveSelection>>>,

@@ -21,6 +21,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use widgets::Widget;
+
 /**
  * UI manager for Sare terminal
  * 
@@ -235,14 +237,14 @@ impl UiManager {
 		
 		// Handle toolbar events
 		if let Some(toolbar) = &self.toolbar {
-			if toolbar.handle_event(event.clone()).await? {
+			if toolbar.handle_event(event.clone())? {
 				return Ok(true);
 			}
 		}
 		
 		// Handle status bar events
 		if let Some(status_bar) = &self.status_bar {
-			if status_bar.handle_event(event).await? {
+			if status_bar.handle_event(event)? {
 				return Ok(true);
 			}
 		}
@@ -265,14 +267,14 @@ impl UiManager {
 		
 		// Update status bar
 		if let Some(status_bar) = &self.status_bar {
-			if status_bar.update().await? {
+			if status_bar.update()? {
 				needs_redraw = true;
 			}
 		}
 		
 		// Update toolbar
 		if let Some(toolbar) = &self.toolbar {
-			if toolbar.update().await? {
+			if toolbar.update()? {
 				needs_redraw = true;
 			}
 		}
@@ -298,7 +300,7 @@ impl UiManager {
 	 * @param items - Menu items
 	 * @return Result<()> - Success or error status
 	 */
-	pub async fn show_context_menu(&self, x: u32, y: u32, items: Vec<context_menu::MenuItem>) -> Result<()> {
+	pub async fn show_context_menu(&mut self, x: u32, y: u32, items: Vec<context_menu::MenuItem>) -> Result<()> {
 		self.context_menu_manager.show_menu(x, y, items).await
 	}
 	
@@ -307,7 +309,7 @@ impl UiManager {
 	 * 
 	 * @return Result<()> - Success or error status
 	 */
-	pub async fn hide_context_menu(&self) -> Result<()> {
+	pub async fn hide_context_menu(&mut self) -> Result<()> {
 		self.context_menu_manager.hide_menu().await
 	}
 	
@@ -319,7 +321,7 @@ impl UiManager {
 	 * @param y - Y coordinate
 	 * @return Result<()> - Success or error status
 	 */
-	pub async fn start_drag(&self, data: drag_drop::DragData, x: u32, y: u32) -> Result<()> {
+	pub async fn start_drag(&mut self, data: drag_drop::DragData, x: u32, y: u32) -> Result<()> {
 		self.drag_drop_manager.start_drag(data, x, y).await
 	}
 	
@@ -328,7 +330,7 @@ impl UiManager {
 	 * 
 	 * @return Result<()> - Success or error status
 	 */
-	pub async fn end_drag(&self) -> Result<()> {
+	pub async fn end_drag(&mut self) -> Result<()> {
 		self.drag_drop_manager.end_drag().await
 	}
 	

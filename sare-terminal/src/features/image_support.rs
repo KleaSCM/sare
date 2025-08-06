@@ -31,6 +31,7 @@ use super::{
  * 画像の読み込み、キャッシュ、表示の各機能を提供し、
  * 複数の画像フォーマットに対応します
  */
+#[derive(Debug)]
 pub struct ImageManager {
 	/// 画像キャッシュ
 	image_cache: Arc<RwLock<HashMap<Uuid, CachedImage>>>,
@@ -108,7 +109,7 @@ impl ImageManager {
 		
 		// サポートされているフォーマットを確認
 		for format in &self.supported_formats {
-			self.validate_format_support(*format).await?;
+			self.validate_format_support(format.clone()).await?;
 		}
 		
 		Ok(())
@@ -177,7 +178,7 @@ impl ImageManager {
 		&self,
 		image_id: Uuid,
 		position: (u32, u32),
-		size: (u32, u32),
+		_size: (u32, u32),
 	) -> Result<Vec<u8>> {
 		/**
 		 * 画像をレンダリングする関数です
@@ -210,7 +211,7 @@ impl ImageManager {
 		
 		// 画像をレンダリング
 		let renderer = self.image_renderer.read().await;
-		renderer.render_image(&cached_image, position, size).await
+		renderer.render_image(&cached_image, position, _size).await
 	}
 	
 	/**
@@ -519,6 +520,7 @@ pub struct ImageConfig {
  * 
  * 画像レンダリングを担当するコンポーネントです
  */
+#[derive(Debug)]
 pub struct ImageRenderer {
 	/// レンダラーの初期化状態
 	initialized: bool,
@@ -558,7 +560,7 @@ impl ImageRenderer {
 		&self,
 		image: &CachedImage,
 		position: (u32, u32),
-		size: (u32, u32),
+		_size: (u32, u32),
 	) -> Result<Vec<u8>> {
 		// 画像レンダリングの実装
 		// 実際の実装ではGPUレンダリングを使用

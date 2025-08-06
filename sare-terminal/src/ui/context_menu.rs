@@ -21,14 +21,11 @@ use super::widgets::{WidgetEvent, MouseButton};
  * コンテキストメニューの
  * 個別アイテムを管理します。
  */
-#[derive(Debug, Clone)]
-pub struct MenuItem {
+pub struct ContextMenuItem {
 	/// Item ID
 	pub id: String,
 	/// Item text
 	pub text: String,
-	/// Item icon
-	pub icon: String,
 	/// Item enabled state
 	pub enabled: bool,
 	/// Item separator
@@ -46,7 +43,7 @@ pub struct MenuItem {
  */
 pub struct ContextMenuManager {
 	/// Active menu items
-	active_items: Vec<MenuItem>,
+	active_items: Vec<ContextMenuItem>,
 	/// Menu position
 	menu_x: u32,
 	/// Menu position
@@ -110,7 +107,7 @@ impl ContextMenuManager {
 	 * @param items - Menu items
 	 * @return Result<()> - Success or error status
 	 */
-	pub async fn show_menu(&mut self, x: u32, y: u32, items: Vec<MenuItem>) -> Result<()> {
+	pub async fn show_menu(&mut self, x: u32, y: u32, items: Vec<ContextMenuItem>) -> Result<()> {
 		self.active_items = items;
 		self.menu_x = x;
 		self.menu_y = y;
@@ -176,7 +173,7 @@ impl ContextMenuManager {
 			} else {
 				let selected = Some(index) == self.selected_index;
 				let prefix = if selected { "▶ " } else { "  " };
-				let icon = if !item.icon.is_empty() { &item.icon } else { " " };
+				let icon = " "; // No icon support for now
 				let text = if item.enabled { &item.text } else { "Disabled" };
 				
 				result.push('│');
@@ -300,3 +297,5 @@ impl ContextMenuManager {
 		Ok(false)
 	}
 } 
+
+pub type MenuItem = ContextMenuItem; 

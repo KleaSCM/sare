@@ -20,21 +20,16 @@ use super::widgets::{Widget, WidgetRect, WidgetStyle, WidgetEvent, MouseButton};
  * ツールバーの個別ボタンを
  * 管理します。
  */
-#[derive(Debug, Clone)]
-pub struct ToolbarButton {
-	/// Button ID
+pub struct ToolbarItem {
+	/// Item ID
 	pub id: String,
-	/// Button text
+	/// Item text
 	pub text: String,
-	/// Button icon
-	pub icon: String,
-	/// Button tooltip
-	pub tooltip: String,
-	/// Button enabled state
+	/// Item icon
+	pub icon: Option<String>,
+	/// Item enabled state
 	pub enabled: bool,
-	/// Button visible state
-	pub visible: bool,
-	/// Button callback
+	/// Item callback
 	pub callback: Option<Box<dyn Fn() + Send + Sync>>,
 }
 
@@ -55,7 +50,7 @@ pub struct Toolbar {
 	/// Widget visibility
 	visible: bool,
 	/// Toolbar buttons
-	buttons: Vec<ToolbarButton>,
+	buttons: Vec<ToolbarItem>,
 	/// Selected button index
 	selected_index: Option<usize>,
 }
@@ -84,7 +79,7 @@ impl Toolbar {
 	 * 
 	 * @param button - Toolbar button
 	 */
-	pub fn add_button(&mut self, button: ToolbarButton) {
+	pub fn add_button(&mut self, button: ToolbarItem) {
 		self.buttons.push(button);
 	}
 	
@@ -103,7 +98,7 @@ impl Toolbar {
 	 * @param id - Button ID
 	 * @return Option<&ToolbarButton> - Button reference
 	 */
-	pub fn get_button(&self, id: &str) -> Option<&ToolbarButton> {
+	pub fn get_button(&self, id: &str) -> Option<&ToolbarItem> {
 		self.buttons.iter().find(|button| button.id == id)
 	}
 	
@@ -113,7 +108,7 @@ impl Toolbar {
 	 * @param id - Button ID
 	 * @return Option<&mut ToolbarButton> - Mutable button reference
 	 */
-	pub fn get_button_mut(&mut self, id: &str) -> Option<&mut ToolbarButton> {
+	pub fn get_button_mut(&mut self, id: &str) -> Option<&mut ToolbarItem> {
 		self.buttons.iter_mut().find(|button| button.id == id)
 	}
 	
@@ -134,12 +129,12 @@ impl Toolbar {
 		// Render buttons
 		let mut current_pos = 0;
 		for (index, button) in self.buttons.iter().enumerate() {
-			if !button.visible {
+			if !button.enabled {
 				continue;
 			}
 			
-			let button_text = if !button.icon.is_empty() {
-				format!("{} {}", button.icon, button.text)
+			let button_text = if let Some(icon) = &button.icon {
+				format!("{} {}", icon, button.text)
 			} else {
 				button.text.clone()
 			};
@@ -269,7 +264,7 @@ impl Toolbar {
 	fn handle_button_click(&mut self, index: usize) -> Result<bool> {
 		if index < self.buttons.len() {
 			let button = &mut self.buttons[index];
-			if button.enabled && button.visible {
+			if button.enabled {
 				// Execute callback if available
 				if let Some(callback) = &button.callback {
 					callback();

@@ -178,15 +178,15 @@ impl FontManager {
 			return Ok(cached_font.clone());
 		}
 		
-		let font_path = self.find_font_file(family, weight, style).await?;
+		let font_path = self.find_font_file(family, &weight, &style).await?;
 		
 		let font_data = std::fs::read(&font_path)?;
 		
 		let cached_font = CachedFont {
 			family: family.to_string(),
 			size,
-			weight,
-			style,
+			weight: weight.clone(),
+			style: style.clone(),
 			file_path: Some(font_path),
 			data: font_data,
 			glyph_cache: HashMap::new(),
@@ -208,7 +208,7 @@ impl FontManager {
 	 * @param style - Font style
 	 * @return Result<PathBuf> - Font file path or error
 	 */
-	async fn find_font_file(&self, family: &str, weight: FontWeight, style: FontStyle) -> Result<PathBuf> {
+	async fn find_font_file(&self, family: &str, weight: &FontWeight, style: &FontStyle) -> Result<PathBuf> {
 		/**
 		 * フォントファイルを検索する関数です
 		 * 
@@ -248,7 +248,7 @@ impl FontManager {
 	 * @param style - Font style
 	 * @return bool - True if the font file matches the criteria
 	 */
-	fn matches_font_criteria(&self, file_name: &str, family: &str, weight: FontWeight, style: FontStyle) -> bool {
+	fn matches_font_criteria(&self, file_name: &str, family: &str, weight: &FontWeight, style: &FontStyle) -> bool {
 		// Convert family name to lowercase for comparison
 		let family_lower = family.to_lowercase();
 		let file_name_lower = file_name.to_lowercase();

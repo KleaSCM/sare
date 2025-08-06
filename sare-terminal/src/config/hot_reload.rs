@@ -471,7 +471,7 @@ impl HotReloadWatcher {
 								for callback in callbacks.iter() {
 									callback(ConfigChangeEvent::PluginToggled {
 										plugin_name: name_str.to_string(),
-										enabled: *enabled_bool,
+										enabled: enabled_bool,
 									});
 								}
 							}

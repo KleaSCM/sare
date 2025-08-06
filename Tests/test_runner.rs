@@ -19,6 +19,10 @@ mod test_ansi_protocol;
 mod test_unicode;
 mod test_advanced_rendering;
 mod test_features;
+mod test_core_functionality;
+
+// Re-export for IDE integration
+pub use test_core_functionality::*;
 
 /**
  * Test result information
@@ -858,6 +862,37 @@ impl TestRunner {
 		results
 	}
 	
+	fn run_core_functionality_tests(&self) -> Vec<TestResult> {
+		/**
+		 * コア機能テストを実行する関数です
+		 * 
+		 * ターミナルエミュレーターのコア機能をテストし、
+		 * すべてのコンポーネントが正しく接続されていることを
+		 * 検証します。
+		 * 
+		 * ターミナル作成、初期化、UI管理、履歴管理、デバッグ管理、
+		 * プロファイラー、ロガー、エラー回復、テストフレームワークが
+		 * 正しく動作することを検証します
+		 */
+		
+		let mut results = Vec::new();
+		
+		// Use the comprehensive test suite from the separate module
+		let core_results = test_core_functionality::run_core_functionality_tests();
+		for (name, success) in core_results {
+			results.push(TestResult {
+				name: name.to_string(),
+				category: "core_functionality".to_string(),
+				success,
+				execution_time: 0,
+				error_message: if success { None } else { Some("Test failed".to_string()) },
+				description: format!("Core functionality test: {}", name),
+			});
+		}
+		
+		results
+	}
+	
 	/**
 	 * Runs all tests and generates comprehensive report
 	 * 
@@ -929,6 +964,11 @@ impl TestRunner {
 		println!("\n✨ Running Terminal Features Tests...");
 		let features_results = self.run_terminal_features_tests();
 		all_results.extend(features_results);
+		
+		// Run core functionality tests
+		println!("\n🔧 Running Core Functionality Tests...");
+		let core_results = self.run_core_functionality_tests();
+		all_results.extend(core_results);
 		
 		let total_time = start_time.elapsed();
 		

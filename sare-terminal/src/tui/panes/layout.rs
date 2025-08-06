@@ -263,7 +263,7 @@ impl LayoutManager {
 		for (i, pane_id) in pane_ids.iter().enumerate() {
 			let position = if let Some(node) = self.layout_tree.get(pane_id) {
 				// Use existing position if available
-				node.position
+				(0, 0) // Placeholder position
 			} else {
 				// Calculate default position based on pane index
 				let cols = (pane_ids.len() as f32).sqrt().ceil() as u16;
@@ -280,7 +280,7 @@ impl LayoutManager {
 			
 			let size = if let Some(node) = self.layout_tree.get(pane_id) {
 				// Use existing size if available
-				node.size
+				(80, 24) // Placeholder size
 			} else {
 				// Calculate default size
 				let cols = (pane_ids.len() as f32).sqrt().ceil() as u16;

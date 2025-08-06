@@ -24,7 +24,7 @@ use tokio::sync::RwLock;
 
 use theme_engine::{Theme, ThemeEngine};
 use plugin_system::{PluginManager, PluginEvent};
-use key_binding_system::{KeyBindingManager, KeyBinding, KeyCombination, KeyModifier};
+use key_binding_system::{KeyBindingManager, KeyBinding as KeyBindingSystem, KeyCombination, KeyModifier};
 use config_files::{ConfigFileManager, ConfigFormat, ConfigSchema, ConfigValidationError};
 use hot_reload::{HotReloadWatcher, RuntimeConfigManager, ConfigChangeEvent, FileChangeEvent};
 

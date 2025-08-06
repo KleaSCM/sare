@@ -24,7 +24,7 @@ use super::substitution::{SubstitutionState, SubstitutionProcessor};
 use super::expansion::{ExpansionState, ExpansionProcessor};
 
 #[derive(Debug)]
-pub struct SareTerminal {
+pub struct GuiTerminal {
 	/// Command history manager
 	pub history_manager: HistoryManager,
 	/// Tab completion engine
@@ -63,7 +63,7 @@ pub struct SareTerminal {
 	pub expansion_state: ExpansionState,
 }
 
-impl Default for SareTerminal {
+impl Default for GuiTerminal {
 	fn default() -> Self {
 
 		
@@ -113,7 +113,7 @@ impl Default for SareTerminal {
 	}
 }
 
-impl SareTerminal {
+impl GuiTerminal {
 	pub fn new() -> Result<Self> {
 		Ok(Self::default())
 	}
@@ -560,7 +560,7 @@ impl SareTerminal {
 	}
 }
 
-impl eframe::App for SareTerminal {
+impl eframe::App for GuiTerminal {
 	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 		self.handle_key_input(ctx);
 		super::renderer::TerminalRenderer::render_terminal(self, ctx);		

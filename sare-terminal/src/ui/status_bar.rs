@@ -11,7 +11,11 @@
  */
 
 use anyhow::Result;
-use std::time::Instant;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use std::time::{Duration, Instant};
+use libc::statvfs;
 use super::widgets::{Widget, WidgetRect, WidgetStyle, WidgetEvent};
 
 /**
@@ -470,14 +474,29 @@ impl StatusBar {
 	fn get_disk_usage(&self) -> Result<u32> {
 		// Get disk usage for current directory
 		let current_dir = std::env::current_dir()?;
-		let statvfs = nix::mount::statvfs(&current_dir)?;
+		let mut statvfs_buf = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+		let result = unsafe { 
+			statvfs(
+				current_dir.to_string_lossy().as_ptr() as *const i8,
+				statvfs_buf.as_mut_ptr()
+			) 
+		};
 		
-		let total_blocks = statvfs.blocks() as u64;
-		let available_blocks = statvfs.available() as u64;
-		let used_blocks = total_blocks - available_blocks;
-		
-		if total_blocks > 0 {
-			let usage = (used_blocks * 100) / total_blocks;
+		if result == 0 {
+			let statvfs = unsafe { statvfs_buf.assume_init() };
+			let total_blocks = statvfs.f_blocks as u64;
+			let free_blocks = statvfs.f_bavail as u64;
+			let block_size = statvfs.f_frsize as u64;
+			
+			let total_bytes = total_blocks * block_size;
+			let free_bytes = free_blocks * block_size;
+			let used_bytes = total_bytes - free_bytes;
+			
+			let usage = if total_bytes > 0 {
+				(used_bytes * 100) / total_bytes
+			} else {
+				0
+			};
 			Ok(usage as u32)
 		} else {
 			Ok(0)

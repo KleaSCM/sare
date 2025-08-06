@@ -31,6 +31,7 @@ use super::{
  * タブの作成、削除、切り替え、名前変更の各機能を提供し、
  * セッションごとのタブ管理を実現します
  */
+#[derive(Debug)]
 pub struct TabManager {
 	/// タブのメタデータ
 	tabs: Arc<RwLock<HashMap<Uuid, TabMetadata>>>,

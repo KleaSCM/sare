@@ -202,26 +202,23 @@ impl UnicodeProcessor {
 	 * @param max_width - Maximum display width
 	 * @return ProcessedText - Processed text information
 	 */
-	pub fn process_text(&mut self, text: &str, max_width: u32) -> ProcessedText {
+	pub fn process_text(&self, text: &str, max_width: u32) -> TextProcessingResult {
 		let base_direction = self.get_base_direction(text);
 		let reordered_text = self.reorder_text(text);
 		let display_width = self.get_string_width(&reordered_text);
 		let display_order = self.get_display_order(text);
 		
-		// Split text if it exceeds max width
 		let lines = if display_width > max_width {
 			self.split_at_width(text, max_width)
 		} else {
-			vec![reordered_text]
+			vec![reordered_text.to_string()]
 		};
 		
-		ProcessedText {
-			original_text: text.to_string(),
-			reordered_text,
+		TextProcessingResult {
 			lines,
-			base_direction,
 			display_width,
-			display_order,
+			display_order: display_order.into_iter().map(|i| i.to_string()).collect(),
+			base_direction,
 		}
 	}
 	
@@ -349,4 +346,16 @@ impl ProcessedText {
 	pub fn display_text(&self) -> &str {
 		&self.reordered_text
 	}
+} 
+
+#[derive(Debug, Clone)]
+pub struct TextProcessingResult {
+	/// Processed text lines
+	pub lines: Vec<String>,
+	/// Display width
+	pub display_width: u32,
+	/// Display order
+	pub display_order: Vec<String>,
+	/// Base direction
+	pub base_direction: TextDirection,
 } 

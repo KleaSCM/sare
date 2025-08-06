@@ -57,7 +57,6 @@ pub struct DragData {
  * ドロップ可能な領域を
  * 定義します。
  */
-#[derive(Debug, Clone)]
 pub struct DropTarget {
 	/// Target ID
 	pub id: String,
@@ -71,7 +70,7 @@ pub struct DropTarget {
 	pub height: u32,
 	/// Target enabled state
 	pub enabled: bool,
-	/// Target callback
+	/// Target callback (not cloneable)
 	pub callback: Option<Box<dyn Fn(DragData) + Send + Sync>>,
 }
 

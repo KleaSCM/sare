@@ -108,7 +108,7 @@ pub struct ProfilerSample {
  * プロファイリング結果の
  * メトリクスを管理します。
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ProfilerMetrics {
 	/// Total samples
 	pub total_samples: u64,
@@ -206,7 +206,7 @@ impl Profiler {
 	 */
 	pub async fn start_session(&self, session_name: String) -> Result<()> {
 		let mut sessions = self.active_sessions.write().await;
-		sessions.insert(session_name, Instant::now());
+		sessions.insert(session_name.clone(), Instant::now());
 		
 		println!("📊 Started profiling session: {}", session_name);
 		
@@ -262,7 +262,7 @@ impl Profiler {
 		
 		// Add sample
 		let mut samples = self.samples.write().await;
-		samples.push(sample);
+		samples.push(sample.clone());
 		
 		// Update metrics
 		let mut metrics = self.metrics.write().await;

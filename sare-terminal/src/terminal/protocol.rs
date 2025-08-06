@@ -13,6 +13,7 @@
 
 use anyhow::Result;
 use std::collections::HashMap;
+use crate::terminal::renderer::Cell;
 
 /**
  * ANSI escape sequence parser
@@ -23,22 +24,34 @@ use std::collections::HashMap;
  */
 #[derive(Debug, Clone)]
 pub struct AnsiParser {
-	/// Current parsing state
-	state: ParserState,
-	/// Accumulated parameters for current sequence
-	params: Vec<u32>,
-	/// Current parameter being built
-	current_param: String,
+	/// Parser state
+	pub state: ParserState,
+	/// Mouse state
+	pub mouse_state: MouseState,
+	/// Bracketed paste mode
+	pub bracketed_paste: bool,
+	/// Current escape sequence
+	pub escape_sequence: Vec<u8>,
+	/// Current control sequence
+	pub control_sequence: Vec<u8>,
+	/// Current parameter values
+	pub parameters: Vec<u32>,
+	/// Current intermediate characters
+	pub intermediates: Vec<u8>,
+	/// Current final character
+	pub final_char: Option<u8>,
 	/// Terminal state
-	terminal_state: TerminalState,
+	pub terminal_state: TerminalState,
 	/// Color palette (256 colors)
-	color_palette: HashMap<u8, Color>,
+	pub color_palette: HashMap<u8, Color>,
 	/// Screen buffers (primary and alternate)
-	screen_buffers: ScreenBuffers,
-	/// Mouse tracking state
-	mouse_state: MouseState,
-	/// Bracketed paste mode state
-	bracketed_paste: bool,
+	pub screen_buffers: ScreenBuffers,
+	/// Current parameters (for backward compatibility)
+	pub params: Vec<u32>,
+	/// Current parameter being built
+	pub current_param: String,
+	/// Application cursor keys mode
+	pub app_cursor_keys: bool,
 }
 
 /**
@@ -66,39 +79,52 @@ pub enum ParserState {
 	DeviceControl,
 }
 
-/**
- * Terminal state for ANSI emulation
- */
 #[derive(Debug, Clone)]
 pub struct TerminalState {
+	/// Foreground color
+	pub fg_color: Color,
+	/// Background color
+	pub bg_color: Color,
+	/// Text attributes
+	pub attributes: TextAttributes,
 	/// Cursor position (column, row)
 	pub cursor_pos: (u16, u16),
-	/// Cursor visibility
-	pub cursor_visible: bool,
-	/// Cursor shape (block, underline, bar)
-	pub cursor_shape: CursorShape,
 	/// Terminal size (columns, rows)
 	pub size: (u16, u16),
+	/// Insert mode
+	pub insert_mode: bool,
+	/// Origin mode
+	pub origin_mode: bool,
+	/// Auto wrap mode
+	pub auto_wrap: bool,
+	/// Cursor visible
+	pub cursor_visible: bool,
 	/// Scroll region (top, bottom)
 	pub scroll_region: Option<(u16, u16)>,
-	/// Current foreground color
-	pub fg_color: Color,
-	/// Current background color
-	pub bg_color: Color,
-	/// Text attributes (bold, italic, underline, etc.)
-	pub attributes: TextAttributes,
-	/// Insert/replace mode
-	pub insert_mode: bool,
 	/// Application cursor keys mode
 	pub app_cursor_keys: bool,
-	/// Application keypad mode
-	pub app_keypad: bool,
-	/// Auto-wrap mode
-	pub auto_wrap: bool,
-	/// Origin mode (relative/absolute positioning)
-	pub origin_mode: bool,
-	/// Show cursor mode
-	pub show_cursor: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ScreenBuffers {
+	/// Primary screen buffer
+	pub primary: ScreenBuffer,
+	/// Alternate screen buffer
+	pub alternate: ScreenBuffer,
+	/// Current active buffer
+	pub active: ScreenBufferType,
+}
+
+#[derive(Debug, Clone)]
+pub enum ScreenBufferType {
+	Primary,
+	Alternate,
+}
+
+#[derive(Debug, Clone)]
+pub enum ActiveBuffer {
+	Primary,
+	Alternate,
 }
 
 /**
@@ -167,60 +193,14 @@ pub struct TextAttributes {
 	pub strikethrough: bool,
 }
 
-/**
- * Screen buffer for terminal content
- */
 #[derive(Debug, Clone)]
 pub struct ScreenBuffer {
-	/// Screen content (row, column) -> Cell
+	/// Screen content
 	pub content: Vec<Vec<Cell>>,
-	/// Cursor position in this buffer
-	pub cursor_pos: (u16, u16),
 	/// Scrollback buffer
 	pub scrollback: Vec<Vec<Cell>>,
-	/// Maximum scrollback lines
-	pub max_scrollback: usize,
-}
-
-/**
- * Screen buffers (primary and alternate)
- */
-#[derive(Debug, Clone)]
-pub struct ScreenBuffers {
-	/// Primary screen buffer
-	pub primary: ScreenBuffer,
-	/// Alternate screen buffer
-	pub alternate: ScreenBuffer,
-	/// Currently active buffer
-	pub active: ActiveBuffer,
-}
-
-/**
- * Active buffer selection
- */
-#[derive(Debug, Clone, PartialEq)]
-pub enum ActiveBuffer {
-	/// Primary screen buffer
-	Primary,
-	/// Alternate screen buffer
-	Alternate,
-}
-
-/**
- * Cell content for screen buffer
- */
-#[derive(Debug, Clone)]
-pub struct Cell {
-	/// Character content
-	pub char: char,
-	/// Foreground color
-	pub fg_color: Color,
-	/// Background color
-	pub bg_color: Color,
-	/// Text attributes
-	pub attributes: TextAttributes,
-	/// Whether cell is dirty (needs redraw)
-	pub dirty: bool,
+	/// Screen size
+	pub size: (u16, u16),
 }
 
 /**
@@ -261,13 +241,19 @@ impl Default for AnsiParser {
 	fn default() -> Self {
 		Self {
 			state: ParserState::Normal,
-			params: Vec::new(),
-			current_param: String::new(),
+			mouse_state: MouseState::default(),
+			bracketed_paste: false,
+			escape_sequence: Vec::new(),
+			control_sequence: Vec::new(),
+			parameters: Vec::new(),
+			intermediates: Vec::new(),
+			final_char: None,
 			terminal_state: TerminalState::default(),
 			color_palette: Self::default_color_palette(),
 			screen_buffers: ScreenBuffers::default(),
-			mouse_state: MouseState::default(),
-			bracketed_paste: false,
+			params: Vec::new(),
+			current_param: String::new(),
+			app_cursor_keys: false,
 		}
 	}
 }
@@ -275,20 +261,17 @@ impl Default for AnsiParser {
 impl Default for TerminalState {
 	fn default() -> Self {
 		Self {
-			cursor_pos: (0, 0),
-			cursor_visible: true,
-			cursor_shape: CursorShape::Block,
-			size: (80, 24),
-			scroll_region: None,
 			fg_color: Color::default(),
 			bg_color: Color::default(),
 			attributes: TextAttributes::default(),
+			cursor_pos: (0, 0),
+			size: (80, 24),
 			insert_mode: false,
-			app_cursor_keys: false,
-			app_keypad: false,
-			auto_wrap: true,
 			origin_mode: false,
-			show_cursor: true,
+			auto_wrap: true,
+			cursor_visible: true,
+			scroll_region: None,
+			app_cursor_keys: false,
 		}
 	}
 }
@@ -324,7 +307,7 @@ impl Default for ScreenBuffers {
 		Self {
 			primary: ScreenBuffer::new(80, 24),
 			alternate: ScreenBuffer::new(80, 24),
-			active: ActiveBuffer::Primary,
+			active: ScreenBufferType::Primary,
 		}
 	}
 }
@@ -416,7 +399,46 @@ impl AnsiParser {
 	 * @return AnsiParser - New ANSI parser instance
 	 */
 	pub fn new() -> Self {
-		Self::default()
+		Self {
+			state: ParserState::Normal,
+			mouse_state: MouseState::default(),
+			bracketed_paste: false,
+			escape_sequence: Vec::new(),
+			control_sequence: Vec::new(),
+			parameters: Vec::new(),
+			intermediates: Vec::new(),
+			final_char: None,
+			terminal_state: TerminalState {
+				fg_color: Color::default(),
+				bg_color: Color::default(),
+				attributes: TextAttributes::default(),
+				cursor_pos: (0, 0),
+				size: (80, 24),
+				insert_mode: false,
+				origin_mode: false,
+				auto_wrap: true,
+				cursor_visible: true,
+				scroll_region: None,
+				app_cursor_keys: false,
+			},
+			color_palette: HashMap::new(),
+			screen_buffers: ScreenBuffers {
+				primary: ScreenBuffer {
+					content: vec![vec![Cell::default(); 80]; 24],
+					scrollback: Vec::new(),
+					size: (80, 24),
+				},
+				alternate: ScreenBuffer {
+					content: vec![vec![Cell::default(); 80]; 24],
+					scrollback: Vec::new(),
+					size: (80, 24),
+				},
+				active: ScreenBufferType::Primary,
+			},
+			params: Vec::new(),
+			app_cursor_keys: false,
+			current_param: String::new(),
+		}
 	}
 	
 	/**
@@ -613,7 +635,7 @@ impl AnsiParser {
 			b'r' => {
 				// Set Top and Bottom Margins
 				let top = self.params.get(0).copied().unwrap_or(1);
-				let bottom = self.params.get(1).copied().unwrap_or(self.terminal_state.size.1);
+				let bottom = self.params.get(1).copied().unwrap_or(self.terminal_state.size.1 as u32);
 				commands.push(AnsiCommand::SetScrollRegion(top, bottom));
 			}
 			_ => {
@@ -649,11 +671,11 @@ impl AnsiParser {
 				9 => commands.push(AnsiCommand::SetStrikethrough),
 				30..=37 => {
 					// Set foreground color (named)
-					commands.push(AnsiCommand::SetForegroundColor(ColorType::Named(param - 30)));
+					commands.push(AnsiCommand::SetForegroundColor(ColorType::Named((param - 30) as u8)));
 				}
 				38 => {
 					// Set foreground color (extended)
-					commands.extend(self.handle_extended_color(true)?);
+					commands.extend(self.handle_extended_color(true)?.into_iter());
 				}
 				39 => {
 					// Reset foreground color
@@ -661,11 +683,11 @@ impl AnsiParser {
 				}
 				40..=47 => {
 					// Set background color (named)
-					commands.push(AnsiCommand::SetBackgroundColor(ColorType::Named(param - 40)));
+					commands.push(AnsiCommand::SetBackgroundColor(ColorType::Named((param - 40) as u8)));
 				}
 				48 => {
 					// Set background color (extended)
-					commands.extend(self.handle_extended_color(false)?);
+					commands.extend(self.handle_extended_color(false)?.into_iter());
 				}
 				49 => {
 					// Reset background color
@@ -673,11 +695,11 @@ impl AnsiParser {
 				}
 				90..=97 => {
 					// Set foreground color (bright named)
-					commands.push(AnsiCommand::SetForegroundColor(ColorType::Named(param - 90 + 8)));
+					commands.push(AnsiCommand::SetForegroundColor(ColorType::Named((param - 90 + 8) as u8)));
 				}
 				100..=107 => {
 					// Set background color (bright named)
-					commands.push(AnsiCommand::SetBackgroundColor(ColorType::Named(param - 100 + 8)));
+					commands.push(AnsiCommand::SetBackgroundColor(ColorType::Named((param - 100 + 8) as u8)));
 				}
 				_ => {
 				}

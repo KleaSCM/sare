@@ -14,12 +14,13 @@
  */
 
 use anyhow::Result;
-use skia_safe::{Canvas, Color, Font, Paint, Point, Rect, Surface, TextBlob, Shader, Matrix, Path};
+use skia_safe::{Canvas, Color, Color4f, Font, Paint, Point, Rect, Surface, TextBlob, Shader, Matrix, Path};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::collections::HashMap;
 
 use super::{GpuBackend, GpuConfig, PerformanceMetrics};
+use super::renderer::GpuRendererTrait;
 
 /**
  * Skia GPU backend renderer
@@ -27,6 +28,7 @@ use super::{GpuBackend, GpuConfig, PerformanceMetrics};
  * Implements GPU-accelerated rendering using Skia graphics library
  * for high-performance terminal graphics operations.
  */
+#[derive(Clone)]
 /**
  * Optimized shader for text rendering
  * 
@@ -34,7 +36,7 @@ use super::{GpuBackend, GpuConfig, PerformanceMetrics};
  * GPUアクセラレーションを使用して高速な
  * テキストレンダリングを提供します。
  */
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct OptimizedShader {
 	/// Shader program
 	shader: Option<Shader>,
@@ -66,13 +68,14 @@ impl OptimizedShader {
 	 */
 	pub fn compile_text_shader(&mut self, canvas: &Canvas) -> Result<()> {
 		// Create optimized shader for text rendering
-		let shader = Shader::new_linear_gradient(
-			Point::new(0.0, 0.0),
-			Point::new(0.0, 1.0),
-			&[Color::WHITE, Color::WHITE],
+		let shader = Shader::linear_gradient(
+			(Point::new(0.0, 0.0), Point::new(0.0, 1.0)),
+			&[Color4f::from(Color::WHITE), Color4f::from(Color::WHITE)],
 			None,
 			skia_safe::TileMode::Clamp,
-		)?;
+			None,
+			None,
+		).ok_or_else(|| anyhow::anyhow!("Failed to create shader"))?;
 		
 		self.shader = Some(shader);
 		self.compiled = true;
@@ -164,7 +167,9 @@ impl Default for FontCache {
 			default_font_size: 14.0,
 		}
 	}
-	
+}
+
+impl FontCache {
 	/**
 	 * Loads font typeface from system font files
 	 * 
@@ -178,9 +183,11 @@ impl Default for FontCache {
 			"/usr/local/share/fonts",
 			"/System/Library/Fonts", // macOS
 			"/Library/Fonts", // macOS
-			format!("{}/.fonts", dirs::home_dir().unwrap_or_default().display()),
-			format!("{}/.local/share/fonts", dirs::home_dir().unwrap_or_default().display()),
 		];
+		
+		let home_dir = dirs::home_dir().unwrap_or_default();
+		let user_fonts = format!("{}/.fonts", home_dir.display());
+		let local_fonts = format!("{}/.local/share/fonts", home_dir.display());
 		
 		// Common font file extensions
 		let extensions = vec!["ttf", "otf", "woff", "woff2"];
@@ -486,7 +493,7 @@ impl SkiaBackend {
 		}
 		
 		// Create new font with proper font loading
-		let typeface = self.load_font_typeface(&font_cache.default_font_family)?;
+		let typeface = font_cache.load_font_typeface(&font_cache.default_font_family)?;
 		
 		let font = Font::from_typeface(typeface, font_size);
 		
@@ -503,7 +510,7 @@ impl SkiaBackend {
 	 * @param gpu_memory - Current GPU memory usage in bytes
 	 * @param cpu_memory - Current CPU memory usage in bytes
 	 */
-	pub fn update_performance_metrics(&self, frame_time: f64, gpu_memory: u64, cpu_memory: u64) {
+	pub fn update_performance_metrics(&mut self, frame_time: f64, gpu_memory: u64, cpu_memory: u64) {
 		// Implement proper async metrics updating with actual GPU monitoring
 		if let Ok(mut metrics) = self.performance_metrics.try_write() {
 			// Update frame time metrics
@@ -521,7 +528,7 @@ impl SkiaBackend {
 			}
 			
 			// Get actual GPU memory usage if available
-			if let Some(surface) = &self.surface {
+			if let Some(surface) = &mut self.surface {
 				// Try to get GPU memory info from surface
 				let actual_gpu_memory = self.query_skia_gpu_memory(surface);
 				if actual_gpu_memory > 0 {
@@ -564,7 +571,7 @@ impl SkiaBackend {
 		 * @param surface - Skia surface to query
 		 * @return u64 - GPU memory usage in bytes
 		 */
-		fn query_skia_gpu_memory(&self, surface: &Surface) -> u64 {
+		fn query_skia_gpu_memory(&self, surface: &mut Surface) -> u64 {
 			// Try to get GPU memory info from Skia surface
 			unsafe {
 				// Get surface properties that might indicate GPU memory usage
@@ -576,7 +583,7 @@ impl SkiaBackend {
 				let bytes_per_pixel = match image_info.color_type() {
 					skia_safe::ColorType::RGBA8888 => 4,
 					skia_safe::ColorType::BGRA8888 => 4,
-					skia_safe::ColorType::RGB888 => 3,
+					skia_safe::ColorType::RGB888x => 3,
 					skia_safe::ColorType::Gray8 => 1,
 					_ => 4, // Default to 4 bytes per pixel
 				};
@@ -634,3 +641,43 @@ impl SkiaBackend {
 			}
 		}
 	} 
+
+impl GpuRendererTrait for SkiaBackend {
+	fn initialize(&mut self, config: GpuConfig) -> Result<()> {
+		self.config = config;
+		self.initialize_surface(1024, 768)
+	}
+	
+	fn render_text(&self, text: &str, x: f32, y: f32, color: u32, font_size: f32) -> Result<()> {
+		// Note: This requires mutable access, but the trait doesn't provide it
+		// We'll need to use interior mutability or change the trait
+		Err(anyhow::anyhow!("SkiaBackend render_text requires mutable access"))
+	}
+	
+	fn render_rectangle(&self, x: f32, y: f32, width: f32, height: f32, color: u32) -> Result<()> {
+		// Note: This requires mutable access, but the trait doesn't provide it
+		Err(anyhow::anyhow!("SkiaBackend render_rectangle requires mutable access"))
+	}
+	
+	fn clear_surface(&self, background_color: u32) -> Result<()> {
+		// Note: This requires mutable access, but the trait doesn't provide it
+		Err(anyhow::anyhow!("SkiaBackend clear_surface requires mutable access"))
+	}
+	
+	fn flush_surface(&self) -> Result<()> {
+		self.flush_surface()
+	}
+	
+	fn backend_type(&self) -> GpuBackend {
+		self.backend_type()
+	}
+	
+	fn update_performance_metrics(&self, frame_time: f64, gpu_memory: u64, cpu_memory: u64) {
+		// Note: This requires mutable access, but the trait doesn't provide it
+		// We'll need to use interior mutability or change the trait
+	}
+	
+	fn performance_metrics(&self) -> PerformanceMetrics {
+		self.performance_metrics()
+	}
+} 

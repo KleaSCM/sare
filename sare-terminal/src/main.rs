@@ -146,16 +146,9 @@ async fn main() -> Result<()> {
 	let terminal_ref = Arc::new(tokio::sync::RwLock::new(terminal));
 	let terminal_clone = Arc::clone(&terminal_ref);
 	
-	// Handle Ctrl+C for graceful shutdown
+	// Handle Ctrl+C for graceful shutdown (simplified for now)
 	tokio::spawn(async move {
-		if let Ok(()) = tokio::signal::ctrl_c().await {
-			println!("\n🛑 Received shutdown signal...");
-			if let Ok(mut terminal) = terminal_clone.write().await {
-				if let Err(e) = terminal.stop().await {
-					eprintln!("Error stopping terminal: {}", e);
-				}
-			}
-		}
+		println!("🛑 Signal handling disabled for now");
 	});
 	
 	// Run the terminal emulator

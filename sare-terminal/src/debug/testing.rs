@@ -42,7 +42,6 @@ pub enum TestResult {
  * 個別のテストケースを
  * 定義します。
  */
-#[derive(Debug, Clone)]
 pub struct TestCase {
 	/// Test name
 	pub name: String,
@@ -52,10 +51,8 @@ pub struct TestCase {
 	pub test_fn: Box<dyn Fn() -> Result<()> + Send + Sync>,
 	/// Test timeout in seconds
 	pub timeout: u64,
-	/// Test dependencies
-	pub dependencies: Vec<String>,
 	/// Test category
-	pub category: TestCategory,
+	pub category: String,
 }
 
 /**
@@ -65,7 +62,7 @@ pub struct TestCase {
  * テストの種類を
  * 定義します。
  */
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TestCategory {
 	/// Unit tests
 	Unit,
@@ -88,7 +85,6 @@ pub enum TestCategory {
  * テストケースの集合を
  * 管理します。
  */
-#[derive(Debug, Clone)]
 pub struct TestSuite {
 	/// Suite name
 	pub name: String,
@@ -96,10 +92,12 @@ pub struct TestSuite {
 	pub description: String,
 	/// Test cases
 	pub test_cases: Vec<TestCase>,
-	/// Suite setup function
+	/// Setup function
 	pub setup_fn: Option<Box<dyn Fn() -> Result<()> + Send + Sync>>,
-	/// Suite teardown function
+	/// Teardown function
 	pub teardown_fn: Option<Box<dyn Fn() -> Result<()> + Send + Sync>>,
+	/// Suite timeout in seconds
+	pub timeout: u64,
 }
 
 /**
@@ -275,8 +273,7 @@ impl TestingFramework {
 						Ok(())
 					}),
 					timeout: 10,
-					dependencies: vec![],
-					category: TestCategory::Unit,
+					category: "Unit".to_string(),
 				},
 				TestCase {
 					name: "test_ansi_parsing".to_string(),
@@ -286,8 +283,7 @@ impl TestingFramework {
 						Ok(())
 					}),
 					timeout: 5,
-					dependencies: vec![],
-					category: TestCategory::Unit,
+					category: "Unit".to_string(),
 				},
 				TestCase {
 					name: "test_terminal_rendering".to_string(),
@@ -297,8 +293,7 @@ impl TestingFramework {
 						Ok(())
 					}),
 					timeout: 15,
-					dependencies: vec!["test_pty_creation".to_string()],
-					category: TestCategory::Integration,
+					category: "Integration".to_string(),
 				},
 			],
 			setup_fn: Some(Box::new(|| {
@@ -309,6 +304,7 @@ impl TestingFramework {
 				println!("Tearing down terminal test suite...");
 				Ok(())
 			})),
+			timeout: 30,
 		};
 		
 		// UI functionality tests
@@ -324,8 +320,7 @@ impl TestingFramework {
 						Ok(())
 					}),
 					timeout: 5,
-					dependencies: vec![],
-					category: TestCategory::Unit,
+					category: "Unit".to_string(),
 				},
 				TestCase {
 					name: "test_widget_rendering".to_string(),
@@ -335,12 +330,12 @@ impl TestingFramework {
 						Ok(())
 					}),
 					timeout: 10,
-					dependencies: vec!["test_widget_creation".to_string()],
-					category: TestCategory::Integration,
+					category: "Integration".to_string(),
 				},
 			],
 			setup_fn: None,
 			teardown_fn: None,
+			timeout: 30,
 		};
 		
 		// Performance tests
@@ -356,8 +351,7 @@ impl TestingFramework {
 						Ok(())
 					}),
 					timeout: 30,
-					dependencies: vec![],
-					category: TestCategory::Performance,
+					category: "Performance".to_string(),
 				},
 				TestCase {
 					name: "test_memory_usage".to_string(),
@@ -367,12 +361,12 @@ impl TestingFramework {
 						Ok(())
 					}),
 					timeout: 60,
-					dependencies: vec![],
-					category: TestCategory::Stress,
+					category: "Stress".to_string(),
 				},
 			],
 			setup_fn: None,
 			teardown_fn: None,
+			timeout: 30,
 		};
 		
 		let mut suites = self.test_suites.write().await;
@@ -686,7 +680,7 @@ impl TestingFramework {
 		
 		for (suite_name, suite) in suites.iter() {
 			for test_case in &suite.test_cases {
-				if test_case.category == category {
+				if test_case.category.as_str() == category {
 					println!("🧪 Running {} from suite {}", test_case.name, suite_name);
 					let result = self.run_test_case(test_case).await?;
 					self.record_test_result(&test_case.name, result).await?;
@@ -762,7 +756,7 @@ macro_rules! test_case {
 			test_fn: Box::new($test_fn),
 			timeout: 30,
 			dependencies: vec![],
-			category: TestCategory::Unit,
+			category: "Unit".to_string(),
 		}
 	};
 }
@@ -776,7 +770,7 @@ macro_rules! integration_test {
 			test_fn: Box::new($test_fn),
 			timeout: 60,
 			dependencies: vec![],
-			category: TestCategory::Integration,
+			category: "Integration".to_string(),
 		}
 	};
 }
@@ -790,7 +784,7 @@ macro_rules! performance_test {
 			test_fn: Box::new($test_fn),
 			timeout: 120,
 			dependencies: vec![],
-			category: TestCategory::Performance,
+			category: "Performance".to_string(),
 		}
 	};
 } 

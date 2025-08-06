@@ -82,6 +82,10 @@ pub struct GpuConfig {
 	pub texture_compression: bool,
 	/// Enable subpixel antialiasing
 	pub subpixel_antialiasing: bool,
+	/// Enable Unicode support
+	pub unicode_support: bool,
+	/// Enable bidirectional text support
+	pub bidirectional_text: bool,
 }
 
 impl Default for GpuConfig {
@@ -93,6 +97,8 @@ impl Default for GpuConfig {
 			memory_pool_size: 256 * 1024 * 1024, // 256MB
 			texture_compression: true,
 			subpixel_antialiasing: true,
+			unicode_support: true,
+			bidirectional_text: true,
 		}
 	}
 }

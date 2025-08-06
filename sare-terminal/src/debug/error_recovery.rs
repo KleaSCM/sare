@@ -12,10 +12,10 @@
 
 use anyhow::Result;
 use std::collections::HashMap;
-use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
+use std::time::{Duration, Instant};
+use std::panic::AssertUnwindSafe;
 
 /**
  * Error severity level
@@ -24,7 +24,7 @@ use tokio::sync::RwLock;
  * エラーの重要度を
  * 定義します。
  */
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ErrorSeverity {
 	/// Low severity (recoverable)
 	Low = 0,
@@ -492,11 +492,16 @@ impl ErrorRecoveryManager {
 	 * @param function - Function name
 	 * @return Result<T> - Function result
 	 */
-	pub async fn execute_with_recovery<F, T>(&self, func: F, module: &str, function: &str) -> Result<T>
+	pub async fn execute_with_recovery<F, T>(
+		&self,
+		func: F,
+		module: &str,
+		function: &str,
+	) -> Result<T>
 	where
-		F: FnOnce() -> Result<T> + AssertUnwindSafe,
+		F: FnOnce() -> Result<T> + std::panic::UnwindSafe,
 	{
-		let result = catch_unwind(|| func());
+		let result = std::panic::catch_unwind(|| func());
 		
 		match result {
 			Ok(Ok(value)) => Ok(value),

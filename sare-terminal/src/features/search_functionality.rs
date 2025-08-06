@@ -31,6 +31,7 @@ use super::{
  * テキスト検索、正規表現検索、検索結果の管理の各機能を提供し、
  * 複数の検索モードに対応します
  */
+#[derive(Debug)]
 pub struct SearchManager {
 	/// 検索履歴
 	search_history: Arc<RwLock<HashMap<Uuid, SearchHistory>>>,

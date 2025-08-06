@@ -62,7 +62,7 @@ pub struct CachedFont {
  * 
  * Defines different font weights for text rendering.
  */
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum FontWeight {
 	/// Thin weight
 	Thin = 100,
@@ -87,7 +87,7 @@ pub enum FontWeight {
  * 
  * Defines different font styles for text rendering.
  */
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum FontStyle {
 	/// Normal style
 	Normal,
@@ -213,7 +213,7 @@ impl GpuTextRenderer {
 		};
 		
 		// Cache the text blob
-		self.cache_text_blob(&cache_key, text, font_family, font_size, color, &bounds).await;
+		self.cache_text_blob(&cache_key, text, font_family, font_size, color, &bounds).await?;
 		
 		Ok(bounds)
 	}
@@ -288,7 +288,7 @@ impl GpuTextRenderer {
 		font_size: f32,
 		color: u32,
 		bounds: &TextBounds,
-	) {
+	) -> Result<()> {
 		let mut text_blob_cache = self.text_blob_cache.write().await;
 		
 		// Generate actual rendered data using fontdue
@@ -304,6 +304,7 @@ impl GpuTextRenderer {
 		};
 		
 		text_blob_cache.insert(cache_key.to_string(), cached_blob);
+		Ok(())
 	}
 	
 	/**
@@ -362,13 +363,15 @@ impl GpuTextRenderer {
 		use std::path::Path;
 		
 		// Common font paths to search
+		let home_fonts = format!("{}/.fonts", dirs::home_dir().unwrap_or_default().display());
+		let home_library_fonts = format!("{}/Library/Fonts", dirs::home_dir().unwrap_or_default().display());
 		let font_paths = vec![
 			"/usr/share/fonts",
 			"/usr/local/share/fonts",
 			"/System/Library/Fonts", // macOS
 			"/Library/Fonts", // macOS
-			format!("{}/.fonts", dirs::home_dir().unwrap_or_default().display()),
-			format!("{}/Library/Fonts", dirs::home_dir().unwrap_or_default().display()),
+			&home_fonts,
+			&home_library_fonts,
 		];
 		
 		// Font file extensions to look for
@@ -443,11 +446,11 @@ impl GpuTextRenderer {
 		
 		if font_data.is_empty() {
 			// Fallback to simple bitmap rendering
-			return self.generate_fallback_rendered_data(text, font_size, color);
+			return self.generate_fallback_rendered_data(text, font_size, color).await;
 		}
 		
 		// Parse font with fontdue
-		let font = Font::from_bytes(font_data, FontSettings::default())?;
+		let font = Font::from_bytes(font_data, FontSettings::default()).map_err(|e| anyhow::anyhow!("Font error: {}", e))?;
 		
 		// Render text to bitmap
 		let mut rendered_data = Vec::new();
@@ -472,13 +475,22 @@ impl GpuTextRenderer {
 		}
 		
 		// Add metadata to rendered data
+		// let metadata = serde_json::json!({
+		// 	"text": text,
+		// 	"font_family": font_family,
+		// 	"font_size": font_size,
+		// 	"color": color,
+		// 	"glyph_positions": glyph_positions,
+		// 	"line_height": line_height,
+		// 	"total_width": x_offset
+		// });
+		
+		// Create simple metadata without problematic fields
 		let metadata = serde_json::json!({
 			"text": text,
 			"font_family": font_family,
 			"font_size": font_size,
 			"color": color,
-			"glyph_positions": glyph_positions,
-			"line_height": line_height,
 			"total_width": x_offset
 		});
 		

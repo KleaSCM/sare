@@ -10,7 +10,6 @@
  * Description: Built-in debugging support and debug mode
  */
 
-pub mod debugger;
 pub mod profiler;
 pub mod logger;
 pub mod error_recovery;
@@ -167,18 +166,16 @@ impl DebugManager {
 	 * @return DebugManager - New debug manager
 	 */
 	pub fn new(config: DebugConfig) -> Self {
-		let mut debug_commands = HashMap::new();
+		let mut debug_commands: HashMap<String, Box<dyn Fn(&[String]) + Send + Sync>> = HashMap::new();
 		
-		// Register debug commands
 		debug_commands.insert("help".to_string(), Box::new(|_args| {
 			println!("Debug Commands:");
 			println!("  help                    - Show this help");
 			println!("  break <condition>       - Set breakpoint");
 			println!("  continue               - Continue execution");
-			println!("  step                   - Step into");
-			println!("  next                   - Step over");
-			println!("  finish                 - Step out");
-			println!("  print <variable>       - Print variable");
+			println!("  step                   - Step into function");
+			println!("  next                   - Step over function");
+			println!("  finish                 - Step out of function");
 			println!("  backtrace              - Show call stack");
 			println!("  memory                 - Show memory usage");
 			println!("  performance            - Show performance metrics");
@@ -187,9 +184,9 @@ impl DebugManager {
 		
 		debug_commands.insert("break".to_string(), Box::new(|args| {
 			if args.len() > 0 {
-				println!("Breakpoint set: {}", args[0]);
+				println!("Setting breakpoint at: {}", args[0]);
 			} else {
-				println!("Usage: break <condition>");
+				println!("Setting breakpoint at current location");
 			}
 		}));
 		
@@ -207,14 +204,6 @@ impl DebugManager {
 		
 		debug_commands.insert("finish".to_string(), Box::new(|_args| {
 			println!("Stepping out...");
-		}));
-		
-		debug_commands.insert("print".to_string(), Box::new(|args| {
-			if args.len() > 0 {
-				println!("Variable {}: <value>", args[0]);
-			} else {
-				println!("Usage: print <variable>");
-			}
 		}));
 		
 		debug_commands.insert("backtrace".to_string(), Box::new(|_args| {

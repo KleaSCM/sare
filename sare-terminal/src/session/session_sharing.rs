@@ -31,6 +31,7 @@ use super::{
  * セッションの共有、共有解除、権限管理の各機能を提供し、
  * 複数ユーザーでの協調作業を実現します
  */
+#[derive(Debug)]
 pub struct SessionSharingManager {
 	/// 共有セッションの情報
 	shared_sessions: Arc<RwLock<HashMap<Uuid, SharedSessionInfo>>>,
@@ -688,7 +689,7 @@ impl SessionSharingManager {
  * 
  * 共有セッションの情報を格納します
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SharedSessionInfo {
 	/// セッションID
 	pub session_id: Uuid,
@@ -713,7 +714,7 @@ pub struct SharedSessionInfo {
  * 
  * 共有状態を定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum SharingStatus {
 	/// アクティブ
 	Active,
@@ -728,7 +729,7 @@ pub enum SharingStatus {
  * 
  * 参加者の情報を格納します
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ParticipantInfo {
 	/// ユーザー名
 	pub user: String,
@@ -745,7 +746,7 @@ pub struct ParticipantInfo {
  * 
  * 参加者状態を定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum ParticipantStatus {
 	/// アクティブ
 	Active,
@@ -760,7 +761,7 @@ pub enum ParticipantStatus {
  * 
  * 共有イベントを格納します
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SharingEvent {
 	/// タイムスタンプ
 	pub timestamp: DateTime<Utc>,
@@ -777,7 +778,7 @@ pub struct SharingEvent {
  * 
  * 共有イベントの種類を定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum SharingEventType {
 	/// セッション共有
 	SessionShared,

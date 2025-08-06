@@ -354,7 +354,7 @@ impl KeyBindingManager {
 	 */
 	pub async fn add_binding(&self, id: &str, binding: KeyBinding) -> Result<()> {
 		let mut bindings = self.bindings.write().await;
-		bindings.insert(id.to_string(), binding);
+		bindings.insert(id.to_string(), binding.clone());
 		
 		// Add to categories
 		let mut categories = self.categories.write().await;

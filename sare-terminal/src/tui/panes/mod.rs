@@ -48,7 +48,7 @@ pub struct PaneManager {
  * Contains information about a single terminal pane
  * including its session, layout, and state.
  */
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Pane {
 	/// Pane ID
 	pub pane_id: String,

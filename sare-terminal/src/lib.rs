@@ -26,6 +26,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::time::{Duration, Instant};
 
+// Import logging macros are available at crate root
+
+// Re-export test modules for IDE integration
+#[cfg(test)]
+// TODO: Add test module imports when tests are ready
+
 /**
  * Main terminal emulator struct
  * 
@@ -39,19 +45,19 @@ pub struct SareTerminal {
 	/// UI manager
 	ui_manager: crate::ui::UiManager,
 	/// Terminal sessions
-	sessions: Vec<crate::session::SessionManager>,
+	sessions: Vec<crate::session::session_manager::SessionManager>,
 	/// History manager
 	history: crate::history::HistoryManager,
 	/// Debug manager
 	debug_manager: Arc<crate::debug::DebugManager>,
 	/// Profiler
-	profiler: Arc<crate::debug::Profiler>,
+	profiler: Arc<crate::debug::profiler::Profiler>,
 	/// Logger
-	logger: Arc<crate::debug::Logger>,
+	logger: Arc<crate::debug::logger::Logger>,
 	/// Error recovery manager
-	error_recovery: Arc<crate::debug::ErrorRecoveryManager>,
+	error_recovery: Arc<crate::debug::error_recovery::ErrorRecoveryManager>,
 	/// Testing framework
-	testing_framework: Arc<crate::debug::TestingFramework>,
+	testing_framework: Arc<crate::debug::testing::TestingFramework>,
 	/// Terminal emulator
 	terminal_emulator: Arc<RwLock<crate::terminal::TerminalEmulator>>,
 	/// Input buffer
@@ -133,17 +139,17 @@ impl SareTerminal {
 		let debug_config = crate::debug::DebugConfig::default();
 		let debug_manager = Arc::new(crate::debug::DebugManager::new(debug_config));
 		
-		let profiler_config = crate::debug::ProfilerConfig::default();
-		let profiler = Arc::new(crate::debug::Profiler::new(profiler_config));
+		let profiler_config = crate::debug::profiler::ProfilerConfig::default();
+		let profiler = Arc::new(crate::debug::profiler::Profiler::new(profiler_config));
 		
-		let logger_config = crate::debug::LoggerConfig::default();
-		let logger = Arc::new(crate::debug::Logger::new(logger_config));
+		let logger_config = crate::debug::logger::LoggerConfig::default();
+		let logger = Arc::new(crate::debug::logger::Logger::new(logger_config));
 		
-		let error_recovery_config = crate::debug::ErrorRecoveryConfig::default();
-		let error_recovery = Arc::new(crate::debug::ErrorRecoveryManager::new(error_recovery_config));
+		let error_recovery_config = crate::debug::error_recovery::ErrorRecoveryConfig::default();
+		let error_recovery = Arc::new(crate::debug::error_recovery::ErrorRecoveryManager::new(error_recovery_config));
 		
-		let test_config = crate::debug::TestConfig::default();
-		let testing_framework = Arc::new(crate::debug::TestingFramework::new(test_config));
+		let test_config = crate::debug::testing::TestConfig::default();
+		let testing_framework = Arc::new(crate::debug::testing::TestingFramework::new(test_config));
 		
 		// Initialize UI manager
 		let ui_config = crate::ui::UiConfig::default();
@@ -231,7 +237,7 @@ impl SareTerminal {
 			
 			// Process input with error recovery
 			let input_result = self.error_recovery.execute_with_recovery(
-				|| self.process_input().await,
+				|| self.process_input(),
 				"terminal",
 				"process_input"
 			).await;
@@ -242,7 +248,7 @@ impl SareTerminal {
 			
 			// Process output with error recovery
 			let output_result = self.error_recovery.execute_with_recovery(
-				|| self.process_output().await,
+				|| self.process_output(),
 				"terminal",
 				"process_output"
 			).await;
@@ -253,7 +259,7 @@ impl SareTerminal {
 			
 			// Update UI with error recovery
 			let ui_result = self.error_recovery.execute_with_recovery(
-				|| self.update_ui().await,
+				|| self.update_ui(),
 				"terminal",
 				"update_ui"
 			).await;
@@ -598,7 +604,7 @@ impl SareTerminal {
 	 * 
 	 * @return &Arc<crate::debug::Profiler> - Profiler reference
 	 */
-	pub fn profiler(&self) -> &Arc<crate::debug::Profiler> {
+	pub fn profiler(&self) -> &Arc<crate::debug::profiler::Profiler> {
 		&self.profiler
 	}
 	
@@ -607,7 +613,7 @@ impl SareTerminal {
 	 * 
 	 * @return &Arc<crate::debug::Logger> - Logger reference
 	 */
-	pub fn logger(&self) -> &Arc<crate::debug::Logger> {
+	pub fn logger(&self) -> &Arc<crate::debug::logger::Logger> {
 		&self.logger
 	}
 	
@@ -616,7 +622,7 @@ impl SareTerminal {
 	 * 
 	 * @return &Arc<crate::debug::ErrorRecoveryManager> - Error recovery manager reference
 	 */
-	pub fn error_recovery(&self) -> &Arc<crate::debug::ErrorRecoveryManager> {
+	pub fn error_recovery(&self) -> &Arc<crate::debug::error_recovery::ErrorRecoveryManager> {
 		&self.error_recovery
 	}
 	
@@ -625,7 +631,7 @@ impl SareTerminal {
 	 * 
 	 * @return &Arc<crate::debug::TestingFramework> - Testing framework reference
 	 */
-	pub fn testing_framework(&self) -> &Arc<crate::debug::TestingFramework> {
+	pub fn testing_framework(&self) -> &Arc<crate::debug::testing::TestingFramework> {
 		&self.testing_framework
 	}
 } 

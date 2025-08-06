@@ -19,8 +19,6 @@ pub mod process;
 pub mod io;
 pub mod protocol;
 pub mod renderer;
-pub mod session;
-pub mod features;
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -28,8 +26,8 @@ use tokio::sync::RwLock;
 
 use protocol::AnsiParser;
 use renderer::{TerminalRenderer, RendererConfig};
-use session::SessionSystem;
-use features::TerminalFeatures;
+use crate::session::SessionSystem;
+use crate::features::TerminalFeatures;
 
 /**
  * Terminal emulator configuration
@@ -72,7 +70,6 @@ impl Default for TerminalConfig {
  * Manages a single terminal session with PTY capabilities,
  * process management, and I/O handling for external shells.
  */
-#[derive(Debug)]
 pub struct TerminalEmulator {
 	/// Terminal configuration
 	config: TerminalConfig,
@@ -232,8 +229,8 @@ impl TerminalEmulator {
 			max_scrollback: 1000,
 			color_support: config.color_support,
 			mouse_support: config.mouse_support,
-			default_fg_color: renderer::Color::default(),
-			default_bg_color: renderer::Color { r: 0, g: 0, b: 0, color_type: renderer::ColorType::Default },
+			default_fg_color: protocol::Color::default(),
+			default_bg_color: protocol::Color { r: 0, g: 0, b: 0, color_type: protocol::ColorType::Default },
 		};
 		let session_system = SessionSystem::new()?;
 		let terminal_features = TerminalFeatures::new()?;

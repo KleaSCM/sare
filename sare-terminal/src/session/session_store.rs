@@ -24,16 +24,7 @@ use super::{
 	SessionMetadata, SessionType, SessionState, SharingConfig, SharingPermission,
 };
 
-/**
- * Session store
- * 
- * セッションの永続化と復旧を担当するコンポーネントです。
- * ファイルシステムにセッションデータを保存し、アプリケーション
- * 再起動時にセッションを復旧します。
- * 
- * セッションの保存、読み込み、削除の各機能を提供し、
- * デタッチされたセッションの永続化を実現します
- */
+#[derive(Debug)]
 pub struct SessionStore {
 	/// セッションデータの保存ディレクトリ
 	storage_dir: PathBuf,

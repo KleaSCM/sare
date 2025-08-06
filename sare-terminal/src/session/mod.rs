@@ -23,6 +23,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
 
 /**
  * Session management system
@@ -33,6 +34,7 @@ use chrono::{DateTime, Utc};
  * デタッチされたセッション、セッション復旧、名前付きセッション、タブサポート、
  * ウィンドウ管理、セッション共有の各機能を管理します
  */
+#[derive(Debug)]
 pub struct SessionSystem {
 	/// セッションマネージャー
 	session_manager: Arc<session_manager::SessionManager>,
@@ -206,7 +208,7 @@ pub struct SessionSystemStatus {
  * 
  * セッションの種類を定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SessionType {
 	/// 通常のセッション
 	Normal,
@@ -223,7 +225,7 @@ pub enum SessionType {
  * 
  * セッションの状態を定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SessionState {
 	/// アクティブ
 	Active,
@@ -242,7 +244,7 @@ pub enum SessionState {
  * 
  * タブの種類を定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TabType {
 	/// 通常のタブ
 	Normal,
@@ -257,7 +259,7 @@ pub enum TabType {
  * 
  * ウィンドウの種類を定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum WindowType {
 	/// 通常のウィンドウ
 	Normal,
@@ -274,7 +276,7 @@ pub enum WindowType {
  * 
  * 共有権限を定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SharingPermission {
 	/// 読み取り専用
 	ReadOnly,
@@ -289,7 +291,7 @@ pub enum SharingPermission {
  * 
  * セッションのメタデータを格納します
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionMetadata {
 	/// セッションID
 	pub id: Uuid,
@@ -316,7 +318,7 @@ pub struct SessionMetadata {
  * 
  * 共有設定を格納します
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SharingConfig {
 	/// 共有権限
 	pub permission: SharingPermission,
@@ -333,7 +335,7 @@ pub struct SharingConfig {
  * 
  * タブのメタデータを格納します
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TabMetadata {
 	/// タブID
 	pub id: Uuid,
@@ -354,7 +356,7 @@ pub struct TabMetadata {
  * 
  * ウィンドウのメタデータを格納します
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowMetadata {
 	/// ウィンドウID
 	pub id: Uuid,
@@ -379,7 +381,7 @@ pub struct WindowMetadata {
  * 
  * ウィンドウの位置とサイズを格納します
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowGeometry {
 	/// X座標
 	pub x: i32,

@@ -13,12 +13,12 @@
 
 use eframe::egui;
 
-use super::terminal::SareTerminal;
+use super::terminal::GuiTerminal;
 
 pub struct TerminalRenderer;
 
 impl TerminalRenderer {
-	pub fn render_terminal(terminal: &mut SareTerminal, ctx: &egui::Context) {
+	pub fn render_terminal(terminal: &mut GuiTerminal, ctx: &egui::Context) {
 		/**
 		 * ターミナルをレンダリングする関数です
 		 * 

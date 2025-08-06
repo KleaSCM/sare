@@ -258,7 +258,7 @@ pub struct TerminalFeaturesStatus {
  * 
  * 画像フォーマットを定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ImageFormat {
 	/// Sixel形式
 	Sixel,
@@ -279,7 +279,7 @@ pub enum ImageFormat {
  * 
  * ハイパーリンクの種類を定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum HyperlinkType {
 	/// HTTP/HTTPSリンク
 	Http,
@@ -298,7 +298,7 @@ pub enum HyperlinkType {
  * 
  * セマンティックハイライトの種類を定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SemanticType {
 	/// キーワード
 	Keyword,
@@ -323,7 +323,7 @@ pub enum SemanticType {
  * 
  * 検索モードを定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SearchMode {
 	/// 通常検索
 	Normal,
@@ -340,7 +340,7 @@ pub enum SearchMode {
  * 
  * 選択モードを定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SelectionMode {
 	/// 通常選択
 	Normal,
@@ -357,7 +357,7 @@ pub enum SelectionMode {
  * 
  * ペースト保護レベルを定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PasteProtectionLevel {
 	/// 保護なし
 	None,
@@ -374,7 +374,7 @@ pub enum PasteProtectionLevel {
  * 
  * 入力メソッドの種類を定義します
  */
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum InputMethodType {
 	/// IME
 	IME,

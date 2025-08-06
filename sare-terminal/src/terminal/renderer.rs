@@ -13,7 +13,7 @@
 
 use anyhow::Result;
 use crate::terminal::protocol::{
-	AnsiParser, AnsiCommand, TerminalState, ScreenBuffers, ActiveBuffer,
+	AnsiParser, AnsiCommand, TerminalState, ScreenBuffers, ScreenBufferType,
 	Color, ColorType, TextAttributes, CursorShape, MouseReportingMode
 };
 
@@ -94,17 +94,17 @@ impl Default for RendererConfig {
 	}
 }
 
-impl Default for Cell {
-	fn default() -> Self {
-		Self {
-			char: ' ',
-			fg_color: Color::default(),
-			bg_color: Color { r: 0, g: 0, b: 0, color_type: ColorType::Default },
-			attributes: TextAttributes::default(),
-			dirty: false,
-		}
-	}
-}
+// impl Default for Cell {
+// 	fn default() -> Self {
+// 		Self {
+// 			char: ' ',
+// 			fg_color: Color::default(),
+// 			bg_color: Color { r: 0, g: 0, b: 0, color_type: ColorType::Default },
+// 			attributes: TextAttributes::default(),
+// 			dirty: false,
+// 		}
+// 	}
+// }
 
 impl TerminalRenderer {
 	/**
@@ -313,28 +313,23 @@ impl TerminalRenderer {
 	 * @param ch - Character to print
 	 */
 	fn print_character(&mut self, ch: char) {
-		let buffer = self.get_active_buffer();
 		let (col, row) = self.state.cursor_pos;
+		let fg_color = self.state.fg_color.clone();
+		let bg_color = self.state.bg_color.clone();
+		let attributes = self.state.attributes.clone();
+		
+		let buffer = self.get_active_buffer();
 		
 		if row < buffer.content.len() as u16 && col < buffer.content[row as usize].len() as u16 {
 			let cell = &mut buffer.content[row as usize][col as usize];
 			cell.char = ch;
-			cell.fg_color = self.state.fg_color.clone();
-			cell.bg_color = self.state.bg_color.clone();
-			cell.attributes = self.state.attributes.clone();
+			cell.fg_color = fg_color;
+			cell.bg_color = bg_color;
+			cell.attributes = attributes;
 			cell.dirty = true;
 			
+			// Mark dirty region
 			self.mark_dirty_region(col, row, col + 1, row + 1);
-			if self.state.auto_wrap && col + 1 >= self.size.0 {
-				if row + 1 < self.size.1 {
-					self.state.cursor_pos = (0, row + 1);
-				} else {
-					self.scroll_up();
-					self.state.cursor_pos = (0, self.size.1 - 1);
-				}
-			} else {
-				self.state.cursor_pos.0 += 1;
-			}
 		}
 	}
 	
@@ -786,7 +781,7 @@ impl TerminalRenderer {
 	 * @param mode - Mouse reporting mode
 	 */
 	fn set_mouse_tracking(&mut self, mode: MouseReportingMode) {
-		self.parser.mouse_state.reporting_mode = mode;
+		self.parser.mouse_state.reporting_mode = mode.clone();
 		self.parser.mouse_state.tracking_enabled = mode != MouseReportingMode::None;
 	}
 	
@@ -846,8 +841,8 @@ impl TerminalRenderer {
 	 */
 	fn get_active_buffer(&mut self) -> &mut crate::terminal::protocol::ScreenBuffer {
 		match self.screen_buffers.active {
-			ActiveBuffer::Primary => &mut self.screen_buffers.primary,
-			ActiveBuffer::Alternate => &mut self.screen_buffers.alternate,
+			ScreenBufferType::Primary => &mut self.screen_buffers.primary,
+			ScreenBufferType::Alternate => &mut self.screen_buffers.alternate,
 		}
 	}
 	
@@ -911,8 +906,8 @@ impl TerminalRenderer {
 	 */
 	pub fn screen_content(&self) -> &Vec<Vec<Cell>> {
 		match self.screen_buffers.active {
-			ActiveBuffer::Primary => &self.screen_buffers.primary.content,
-			ActiveBuffer::Alternate => &self.screen_buffers.alternate.content,
+			ScreenBufferType::Primary => &self.screen_buffers.primary.content,
+			ScreenBufferType::Alternate => &self.screen_buffers.alternate.content,
 		}
 	}
 	

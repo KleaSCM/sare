@@ -33,6 +33,7 @@ use super::{
  * セッションの作成、削除、復旧、永続化の各機能を提供し、
  * tmuxやscreenのような高度なセッション管理を実現します
  */
+#[derive(Debug)]
 pub struct SessionManager {
 	/// セッションストア
 	session_store: Arc<SessionStore>,

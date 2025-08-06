@@ -351,7 +351,7 @@ impl WidgetManager {
 	 */
 	pub async fn get_widget(&self, id: &str) -> Option<Box<dyn Widget + Send + Sync>> {
 		let widgets = self.widgets.read().await;
-		widgets.get(id).cloned()
+		widgets.get(id).map(|w| w.as_ref())
 	}
 	
 	/**

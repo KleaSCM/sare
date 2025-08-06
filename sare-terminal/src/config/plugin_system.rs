@@ -349,7 +349,7 @@ impl PluginManager {
 	 */
 	pub async fn get_plugin(&self, name: &str) -> Option<Box<dyn PluginInterface>> {
 		let plugins = self.plugins.read().await;
-		plugins.get(name).cloned()
+		plugins.get(name).map(|p| p.as_ref())
 	}
 	
 	/**
@@ -588,7 +588,7 @@ impl PluginInterface for MockPlugin {
 				Ok(format!("Configuration: {}", serde_json::to_string_pretty(&self.config)?))
 			}
 			"test" => {
-				let test_name = args.get(0).unwrap_or(&"default".to_string());
+				let test_name = args.get(0).unwrap_or(&"default".to_string()).clone();
 				Ok(format!("Running test '{}' for plugin {}", test_name, self.metadata.name))
 			}
 			_ => {

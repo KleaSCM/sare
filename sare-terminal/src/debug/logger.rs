@@ -27,7 +27,7 @@ use chrono::{DateTime, Utc};
  * ログの重要度を
  * 定義します。
  */
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Hash)]
 pub enum LogLevel {
 	/// Trace level (most verbose)
 	Trace = 0,
@@ -63,7 +63,6 @@ impl std::fmt::Display for LogLevel {
  * ログの出力先を
  * 定義します。
  */
-#[derive(Debug, Clone)]
 pub enum LogDestination {
 	/// Standard output
 	Stdout,
@@ -137,7 +136,6 @@ impl Default for LogRotationConfig {
  * ログ機能の設定を
  * 管理します。
  */
-#[derive(Debug, Clone)]
 pub struct LoggerConfig {
 	/// Minimum log level
 	pub min_level: LogLevel,
@@ -179,7 +177,7 @@ impl Default for LoggerConfig {
  * ログの出力形式を
  * 定義します。
  */
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum LogFormat {
 	/// Text format
 	Text,
@@ -317,7 +315,7 @@ impl Logger {
 			module: module.to_string(),
 			message: message.to_string(),
 			context: context.unwrap_or_default(),
-			thread_id: std::thread::current().id().as_u64().get(),
+			thread_id: std::thread::current().id().as_u64().unwrap_or(0),
 		};
 		
 		// Add to entries
@@ -543,41 +541,41 @@ impl Logger {
 #[macro_export]
 macro_rules! log_trace {
 	($logger:expr, $module:expr, $($arg:tt)*) => {
-		$logger.log(LogLevel::Trace, $module, &format!($($arg)*), None).await
+		$logger.log(crate::debug::logger::LogLevel::Trace, $module, &format!($($arg)*), None).await
 	};
 }
 
 #[macro_export]
 macro_rules! log_debug {
 	($logger:expr, $module:expr, $($arg:tt)*) => {
-		$logger.log(LogLevel::Debug, $module, &format!($($arg)*), None).await
+		$logger.log(crate::debug::logger::LogLevel::Debug, $module, &format!($($arg)*), None).await
 	};
 }
 
 #[macro_export]
 macro_rules! log_info {
 	($logger:expr, $module:expr, $($arg:tt)*) => {
-		$logger.log(LogLevel::Info, $module, &format!($($arg)*), None).await
+		$logger.log(crate::debug::logger::LogLevel::Info, $module, &format!($($arg)*), None).await
 	};
 }
 
 #[macro_export]
 macro_rules! log_warn {
 	($logger:expr, $module:expr, $($arg:tt)*) => {
-		$logger.log(LogLevel::Warn, $module, &format!($($arg)*), None).await
+		$logger.log(crate::debug::logger::LogLevel::Warn, $module, &format!($($arg)*), None).await
 	};
 }
 
 #[macro_export]
 macro_rules! log_error {
 	($logger:expr, $module:expr, $($arg:tt)*) => {
-		$logger.log(LogLevel::Error, $module, &format!($($arg)*), None).await
+		$logger.log(crate::debug::logger::LogLevel::Error, $module, &format!($($arg)*), None).await
 	};
 }
 
 #[macro_export]
 macro_rules! log_fatal {
 	($logger:expr, $module:expr, $($arg:tt)*) => {
-		$logger.log(LogLevel::Fatal, $module, &format!($($arg)*), None).await
+		$logger.log(crate::debug::logger::LogLevel::Fatal, $module, &format!($($arg)*), None).await
 	};
 } 

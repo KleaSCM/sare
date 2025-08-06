@@ -369,7 +369,7 @@ impl ConfigFileManager {
 			for (field_name, field_value) in obj {
 				if let Some(property_schema) = schema.properties.get(field_name) {
 					if let Err(property_errors) = self.validate_property(field_name, field_value, property_schema) {
-						errors.extend(property_errors);
+						errors.extend(property_errors.into_iter());
 					}
 				} else if !schema.additional_properties {
 					errors.push(ConfigValidationError {
@@ -633,7 +633,7 @@ impl ConfigFileManager {
 		
 		if let Ok(mut entries) = tokio::fs::read_dir(&self.config_dir).await {
 			while let Ok(Some(entry)) = entries.next_entry().await {
-				if let Ok(metadata) = entry.metadata() {
+				if let Ok(metadata) = entry.metadata().await {
 					if metadata.is_file() {
 						if let Some(extension) = entry.path().extension() {
 							if let Some(ext_str) = extension.to_str() {

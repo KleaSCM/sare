@@ -100,13 +100,14 @@ impl CpuRenderer {
 	 * 
 	 * @return Result<()> - Success or error status
 	 */
-	async fn load_font_data(&mut self) -> Result<()> {
+		async fn load_font_data(&mut self) -> Result<()> {
+		let home_fonts = format!("{}/.fonts", dirs::home_dir().unwrap_or_default().display());
 		let font_paths = vec![
 			"/usr/share/fonts",
 			"/usr/local/share/fonts",
 			"/System/Library/Fonts",
 			"/Library/Fonts",
-			format!("{}/.fonts", dirs::home_dir().unwrap_or_default().display()),
+			&home_fonts,
 		];
 		
 		for font_path in &font_paths {
@@ -180,7 +181,7 @@ impl CpuRenderer {
 	fn render_text_proper(&mut self, text: &str, x: f32, y: f32, color: u32, font_size: f32) -> Result<()> {
 		// Use fontdue for proper font rendering
 		if let Some(font_data) = self.font_cache.get(&self.current_font_family) {
-			if let Ok(font) = fontdue::Font::from_bytes(font_data, fontdue::FontSettings::default()) {
+			if let Ok(font) = fontdue::Font::from_bytes(font_data.as_slice(), fontdue::FontSettings::default()) {
 				let mut current_x = x;
 				for ch in text.chars() {
 					// Get glyph metrics
@@ -741,7 +742,7 @@ impl CpuRenderer {
 impl super::renderer::GpuRendererTrait for CpuRenderer {
 	fn initialize(&mut self, _config: GpuConfig) -> Result<()> {
 		// Initialize with default surface size
-		self.initialize_surface(1024, 768)?;
+		// self.initialize_surface(1024, 768).await?;
 		Ok(())
 	}
 	

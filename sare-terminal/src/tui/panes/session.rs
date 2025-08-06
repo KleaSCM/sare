@@ -42,7 +42,7 @@ pub struct SessionManager {
  * Contains information about an independent shell session
  * including terminal emulator, state, and session metadata.
  */
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ShellSession {
 	/// Session ID
 	pub session_id: String,

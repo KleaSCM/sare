@@ -30,6 +30,7 @@ use super::{
  * ウィンドウの作成、削除、分割、リサイズの各機能を提供し、
  * セッションごとのウィンドウ管理を実現します
  */
+#[derive(Debug)]
 pub struct WindowManager {
 	/// ウィンドウのメタデータ
 	windows: Arc<RwLock<HashMap<Uuid, WindowMetadata>>>,
@@ -567,7 +568,7 @@ impl WindowManager {
 			let hierarchy = self.window_hierarchy.read().await;
 			if let Some(children) = hierarchy.get(&window_id) {
 				for &child_id in children {
-					self.delete_window(child_id).await?;
+					Box::pin(self.delete_window(child_id)).await?;
 				}
 			}
 		}
