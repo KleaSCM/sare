@@ -458,12 +458,12 @@
 - [ ] **Font Scaling** - Dynamic font scaling, accessibility scaling
 - [ ] **Keyboard Navigation** - Advanced keyboard navigation, accessibility navigation
 
-### Advanced UI Features
-- [ ] **Custom Widgets** - Custom terminal widgets, UI components
-- [ ] **Status Bar** - Advanced status bar, status information
-- [ ] **Toolbar** - Customizable toolbar, toolbar management
-- [ ] **Context Menus** - Right-click menus, context menus
-- [ ] **Drag and Drop** - File drag and drop, content drag and drop
+### Advanced UI Features ✅ **COMPLETED!**
+- ✅ **Custom Widgets** - Custom terminal widgets, UI components
+- ✅ **Status Bar** - Advanced status bar, status information
+- ✅ **Toolbar** - Customizable toolbar, toolbar management
+- ✅ **Context Menus** - Right-click menus, context menus
+- ✅ **Drag and Drop** - File drag and drop, content drag and drop
 
 ### Documentation & User Guide
 - [ ] **Comprehensive Documentation** - Complete documentation, user guides
@@ -501,7 +501,6 @@
   - [ ] Sixel, Kitty protocol support
 - [ ] **Embedded Web Rendering**
   - [ ] WASM + WGPU integration
-- [ ] **AI Integration**
   - [ ] Sylvanas-mini AI integration (contextual help + execution)
 - [ ] **Git Graph Mode**
   - [ ] Git log --graph with branch/merge renderer
