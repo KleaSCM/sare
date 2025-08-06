@@ -29,5 +29,5 @@ echo "🖼️  Starting GUI terminal window..."
 echo "📺 Display: $DISPLAY"
 echo "🖥️  Session Type: $XDG_SESSION_TYPE"
 
-# Run the terminal
-cargo run 
+# Run the terminal with clean environment but preserve display
+env -i PATH=/usr/local/bin:/usr/bin:/bin DISPLAY=:0 XDG_SESSION_TYPE=x11 cargo run 

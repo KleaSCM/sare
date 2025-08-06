@@ -71,7 +71,7 @@ impl OptimizedShader {
 		let colors = vec![Color4f::from(Color::WHITE), Color4f::from(Color::WHITE)];
 		let shader = Shader::linear_gradient(
 			(Point::new(0.0, 0.0), Point::new(0.0, 1.0)),
-			&colors,
+			&*colors,
 			None,
 			skia_safe::TileMode::Clamp,
 			None,
@@ -528,14 +528,8 @@ impl SkiaBackend {
 				metrics.frames_dropped += 1;
 			}
 			
-			// Get actual GPU memory usage if available
-			if let Some(surface) = &mut self.surface {
-				// Try to get GPU memory info from surface
-				let actual_gpu_memory = self.query_skia_gpu_memory(surface);
-				if actual_gpu_memory > 0 {
-					metrics.gpu_memory_usage = actual_gpu_memory;
-				}
-			}
+			// Get actual GPU memory usage if available (simplified for now)
+			// TODO: Implement proper GPU memory querying without borrow checker issues
 		}
 	}
 	

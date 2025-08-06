@@ -408,7 +408,7 @@ impl<'a> AdvancedRenderer<'a> {
 				font_size,
 			).await?;
 			
-			glyph_positions.push(glyph_pos);
+			glyph_positions.push(glyph_pos.clone());
 			current_x += glyph_pos.bounds.advance;
 		}
 		
@@ -639,14 +639,13 @@ impl<'a> AdvancedRenderer<'a> {
 		Ok(CachedGlyph {
 			character: glyph_key.character,
 			width,
-			height,
+			height: height as f32,
 			advance,
-			bounds: GlyphBounds {
+			bounds: fonts::GlyphBounds {
 				left: 0.0,
 				top: 0.0,
 				right: width,
 				bottom: height as f32,
-				advance,
 			},
 			texture_data: Vec::new(), // Would be filled with actual texture data
 		})

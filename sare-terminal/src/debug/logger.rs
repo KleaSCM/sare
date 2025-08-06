@@ -311,11 +311,11 @@ impl Logger {
 		
 		let entry = LogEntry {
 			timestamp: Utc::now(),
-			level,
+			level: level.clone(),
 			module: module.to_string(),
 			message: message.to_string(),
 			context: context.unwrap_or_default(),
-			thread_id: std::thread::current().id().as_u64().unwrap_or(0),
+			thread_id: 0, // Simplified for now - thread ID not available in stable Rust
 		};
 		
 		// Add to entries
@@ -323,11 +323,13 @@ impl Logger {
 		entries.push(entry.clone());
 		
 		// Update statistics
-		let mut statistics = self.statistics.write().await;
-		statistics.total_entries += 1;
-		*statistics.entries_by_level.entry(level).or_insert(0) += 1;
-		*statistics.entries_by_module.entry(module.to_string()).or_insert(0) += 1;
-		statistics.last_log_time = Some(entry.timestamp);
+		{
+			let mut statistics = self.statistics.write().await;
+			statistics.total_entries += 1;
+			*statistics.entries_by_level.entry(level).or_insert(0) += 1;
+			*statistics.entries_by_module.entry(module.to_string()).or_insert(0) += 1;
+			statistics.last_log_time = Some(entry.timestamp);
+		}
 		
 		// Format and write log entry
 		let formatted = self.format_log_entry(&entry)?;

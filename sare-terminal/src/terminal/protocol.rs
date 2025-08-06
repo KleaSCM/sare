@@ -651,7 +651,8 @@ impl AnsiParser {
 			return Ok(commands);
 		}
 		
-		for &param in &self.params {
+		let params = self.params.clone();
+		for &param in &params {
 			match param {
 				0 => commands.push(AnsiCommand::ResetAttributes),
 				1 => commands.push(AnsiCommand::SetBold),

@@ -457,13 +457,14 @@ impl TerminalRenderer {
 	 */
 	fn erase_in_display(&mut self, mode: u32) {
 		let (col, row) = self.state.cursor_pos;
+		let size = self.size;
 		let buffer = self.get_active_buffer();
 		
 		match mode {
 			0 => {
-				for r in row..self.size.1 {
+				for r in row..size.1 {
 					let start_col = if r == row { col } else { 0 };
-					for c in start_col..self.size.0 {
+					for c in start_col..size.0 {
 						if r < buffer.content.len() as u16 && c < buffer.content[r as usize].len() as u16 {
 							let cell = &mut buffer.content[r as usize][c as usize];
 							*cell = Cell::default();
@@ -474,7 +475,7 @@ impl TerminalRenderer {
 			}
 			1 => {
 				for r in 0..=row {
-					let end_col = if r == row { col + 1 } else { self.size.0 };
+					let end_col = if r == row { col + 1 } else { size.0 };
 					for c in 0..end_col {
 						if r < buffer.content.len() as u16 && c < buffer.content[r as usize].len() as u16 {
 							let cell = &mut buffer.content[r as usize][c as usize];
@@ -485,8 +486,8 @@ impl TerminalRenderer {
 				}
 			}
 			2 => {
-				for r in 0..self.size.1 {
-					for c in 0..self.size.0 {
+				for r in 0..size.1 {
+					for c in 0..size.0 {
 						if r < buffer.content.len() as u16 && c < buffer.content[r as usize].len() as u16 {
 							let cell = &mut buffer.content[r as usize][c as usize];
 							*cell = Cell::default();
@@ -508,12 +509,13 @@ impl TerminalRenderer {
 	 */
 	fn erase_in_line(&mut self, mode: u32) {
 		let (col, row) = self.state.cursor_pos;
+		let size = self.size;
 		let buffer = self.get_active_buffer();
 		
 		if row < buffer.content.len() as u16 {
 			match mode {
 				0 => {
-					for c in col..self.size.0 {
+					for c in col..size.0 {
 						if c < buffer.content[row as usize].len() as u16 {
 							let cell = &mut buffer.content[row as usize][c as usize];
 							*cell = Cell::default();
@@ -531,7 +533,7 @@ impl TerminalRenderer {
 					}
 				}
 				2 => {
-					for c in 0..self.size.0 {
+					for c in 0..size.0 {
 						if c < buffer.content[row as usize].len() as u16 {
 							let cell = &mut buffer.content[row as usize][c as usize];
 							*cell = Cell::default();
@@ -542,7 +544,7 @@ impl TerminalRenderer {
 				_ => {}
 			}
 			
-			self.mark_dirty_region(0, row, self.size.0, row + 1);
+			self.mark_dirty_region(0, row, size.0, row + 1);
 		}
 	}
 	

@@ -351,7 +351,7 @@ impl WidgetManager {
 	 */
 	pub async fn get_widget(&self, id: &str) -> Option<Box<dyn Widget + Send + Sync>> {
 		let widgets = self.widgets.read().await;
-		widgets.get(id).map(|w| w.as_ref())
+		widgets.get(id).map(|w| w.clone())
 	}
 	
 	/**
@@ -395,8 +395,9 @@ impl WidgetManager {
 					
 					// Call event handlers
 					if let Some(handlers) = event_handlers.get(id) {
+						let event_clone = event.clone();
 						for handler in handlers {
-							handler(event.clone());
+							handler(event_clone.clone());
 						}
 					}
 					
@@ -411,8 +412,9 @@ impl WidgetManager {
 				if widget.handle_event(event.clone())? {
 					// Call event handlers
 					if let Some(handlers) = event_handlers.get(focused_id) {
+						let event_clone = event.clone();
 						for handler in handlers {
-							handler(event);
+							handler(event_clone.clone());
 						}
 					}
 					return Ok(true);

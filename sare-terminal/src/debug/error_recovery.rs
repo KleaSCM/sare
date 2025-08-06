@@ -320,13 +320,15 @@ impl ErrorRecoveryManager {
 		error_history.push(context.clone());
 		
 		// Update statistics
-		let mut stats = self.recovery_stats.write().await;
-		stats.total_errors += 1;
-		*stats.errors_by_severity.entry(context.severity).or_insert(0) += 1;
-		*stats.errors_by_module.entry(context.module.clone()).or_insert(0) += 1;
-		stats.last_error_time = Some(context.timestamp);
+		{
+			let mut stats = self.recovery_stats.write().await;
+			stats.total_errors += 1;
+			*stats.errors_by_severity.entry(context.severity.clone()).or_insert(0) += 1;
+			*stats.errors_by_module.entry(context.module.clone()).or_insert(0) += 1;
+			stats.last_error_time = Some(context.timestamp);
+		}
 		
-		println!("❌ Error recorded: {} in {} (Severity: {})", 
+		println!("❌ Error recorded: {} in {} (Severity: {:?})", 
 			context.message, context.module, context.severity);
 		
 		// Attempt automatic recovery if enabled

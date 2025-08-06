@@ -430,8 +430,9 @@ impl ImageManager {
 			entries.sort_by(|a, b| a.1.last_accessed.cmp(&b.1.last_accessed));
 			
 			let to_remove = entries.len() - self.image_config.max_cache_size;
-			for (id, _) in entries.iter().take(to_remove) {
-				cache.remove(id);
+			let ids_to_remove: Vec<Uuid> = entries.iter().take(to_remove).map(|(id, _)| **id).collect();
+			for id in ids_to_remove {
+				cache.remove(&id);
 			}
 		}
 		

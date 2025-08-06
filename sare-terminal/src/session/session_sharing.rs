@@ -304,7 +304,7 @@ impl SessionSharingManager {
 			shared_users: shared_users.clone(),
 			shared_at: now,
 			expires_at,
-			active_participants: vec![owner],
+			active_participants: vec![owner.clone()],
 			status: SharingStatus::Active,
 		};
 		
@@ -330,7 +330,7 @@ impl SessionSharingManager {
 			events.push(SharingEvent {
 				timestamp: now,
 				event_type: SharingEventType::SessionShared,
-				user: owner,
+				user: owner.clone(),
 				details: format!("Shared with {} users", shared_users.len()),
 			});
 		}
@@ -394,7 +394,7 @@ impl SessionSharingManager {
 				events.push(SharingEvent {
 					timestamp: Utc::now(),
 					event_type: SharingEventType::SessionUnshared,
-					user: owner,
+					user: owner.clone(),
 					details: "Session unshared".to_string(),
 				});
 			}
@@ -446,7 +446,7 @@ impl SessionSharingManager {
 			permission: {
 				let shared_sessions = self.shared_sessions.read().await;
 				if let Some(shared_info) = shared_sessions.get(&session_id) {
-					shared_info.permission
+					shared_info.permission.clone()
 				} else {
 					SharingPermission::ReadOnly
 				}

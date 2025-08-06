@@ -127,12 +127,14 @@ impl PasteProtectionManager {
 		let security_result = self.perform_security_check(content, protection_level).await?;
 		
 		// ペースト結果を作成
+		let processed_content = security_result.processed_content.clone();
+		let security_result_clone = security_result.clone();
 		let paste_result = PasteResult {
 			id: paste_id,
 			original_content: content.to_string(),
-			processed_content: security_result.processed_content,
+			processed_content,
 			protection_level,
-			security_result,
+			security_result: security_result_clone.clone(),
 			created_at: now,
 		};
 		
@@ -141,7 +143,7 @@ impl PasteProtectionManager {
 			id: paste_id,
 			content: content.to_string(),
 			protection_level,
-			security_result: security_result.clone(),
+			security_result: security_result_clone,
 			created_at: now,
 		};
 		

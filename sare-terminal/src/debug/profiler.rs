@@ -265,29 +265,31 @@ impl Profiler {
 		samples.push(sample.clone());
 		
 		// Update metrics
-		let mut metrics = self.metrics.write().await;
-		metrics.total_samples += 1;
-		
-		// Update function call counts
-		*metrics.function_calls.entry(sample.function_name.clone()).or_insert(0) += 1;
-		*metrics.module_calls.entry(sample.module_name.clone()).or_insert(0) += 1;
-		
-		// Update averages
-		let total_samples = metrics.total_samples as f64;
-		metrics.avg_cpu_usage = (metrics.avg_cpu_usage * (total_samples - 1.0) + cpu_usage) / total_samples;
-		metrics.avg_memory_usage = (metrics.avg_memory_usage * (metrics.total_samples - 1) + memory_usage) / metrics.total_samples;
-		
-		// Update peaks
-		if cpu_usage > metrics.peak_cpu_usage {
-			metrics.peak_cpu_usage = cpu_usage;
+		{
+			let mut metrics = self.metrics.write().await;
+			metrics.total_samples += 1;
+			
+			// Update function call counts
+			*metrics.function_calls.entry(sample.function_name.clone()).or_insert(0) += 1;
+			*metrics.module_calls.entry(sample.module_name.clone()).or_insert(0) += 1;
+			
+			// Update averages
+			let total_samples = metrics.total_samples as f64;
+			metrics.avg_cpu_usage = (metrics.avg_cpu_usage * (total_samples - 1.0) + cpu_usage) / total_samples;
+			metrics.avg_memory_usage = (metrics.avg_memory_usage * (metrics.total_samples - 1) + memory_usage) / metrics.total_samples;
+			
+			// Update peaks
+			if cpu_usage > metrics.peak_cpu_usage {
+				metrics.peak_cpu_usage = cpu_usage;
+			}
+			if memory_usage > metrics.peak_memory_usage {
+				metrics.peak_memory_usage = memory_usage;
+			}
+			
+			// Update totals
+			metrics.total_io_operations += io_operations;
+			metrics.total_render_operations += render_operations;
 		}
-		if memory_usage > metrics.peak_memory_usage {
-			metrics.peak_memory_usage = memory_usage;
-		}
-		
-		// Update totals
-		metrics.total_io_operations += io_operations;
-		metrics.total_render_operations += render_operations;
 		
 		Ok(())
 	}

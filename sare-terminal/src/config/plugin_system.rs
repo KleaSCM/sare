@@ -349,7 +349,7 @@ impl PluginManager {
 	 */
 	pub async fn get_plugin(&self, name: &str) -> Option<Box<dyn PluginInterface>> {
 		let plugins = self.plugins.read().await;
-		plugins.get(name).cloned()
+		plugins.get(name).map(|p| p.clone())
 	}
 	
 	/**

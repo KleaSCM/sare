@@ -383,11 +383,10 @@ impl TestingFramework {
 	 * @param suite - Test suite
 	 * @return Result<()> - Success or error status
 	 */
-	pub async fn register_test_suite(&self, suite: TestSuite) -> Result<()> {
-		let mut suites = self.test_suites.write().await;
-		suites.insert(suite.name.clone(), suite);
-		
-		let suite_name = suite.name.clone();
+			pub async fn register_test_suite(&self, suite: TestSuite) -> Result<()> {
+			let suite_name = suite.name.clone();
+			let mut suites = self.test_suites.write().await;
+			suites.insert(suite_name.clone(), suite);
 		println!("📦 Registered test suite: {}", suite_name);
 		
 		Ok(())
@@ -669,7 +668,7 @@ impl TestingFramework {
 		
 		for (suite_name, suite) in suites.iter() {
 			for test_case in &suite.test_cases {
-				if test_case.category == category.to_string() {
+				if test_case.category == format!("{:?}", category) {
 					println!("🧪 Running {} from suite {}", test_case.name, suite_name);
 					let result = self.run_test_case(test_case).await?;
 					self.record_test_result(&test_case.name, result).await?;

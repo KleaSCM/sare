@@ -478,13 +478,13 @@ impl WindowManager {
 		};
 		
 		// 新しいウィンドウのジオメトリを計算
-		let new_geometry = self.calculate_split_geometry(&parent_metadata.geometry, split_type);
+		let new_geometry = self.calculate_split_geometry(&parent_metadata.geometry, split_type.clone());
 		
 		// 親ウィンドウのジオメトリを調整
 		{
 			let mut windows = self.windows.write().await;
 			if let Some(metadata) = windows.get_mut(&parent_window_id) {
-				metadata.geometry = self.adjust_parent_geometry(&parent_metadata.geometry, split_type);
+				metadata.geometry = self.adjust_parent_geometry(&parent_metadata.geometry, split_type.clone());
 				metadata.updated_at = Utc::now();
 			}
 		}

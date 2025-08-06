@@ -127,6 +127,7 @@ impl SearchManager {
 		
 		// 検索を実行
 		let matches = self.execute_search(text, &pattern, mode).await?;
+		let total_matches = matches.len();
 		
 		// 検索結果を作成
 		let search_result = SearchResult {
@@ -134,7 +135,7 @@ impl SearchManager {
 			query: query.to_string(),
 			mode,
 			matches,
-			total_matches: matches.len(),
+			total_matches,
 			created_at: now,
 		};
 		
@@ -191,6 +192,7 @@ impl SearchManager {
 		
 		// スクロールバック検索を実行
 		let matches = self.execute_scrollback_search(scrollback_text, &pattern, mode).await?;
+		let total_matches = matches.len();
 		
 		// 検索結果を作成
 		let search_result = SearchResult {
@@ -198,7 +200,7 @@ impl SearchManager {
 			query: query.to_string(),
 			mode,
 			matches,
-			total_matches: matches.len(),
+			total_matches,
 			created_at: now,
 		};
 		
@@ -474,8 +476,9 @@ impl SearchManager {
 			entries.sort_by(|a, b| a.1.created_at.cmp(&b.1.created_at));
 			
 			let to_remove = entries.len() - self.search_config.max_search_history;
-			for (id, _) in entries.iter().take(to_remove) {
-				history.remove(id);
+			let ids_to_remove: Vec<Uuid> = entries.iter().take(to_remove).map(|(id, _)| **id).collect();
+			for id in ids_to_remove {
+				history.remove(&id);
 			}
 		}
 		
