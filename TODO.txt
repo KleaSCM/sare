@@ -487,10 +487,10 @@
 - [ ] **Updates** - Auto-update system, update management
 
 ### Unicode & Internationalization
-- [ ] **CJK + Emoji Width Handling**
-  - [ ] Proper cursor positioning in multibyte sequences
-  - [ ] Split double-width glyphs on line wrap
-  - [ ] BiDi (right-to-left) rendering (optional, edge-case)
+- ✅ **CJK + Emoji Width Handling**
+  - ✅ Proper cursor positioning in multibyte sequences
+  - ✅ Split double-width glyphs on line wrap
+  - ✅ BiDi (right-to-left) rendering (optional, edge-case)
 
 ### Advanced Developer Features
 - [ ] **Live REPL Visualizer**

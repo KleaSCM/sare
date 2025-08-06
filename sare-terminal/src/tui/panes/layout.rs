@@ -469,7 +469,6 @@ impl LayoutManager {
  */
 pub struct LayoutUtils;
 
-impl LayoutUtils {
 	/**
 	 * Calculates optimal grid dimensions
 	 * 
@@ -479,6 +478,8 @@ impl LayoutUtils {
 	 * @param num_panes - Number of panes
 	 * @return (u16, u16) - Optimal (rows, columns)
 	 */
+impl LayoutUtils {
+
 	pub fn calculate_optimal_grid(num_panes: usize) -> (u16, u16) {
 		if num_panes == 0 {
 			return (0, 0);

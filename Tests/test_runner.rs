@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
 
 mod test_ansi_protocol;
+mod test_unicode;
 mod test_advanced_rendering;
 mod test_features;
 
@@ -789,6 +790,43 @@ impl TestRunner {
 	 * 
 	 * @return Vec<TestResult> - Terminal features test results
 	 */
+	fn run_unicode_tests(&self) -> Vec<TestResult> {
+		/**
+		 * Unicodeテストを実行する関数です
+		 * 
+		 * CJK文字と絵文字の幅処理、双方向テキスト表示の
+		 * テストを実行します。
+		 * 
+		 * UnicodeWidthHandler、BidiHandler、UnicodeProcessorの
+		 * 各機能をテストして結果を返します
+		 */
+		
+		let mut results = Vec::new();
+		
+		// Import test functions
+		use test_unicode::run_unicode_tests;
+		
+		let test_results = run_unicode_tests();
+		
+		for (name, success) in test_results {
+			let result = self.run_single_test(
+				move || {
+					if success {
+						Ok(())
+					} else {
+						Err("Unicode test failed".into())
+					}
+				},
+				name,
+				"unicode",
+				"Unicode support including CJK and emoji handling"
+			);
+			results.push(result);
+		}
+		
+		results
+	}
+	
 	fn run_terminal_features_tests(&self) -> Vec<TestResult> {
 		/**
 		 * ターミナル機能テストを実行する関数です
@@ -881,6 +919,11 @@ impl TestRunner {
 		println!("\n🎨 Running Advanced Rendering Tests...");
 		let advanced_rendering_results = self.run_advanced_rendering_tests();
 		all_results.extend(advanced_rendering_results);
+		
+		// Run Unicode tests
+		println!("\n🌍 Running Unicode Tests...");
+		let unicode_results = self.run_unicode_tests();
+		all_results.extend(unicode_results);
 		
 		// Run terminal features tests
 		println!("\n✨ Running Terminal Features Tests...");
